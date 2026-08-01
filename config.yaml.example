@@ -1,0 +1,33 @@
+storage:
+  backend: sqlite
+  sqlite_path: /var/lib/dbus-event-log/events.db
+  timescaledb_dsn: null
+  retention_days: 30
+  rotation_size_mb: 100
+  vacuum_on_startup: true
+
+mqtt:
+  enabled: true
+  host: localhost
+  port: 1883
+  username: null
+  password: null
+  topic_prefix: "victron/dbus/events"
+  qos: 1
+  retain: false
+  client_id: "dbus-event-log"
+
+dbus:
+  bus_type: system
+  services:
+    - "com.victronenergy.*"
+    - "org.freedesktop.Notifications"
+    - "org.freedesktop.DBus"
+  ignored_signals:
+    - "NameAcquired"
+    - "NameLost"
+
+log:
+  level: INFO
+  format: console
+  file_path: null

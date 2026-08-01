@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  dbus-event-log:
+    build: .
+    container_name: dbus-event-log
+    restart: unless-stopped
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - dbus-event-log-data:/var/lib/dbus-event-log
+      - /var/run/dbus:/var/run/dbus:ro
+    environment:
+      - DBUS_EVENT_LOG_STORAGE__BACKEND=sqlite
+      - DBUS_EVENT_LOG_STORAGE__SQLITE_PATH=/var/lib/dbus-event-log/events.db
+      - DBUS_EVENT_LOG_MQTT__HOST=mosquitto
+      - DBUS_EVENT_LOG_MQTT__ENABLED=true
+      - DBUS_EVENT_LOG_LOG__LEVEL=INFO
+    depends_on:
+      - mosquitto
+    network_mode: host
+
+  # Optional: TimescaleDB backend
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: dbus-event-log-timescaledb
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=dbus_events
+      - POSTGRES_USER=dbus_event_log
+      - POSTGRES_PASSWORD=${TIMESCALEDB_PASSWORD:-changeme}
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    profiles:
+      - timescaledb
+
+  # MQTT Broker
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: dbus-event-log-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-logs:/mosquitto/log
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+volumes:
+  dbus-event-log-data:
+  timescaledb-data:
+  mosquitto-data:
+  mosquitto-logs:

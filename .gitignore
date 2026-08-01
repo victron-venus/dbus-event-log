@@ -1,0 +1,53 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Configuration
+.env
+config.yaml
+
+# Database
+*.db
+*.db-journal
+*.bak.*
+/var/lib/dbus-event-log/
+
+# Test coverage
+htmlcov/
+.coverage
+.coverage.*
+pytest_cache/
+
+# Type checking
+.mypy_cache/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Docker
+.docker/
+
+# ruff
+.ruff_cache/

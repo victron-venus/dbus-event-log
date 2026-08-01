@@ -40,6 +40,8 @@ dev = [
     "ruff>=0.5.0",
     "mypy>=1.10.0",
     "pre-commit>=3.7.0",
+    "types-PyYAML>=6.0.0",
+    "types-python-dateutil>=2.9.0",
 ]
 timescaledb = [
     "asyncpg>=0.29.0",
@@ -68,6 +70,19 @@ warn_return_any = true
 warn_unused_ignores = true
 disallow_untyped_defs = true
 strict = true
+
+# Missing stubs for optional/3rd-party dependencies
+[[tool.mypy.overrides]]
+module = [
+    "pydbus",
+    "asyncpg",
+    "pythonjsonlogger",
+    "pythonjsonlogger.jsonlogger",
+    "yaml",
+    "dateutil",
+    "dateutil.parser",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -4,12 +4,15 @@ import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-try:
+if TYPE_CHECKING:
     import asyncpg
-except ImportError:
-    asyncpg = None
+else:
+    try:
+        import asyncpg
+    except ImportError:
+        asyncpg = None  # type: ignore[assignment]
 
 from dbus_event_log.config import StorageConfig, get_config
 from dbus_event_log.models import DBusEvent, EventType

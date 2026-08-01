@@ -51,9 +51,9 @@ class MQTTPublisher:
         if self.config.username and self.config.password:
             self._client.username_pw_set(self.config.username, self.config.password)
 
-        self._client.on_connect = self._on_connect  # type: ignore[assignment]
-        self._client.on_disconnect = self._on_disconnect  # type: ignore[assignment]
-        self._client.on_publish = self._on_publish  # type: ignore[assignment]
+        self._client.on_connect = self._on_connect
+        self._client.on_disconnect = self._on_disconnect
+        self._client.on_publish = self._on_publish
 
         try:
             self._client.connect(self.config.host, self.config.port, keepalive=60)
@@ -91,7 +91,7 @@ class MQTTPublisher:
         self,
         client: mqtt.Client,
         userdata: Any,
-        reason_code: ReasonCode,
+        reason_code: Any,
         properties: Properties | None,
     ) -> None:
         """Callback for when the client disconnects from the broker."""

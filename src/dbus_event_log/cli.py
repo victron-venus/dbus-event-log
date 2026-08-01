@@ -184,9 +184,7 @@ def cleanup(days: int) -> None:
         console.print("Cleanup only available for SQLite storage backend")
         return
 
-    cutoff = datetime.utcnow().replace(microsecond=0).isoformat()
-    cutoff_dt = datetime.fromisoformat(cutoff)
-    cutoff_dt = cutoff_dt.replace(day=cutoff_dt.day - days)
+    cutoff_dt = datetime.now(UTC) - __import__("datetime").timedelta(days=days)
     cutoff_str = cutoff_dt.isoformat()
 
     # Count events to be deleted

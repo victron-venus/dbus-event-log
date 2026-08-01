@@ -27,6 +27,7 @@ config.yaml
 htmlcov/
 .coverage
 .coverage.*
+coverage.xml
 pytest_cache/
 
 # Type checking

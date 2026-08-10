@@ -1,5 +1,15 @@
 # D-Bus Event Log
 
+[![CI](https://github.com/victron-venus/dbus-event-log/actions/workflows/ci.yml/badge.svg)](https://github.com/victron-venus/dbus-event-log/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Development Status](https://img.shields.io/badge/Status-Stable-green.svg)]()
+[![GitHub stars](https://img.shields.io/github/stars/victron-venus/dbus-event-log)](https://github.com/victron-venus/dbus-event-log/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/victron-venus/dbus-event-log)](https://github.com/victron-venus/dbus-event-log/network/members)
+[![GitHub last commit](https://img.shields.io/github/last-commit/victron-venus/dbus-event-log)](https://github.com/victron-venus/dbus-event-log/commits/main)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/victron-venus/dbus-event-log/graphs/commit-activity)
+[![Made with Python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/)
+
 Audit log for D-Bus commands and inverter state transitions with chronology, filtering, and export.
 
 ## Overview
@@ -209,25 +219,26 @@ Import the dashboard from `docs/grafana-dashboard.json` or use the inverter-moni
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        dbus-event-log                        │
-├───────────────────┬───────────────────┬─────────────────────┤
-│   DBusMonitor     │    SQLiteStorage  │   MQTTPublisher     │
-│  (pydbus async)   │  (connection pool)│  (paho-mqtt async)  │
-└───────────────────┴───────────────────┴─────────────────────┘
-        │                    │                    │
-        ▼                    ▼                    ▼
-   D-Bus Signals        events.db            MQTT Broker
-   NameOwnerChanged     (with indexes)       (QoS 1)
-        │                                          │
-        └──────────────────┬──────────────────────┘
-                           ▼
-                    ┌──────────────┐
-                    │    CLI       │
-                    │ (click +     │
-                    │  rich)       │
-                    └──────────────┘
+```mermaid
+flowchart LR
+    subgraph "dbus-event-log"
+        DBusMonitor[DBusMonitor<br/>(pydbus async)]
+        SQLiteStorage[SQLiteStorage<br/>(connection pool)]
+        MQTTPublisher[MQTTPublisher<br/>(paho-mqtt async)]
+    end
+
+    DBusSignals[(D-Bus Signals<br/>NameOwnerChanged)]
+    EventsDB[(events.db<br/>(with indexes))]
+    MQTTBroker[(MQTT Broker<br/>(QoS 1))]
+    CLI[CLI<br/>(click + rich)]
+
+    DBusSignals --> DBusMonitor
+    DBusMonitor --> SQLiteStorage
+    DBusMonitor --> MQTTPublisher
+    SQLiteStorage --> EventsDB
+    MQTTPublisher --> MQTTBroker
+    EventsDB --> CLI
+    MQTTBroker -.->|real-time| CLI
 ```
 
 ## Testing

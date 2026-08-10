@@ -222,15 +222,15 @@ Import the dashboard from `docs/grafana-dashboard.json` or use the inverter-moni
 ```mermaid
 flowchart LR
     subgraph "dbus-event-log"
-        DBusMonitor[DBusMonitor<br/>(pydbus async)]
-        SQLiteStorage[SQLiteStorage<br/>(connection pool)]
-        MQTTPublisher[MQTTPublisher<br/>(paho-mqtt async)]
+        DBusMonitor["DBusMonitor<br/>(pydbus async)"]
+        SQLiteStorage["SQLiteStorage<br/>(connection pool)"]
+        MQTTPublisher["MQTTPublisher<br/>(paho-mqtt async)"]
     end
 
-    DBusSignals[(D-Bus Signals<br/>NameOwnerChanged)]
-    EventsDB[(events.db<br/>(with indexes))]
-    MQTTBroker[(MQTT Broker<br/>(QoS 1))]
-    CLI[CLI<br/>(click + rich)]
+    DBusSignals[("D-Bus Signals<br/>NameOwnerChanged")]
+    EventsDB[("events.db<br/>(with indexes)")]
+    MQTTBroker[("MQTT Broker<br/>(QoS 1)")]
+    CLI["CLI<br/>(click + rich)"]
 
     DBusSignals --> DBusMonitor
     DBusMonitor --> SQLiteStorage

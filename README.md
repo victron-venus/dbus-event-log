@@ -220,7 +220,7 @@ Import the dashboard from `docs/grafana-dashboard.json` or use the inverter-moni
 ## Architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph "dbus-event-log"
         DBusMonitor["DBusMonitor<br/>(pydbus async)"]
         SQLiteStorage["SQLiteStorage<br/>(connection pool)"]

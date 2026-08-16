@@ -23,8 +23,6 @@ jobs:
         uses: victron-venus/venus-os-ci-toolkit/.github/workflows/python-ci.yml@98ef67a92a659c1b4633279961ed2bc704a506e2
         with:
           python-version: '3.11'
-        secrets:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build:
     name: Build

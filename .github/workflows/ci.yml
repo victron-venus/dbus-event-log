@@ -20,7 +20,7 @@ jobs:
         with:
           egress-policy: audit
       - name: Run reusable Python CI
-        uses: victron-venus/venus-os-ci-toolkit/.github/workflows/python-ci.yml@98ef67a92a659c1b4633279961ed2bc704a506e2
+        uses: victron-venus/venus-os-ci-toolkit/.github/workflows/python-ci.yml@a8c0e51b1de43cac8c90d966326684553ca166ff
         with:
           python-version: '3.11'
 

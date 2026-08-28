@@ -53,3 +53,4 @@ Thumbs.db
 # ruff
 .ruff_cache/
 logs
+*.backup

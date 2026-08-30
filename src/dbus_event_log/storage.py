@@ -15,7 +15,7 @@ else:
         asyncpg = None  # type: ignore[assignment]
 
 from dbus_event_log.config import StorageConfig, get_config
-from dbus_event_log.models import DBusEvent, EventType
+from dbus_event_log.models import SCHEMA_VERSION, DBusEvent, EventType
 
 
 class SQLiteStorage:
@@ -36,6 +36,10 @@ class SQLiteStorage:
         """Initialize database schema."""
         with self._connection() as conn:
             conn.executescript("""
+                CREATE TABLE IF NOT EXISTS schema_version (
+                    version INTEGER PRIMARY KEY
+                );
+
                 CREATE TABLE IF NOT EXISTS events (
                     id TEXT PRIMARY KEY,
                     timestamp TEXT NOT NULL,
@@ -61,6 +65,11 @@ class SQLiteStorage:
                 CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type);
                 CREATE INDEX IF NOT EXISTS idx_events_composite ON events(service_name, timestamp);
             """)
+            conn.execute(
+                "INSERT OR IGNORE INTO schema_version (version) VALUES (?)",
+                (SCHEMA_VERSION,),
+            )
+            conn.commit()
 
     @contextmanager
     def _connection(self) -> Generator[sqlite3.Connection, None, None]:

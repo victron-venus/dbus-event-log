@@ -6,6 +6,10 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# Bump when DBusEvent fields, MQTT topic layout, or SQLite schema change.
+# Subscribers and storage backends gate migrations on this.
+SCHEMA_VERSION = 1
+
 
 class EventType(StrEnum):
     """Types of D-Bus events captured."""
@@ -66,6 +70,7 @@ class DBusEvent(BaseModel):
     def to_mqtt_payload(self) -> dict[str, Any]:
         """Convert to MQTT payload format."""
         return {
+            "schema_version": SCHEMA_VERSION,
             "id": str(self.id),
             "ts": self.timestamp.isoformat(),
             "type": self.event_type.value,

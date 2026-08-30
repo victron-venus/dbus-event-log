@@ -59,7 +59,7 @@ build-backend = "setuptools.build_meta"
 line-length = 100
 target-version = "py311"
 select = ["E", "F", "I", "UP", "W", "C4", "N", "D", "T20", "SIM", "RET"]
-ignore = ["D100", "D104", "D401"]
+ignore = ["D100", "D102", "D104", "D401"]
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
@@ -91,6 +91,15 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 pythonpath = ["src"]
+
+[tool.pylint.MASTER]
+disable = [
+    "C0115",  # missing-class-docstring
+    "C0116",  # missing-function-docstring
+    "R0903",  # too-few-public-methods
+    "W0212",  # protected-access (tests intentionally inspect internals)
+    "C0413",  # wrong-import-position (TYPE_CHECKING guards must be after stdlib)
+]
 
 [tool.coverage.run]
 source = ["src"]

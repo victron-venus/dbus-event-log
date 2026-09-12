@@ -2,8 +2,10 @@
 
 Verifies DBusEvent, MQTT payload, and SQLite schema are stable and versioned.
 """
+
 import json
 import sqlite3
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
@@ -13,7 +15,6 @@ from dbus_event_log.models import (
     SCHEMA_VERSION,
     DBusEvent,
     EventType,
-    SignalType,
 )
 from dbus_event_log.storage import SQLiteStorage
 
@@ -40,9 +41,7 @@ class TestSchemaVersion:
         cfg = StorageConfig(sqlite_path=db, backend="sqlite")
         storage = SQLiteStorage(cfg)
         with storage._connection() as conn:
-            row = conn.execute(
-                "SELECT version FROM schema_version LIMIT 1"
-            ).fetchone()
+            row = conn.execute("SELECT version FROM schema_version LIMIT 1").fetchone()
         assert row is not None
         assert row["version"] == SCHEMA_VERSION
 
@@ -50,16 +49,12 @@ class TestSchemaVersion:
 class TestDBusEventSchema:
     """DBusEvent fields are stable and serialise correctly."""
 
-    def test_all_fields_present_after_serialization(self) -> None:
-        event = DBusEvent(
+    def test_all_fields_present_after_serialization(
+        self, property_event_factory: Callable[..., DBusEvent]
+    ) -> None:
+        event = property_event_factory(
             id=uuid4(),
             timestamp=datetime(2024, 6, 15, 12, 0, 0),
-            event_type=EventType.PROPERTY_CHANGED,
-            service_name="com.victronenergy.vebus",
-            object_path="/Ac/In/1/V",
-            interface="com.victronenergy.BusItem",
-            member="PropertiesChanged",
-            signal_type=SignalType.PROPERTIES_CHANGED,
             arguments=[230.5],
             kwargs={"key": "value"},
             source_unique_name=":1.42",
@@ -117,14 +112,16 @@ class TestDBusEventSchema:
 class TestMQTTPayloadContract:
     """MQTT payload format is stable and versioned."""
 
-    REQUIRED_MQTT_KEYS = frozenset([
-        "schema_version",
-        "id",
-        "ts",
-        "type",
-        "service",
-        "path",
-    ])
+    REQUIRED_MQTT_KEYS = frozenset(
+        [
+            "schema_version",
+            "id",
+            "ts",
+            "type",
+            "service",
+            "path",
+        ]
+    )
 
     def test_payload_has_version_key(self) -> None:
         event = DBusEvent(
@@ -136,43 +133,24 @@ class TestMQTTPayloadContract:
         assert "schema_version" in payload
         assert isinstance(payload["schema_version"], int)
 
-    def test_payload_has_required_keys(self) -> None:
-        event = DBusEvent(
-            event_type=EventType.STATE_TRANSITION,
-            service_name="com.victronenergy.vebus",
-            object_path="/State",
-            member="StateChanged",
-            state_from="bulk",
-            state_to="absorption",
-        )
+    def test_payload_has_required_keys(self, state_event_factory: Callable[..., DBusEvent]) -> None:
+        event = state_event_factory()
         payload = event.to_mqtt_payload()
         for key in self.REQUIRED_MQTT_KEYS:
             assert key in payload, f"Missing MQTT key: {key}"
 
-    def test_payload_types_are_json_serializable(self) -> None:
-        event = DBusEvent(
-            event_type=EventType.PROPERTY_CHANGED,
-            service_name="com.victronenergy.vebus",
-            object_path="/Ac/In/1/V",
-            interface="com.victronenergy.BusItem",
-            member="PropertiesChanged",
-            signal_type=SignalType.PROPERTIES_CHANGED,
-            arguments=[230.5, True, "string"],
-            kwargs={"power": 1500, "active": True},
+    def test_payload_types_are_json_serializable(
+        self, property_event_factory: Callable[..., DBusEvent]
+    ) -> None:
+        event = property_event_factory(
+            arguments=[230.5, True, "string"], kwargs={"power": 1500, "active": True}
         )
         payload = event.to_mqtt_payload()
         # Must not raise
         json.dumps(payload)
 
-    def test_payload_state_transition(self) -> None:
-        event = DBusEvent(
-            event_type=EventType.STATE_TRANSITION,
-            service_name="com.victronenergy.vebus",
-            object_path="/State",
-            member="StateChanged",
-            state_from="bulk",
-            state_to="absorption",
-        )
+    def test_payload_state_transition(self, state_event_factory: Callable[..., DBusEvent]) -> None:
+        event = state_event_factory()
         payload = event.to_mqtt_payload()
         assert payload["type"] == "state_transition"
         assert payload["state_from"] == "bulk"
@@ -199,35 +177,38 @@ class TestSQLiteSchemaContract:
         SQLiteStorage(cfg)
         with sqlite3.connect(db) as conn:
             conn.row_factory = sqlite3.Row
-            cols = {
-                row["name"]
-                for row in conn.execute(
-                    "PRAGMA table_info(events)"
-                ).fetchall()
-            }
+            cols = {row["name"] for row in conn.execute("PRAGMA table_info(events)").fetchall()}
         expected = {
-            "id", "timestamp", "event_type", "service_name",
-            "object_path", "interface", "member", "signal_type",
-            "arguments", "kwargs", "source_unique_name",
-            "destination_unique_name", "message_serial",
-            "error_name", "error_message", "state_from", "state_to",
+            "id",
+            "timestamp",
+            "event_type",
+            "service_name",
+            "object_path",
+            "interface",
+            "member",
+            "signal_type",
+            "arguments",
+            "kwargs",
+            "source_unique_name",
+            "destination_unique_name",
+            "message_serial",
+            "error_name",
+            "error_message",
+            "state_from",
+            "state_to",
         }
         assert cols == expected, f"Columns mismatch: {cols ^ expected}"
 
-    def test_event_roundtrips_through_sqlite(self, tmp_path: Path) -> None:
+    def test_event_roundtrips_through_sqlite(
+        self, tmp_path: Path, property_event_factory: Callable[..., DBusEvent]
+    ) -> None:
         db = tmp_path / "test.db"
         cfg = StorageConfig(sqlite_path=db, backend="sqlite")
         storage = SQLiteStorage(cfg)
 
-        event = DBusEvent(
+        event = property_event_factory(
             id=uuid4(),
             timestamp=datetime(2024, 6, 15, 12, 0, 0),
-            event_type=EventType.PROPERTY_CHANGED,
-            service_name="com.victronenergy.vebus",
-            object_path="/Ac/In/1/V",
-            interface="com.victronenergy.BusItem",
-            member="PropertiesChanged",
-            signal_type=SignalType.PROPERTIES_CHANGED,
             arguments=[230.5],
             kwargs={"power": 1500},
             source_unique_name=":1.42",
@@ -294,13 +275,10 @@ class TestRetainedEventBehavior:
     payloads.
     """
 
-    def test_retained_event_payload_matches_current_schema(self) -> None:
-        event = DBusEvent(
-            event_type=EventType.PROPERTY_CHANGED,
-            service_name="com.victronenergy.vebus",
-            object_path="/Ac/In/1/V",
-            member="PropertiesChanged",
-        )
+    def test_retained_event_payload_matches_current_schema(
+        self, property_event_factory: Callable[..., DBusEvent]
+    ) -> None:
+        event = property_event_factory(interface=None, signal_type=None)
         payload = event.to_mqtt_payload()
         # schema_version key signals this is a versioned retained event
         assert "schema_version" in payload

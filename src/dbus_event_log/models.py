@@ -1,4 +1,5 @@
 """Event models for dbus-event-log."""
+
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
@@ -39,7 +40,7 @@ class DBusEvent(BaseModel):
 
     model_config = ConfigDict(
         populate_by_name=True,
-        json_encoders={datetime: lambda v: v.isoformat(), UUID: lambda v: str(v)},
+        json_encoders={datetime: datetime.isoformat, UUID: str},
     )
 
     id: UUID = Field(default_factory=uuid4)
@@ -63,7 +64,7 @@ class DBusEvent(BaseModel):
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         data = self.model_dump(mode="json")
-        data["timestamp"] = self.timestamp.isoformat()
+        data["timestamp"] = datetime.isoformat(self.timestamp)
         data["id"] = str(self.id)
         return data
 
@@ -72,7 +73,7 @@ class DBusEvent(BaseModel):
         return {
             "schema_version": SCHEMA_VERSION,
             "id": str(self.id),
-            "ts": self.timestamp.isoformat(),
+            "ts": datetime.isoformat(self.timestamp),
             "type": self.event_type.value,
             "service": self.service_name,
             "path": self.object_path,

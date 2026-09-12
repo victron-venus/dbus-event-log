@@ -12,7 +12,7 @@ Audit log for D-Bus commands and inverter state transitions with chronology, fil
 
 ## Overview
 
-`dbus-event-log` captures all D-Bus signals, method calls, and service lifecycle events on Victron Energy systems. Critical for post-mortem analysis of incidents (overloads, battery failures, communication issues).
+`dbus-event-log` records selected D-Bus signals and service lifecycle events on Victron Energy systems for incident analysis. It captures `PropertiesChanged`, `InterfacesAdded`, and `InterfacesRemoved` from configured services, plus `NameOwnerChanged` from the bus. It does not intercept method calls or derive state transitions automatically.
 
 ```mermaid
 flowchart TD
@@ -39,29 +39,36 @@ flowchart TD
 ## Features
 
 - **D-Bus Signal Subscription** - Monitor system/session bus for Victron services
-- **Event Capture** - Signals, method calls, returns, errors, property changes
-- **State Transitions** - Track inverter/battery state changes with from/to
+- **Event Capture** - Property and interface signals with their service, path, interface, and arguments
 - **Service Lifecycle** - Detect service added/removed via NameOwnerChanged
-- **SQLite Storage** - Local persistence with rotation and retention
+- **SQLite Storage** - Local persistence with rotation and vacuum maintenance
 - **TimescaleDB Support** - Scalable time-series storage for HA deployments
-- **MQTT Publishing** - Real-time streaming to `victron/dbus/events` topics
+- **MQTT Publishing** - Forward persisted events to `victron/dbus/events` topics while connected
 - **CLI Query Tool** - Filter by time, service, event type, export to JSON/CSV
 - **Grafana Integration** - Pre-built dashboards for inverter monitoring
 
 ## Installation
 
+Monitoring requires PyGObject and the GLib/Gio introspection libraries. The Docker image includes these dependencies. For source installations on Debian 13 or Ubuntu 24.04+, install the build dependencies before the `monitor` extra:
+
+```bash
+sudo apt-get install gcc pkg-config python3-dev libcairo2-dev libgirepository-2.0-dev gir1.2-glib-2.0
+```
+
 ```bash
 # From source
 git clone https://github.com/victron-venus/dbus-event-log.git
 cd dbus-event-log
-pip install -e .
+pip install -e '.[monitor]'
 
 # With TimescaleDB support
-pip install -e .[timescaledb]
+pip install -e '.[monitor,timescaledb]'
 
 # Development
-pip install -e .[dev]
+pip install -e '.[dev]'
 ```
+
+The base installation supports querying and exporting SQLite data without a running D-Bus or PyGObject.
 
 ## Configuration
 
@@ -97,7 +104,7 @@ dbus:
     - "NameAcquired"
     - "NameLost"
 
-log:
+logging:
   level: INFO
   format: console  # or "json"
   file_path: null
@@ -119,6 +126,8 @@ export DBUS_EVENT_LOG_DBUS__SERVICES='["com.victronenergy.*"]'
 dbus-event-log monitor
 ```
 
+The monitor dispatches GLib callbacks alongside asyncio and waits for pending storage operations during shutdown. Both SQLite writes and asynchronous TimescaleDB writes complete before an event is queued for MQTT. MQTT is a live feed; events captured while disconnected remain in storage and are not replayed automatically.
+
 ### Query Events
 
 ```bash
@@ -132,11 +141,13 @@ dbus-event-log query --since 1h --service com.victronenergy.vebus
 dbus-event-log query --since 24h --format json --output events.json
 
 # Filter by event type
-dbus-event-log query --type state_transition --limit 50
+dbus-event-log query --type service_added --limit 50
 
 # CSV export for external analysis
 dbus-event-log export --format csv --output audit.csv --since 7d
 ```
+
+Relative filters such as `30m`, `24h`, and `7d` span hour, day, and month boundaries correctly. CLI query, export, statistics, and maintenance commands currently target SQLite; TimescaleDB is supported for event capture.
 
 ### Statistics
 
@@ -148,9 +159,11 @@ dbus-event-log stats
 
 ```bash
 dbus-event-log rotate      # Rotate if > rotation_size_mb
-dbus-event-log vaccum      # Reclaim space
-dbus-event-log cleanup --days 30  # Remove old events
+dbus-event-log vacuump     # Reclaim space
+dbus-event-log cleanup --days 30  # Preview old events; deletion is not implemented
 ```
+
+`retention_days` does not currently trigger automatic deletion.
 
 ## Event Structure
 
@@ -177,6 +190,8 @@ dbus-event-log cleanup --days 30  # Remove old events
 ```
 
 ### Event Types
+
+The schema supports the types below. The built-in monitor emits `signal`, `service_added`, and `service_removed`; the other types are available for external producers.
 
 | Type | Description |
 |------|-------------|

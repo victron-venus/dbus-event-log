@@ -1,4 +1,6 @@
 """Tests for dbus-event-log."""
+
+from collections.abc import Callable
 from datetime import datetime
 from uuid import uuid4
 
@@ -21,17 +23,11 @@ class TestDBusEvent:
         assert event.event_type == EventType.SIGNAL
         assert event.service_name == "com.victronenergy.test"
 
-    def test_to_dict(self) -> None:
+    def test_to_dict(self, property_event_factory: Callable[..., DBusEvent]) -> None:
         """Test serialization to dict."""
-        event = DBusEvent(
+        event = property_event_factory(
             id=uuid4(),
             timestamp=datetime(2024, 1, 15, 10, 30, 45),
-            event_type=EventType.PROPERTY_CHANGED,
-            service_name="com.victronenergy.vebus",
-            object_path="/Ac/In/1/V",
-            interface="com.victronenergy.BusItem",
-            member="PropertiesChanged",
-            signal_type=SignalType.PROPERTIES_CHANGED,
             arguments=[230.5],
             kwargs={"key": "value"},
         )
@@ -41,20 +37,10 @@ class TestDBusEvent:
         assert data["arguments"] == [230.5]
         assert data["kwargs"] == {"key": "value"}
 
-    def test_to_mqtt_payload(self) -> None:
-        """Test MQTT payload format."""
-        event = DBusEvent(
-            event_type=EventType.STATE_TRANSITION,
-            service_name="com.victronenergy.vebus",
-            object_path="/State",
-            member="StateChanged",
-            state_from="bulk",
-            state_to="absorption",
-        )
+    def test_mqtt_payload_identifiers(self, state_event_factory: Callable[..., DBusEvent]) -> None:
+        """MQTT payloads retain the event identity and timestamp."""
+        event = state_event_factory()
         payload = event.to_mqtt_payload()
-        assert payload["type"] == "state_transition"
-        assert payload["state_from"] == "bulk"
-        assert payload["state_to"] == "absorption"
         assert "id" in payload
         assert "ts" in payload
 

@@ -1,4 +1,5 @@
 """Storage layer for dbus-event-log."""
+
 import json
 import sqlite3
 from collections.abc import Generator
@@ -154,6 +155,8 @@ class SQLiteStorage:
             )
             conn.commit()
 
+    # Public query filters are shared by CLI and storage backends.
+    # pylint: disable-next=too-many-arguments,too-many-positional-arguments
     def query(
         self,
         start_time: str | None = None,
@@ -193,6 +196,8 @@ class SQLiteStorage:
             cursor = conn.execute(query, params)
             return [dict(row) for row in cursor.fetchall()]
 
+    # Keep identical explicit filter parameters across storage backends.
+    # pylint: disable-next=too-many-arguments,too-many-positional-arguments
     def count(
         self,
         start_time: str | None = None,
@@ -352,6 +357,8 @@ class TimescaleDBStorage:
             for event in events:
                 await self._insert_event(conn, event)
 
+    # Public query filters are shared by CLI and storage backends.
+    # pylint: disable-next=too-many-arguments,too-many-positional-arguments
     async def query(
         self,
         start_time: str | None = None,

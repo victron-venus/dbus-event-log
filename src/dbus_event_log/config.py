@@ -1,4 +1,5 @@
 """Configuration models for dbus-event-log."""
+
 from pathlib import Path
 from typing import Literal
 
@@ -49,9 +50,7 @@ class DBusConfig(BaseSettings):
             "org.freedesktop.DBus",
         ]
     )
-    ignored_signals: list[str] = Field(
-        default_factory=lambda: ["NameAcquired", "NameLost"]
-    )
+    ignored_signals: list[str] = Field(default_factory=lambda: ["NameAcquired", "NameLost"])
 
 
 class LoggingConfig(BaseSettings):
@@ -92,11 +91,11 @@ config = Config()
 
 def get_config() -> Config:
     """Get the current configuration."""
-    global config
     return config
 
 
 def set_config(new_config: Config) -> None:
     """Set the configuration."""
-    global config
+    global config  # pylint: disable=global-statement
+    # Public setter preserves the shared configuration API used by CLI and factories.
     config = new_config

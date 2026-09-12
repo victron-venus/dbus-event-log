@@ -1,4 +1,5 @@
 """MQTT publisher for dbus-event-log."""
+
 import asyncio
 import contextlib
 import json
@@ -18,14 +19,12 @@ logger = logging.getLogger(__name__)
 
 # Type alias for MQTT callbacks
 OnConnectCallback = Callable[
-    [mqtt.Client, Any, dict[str, Any], ReasonCode, Properties | None], None
+    [mqtt.Client, Any, mqtt.ConnectFlags, ReasonCode, Properties | None], None
 ]
 OnDisconnectCallback = Callable[
-    [mqtt.Client, Any, ReasonCode, Properties | None], None
+    [mqtt.Client, Any, mqtt.DisconnectFlags, ReasonCode, Properties | None], None
 ]
-OnPublishCallback = Callable[
-    [mqtt.Client, Any, int, ReasonCode, Properties | None], None
-]
+OnPublishCallback = Callable[[mqtt.Client, Any, int, ReasonCode, Properties | None], None]
 
 
 class MQTTPublisher:
@@ -59,7 +58,8 @@ class MQTTPublisher:
             self._client.connect(self.config.host, self.config.port, keepalive=60)
             self._client.loop_start()
             logger.info("MQTT client connecting to %s:%s", self.config.host, self.config.port)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # A broker failure must not terminate the independent D-Bus event recorder.
             logger.error("Failed to connect to MQTT broker: %s", e)
             self._client = None
 
@@ -74,11 +74,11 @@ class MQTTPublisher:
 
     def _on_connect(
         self,
-        client: mqtt.Client,
-        userdata: Any,
-        flags: dict[str, Any],
+        _client: mqtt.Client,
+        _userdata: Any,
+        _flags: mqtt.ConnectFlags,
         reason_code: ReasonCode,
-        properties: Properties | None,
+        _properties: Properties | None,
     ) -> None:
         """Callback for when the client connects to the broker."""
         if reason_code == 0:
@@ -89,10 +89,11 @@ class MQTTPublisher:
 
     def _on_disconnect(
         self,
-        client: mqtt.Client,
-        userdata: Any,
-        reason_code: Any,
-        properties: Properties | None,
+        _client: mqtt.Client,
+        _userdata: Any,
+        _disconnect_flags: mqtt.DisconnectFlags,
+        reason_code: ReasonCode,
+        _properties: Properties | None,
     ) -> None:
         """Callback for when the client disconnects from the broker."""
         self._connected = False
@@ -100,11 +101,11 @@ class MQTTPublisher:
 
     def _on_publish(
         self,
-        client: mqtt.Client,
-        userdata: Any,
+        _client: mqtt.Client,
+        _userdata: Any,
         mid: int,
-        reason_code: ReasonCode,
-        properties: Properties | None,
+        _reason_code: ReasonCode,
+        _properties: Properties | None,
     ) -> None:
         """Callback for when a message is published."""
         logger.debug("MQTT message published: mid=%s", mid)
@@ -126,7 +127,8 @@ class MQTTPublisher:
                 qos=self.config.qos,
                 retain=self.config.retain,
             )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # A broker failure must not terminate the independent D-Bus event recorder.
             logger.error("Failed to publish MQTT message: %s", e)
 
     def publish_batch(self, events: list[DBusEvent]) -> None:
@@ -157,6 +159,8 @@ class AsyncMQTTPublisher(MQTTPublisher):
                 await self._task
         self.disconnect()
 
+    # This adapter intentionally exposes an awaitable queue API over the synchronous transport.
+    # pylint: disable-next=invalid-overridden-method
     async def publish(self, event: DBusEvent) -> None:  # type: ignore[override]
         """Queue event for publishing."""
         await self._queue.put(event)
@@ -172,5 +176,6 @@ class AsyncMQTTPublisher(MQTTPublisher):
                 continue
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                # Isolate a failed event so later queued events can still be published.
                 logger.error("Error processing MQTT queue: %s", e)

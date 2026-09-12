@@ -1,5 +1,27 @@
 # D-Bus Event Log
 
+## Venus OS deployment status
+
+This repository is a library/CLI and companion-host container, not a validated
+SetupHelper package. The 2026-09-12 Cerbo audit found no native `dbus-event-log`
+service. Do not add a continuous all-signal recorder to a constrained GX without
+measuring write volume and CPU use first.
+
+For a native deployment, use daemontools supervision and `/data/dbus-event-log`
+for persistent SQLite data (set `DBUS_EVENT_LOG_STORAGE_SQLITE_PATH`). The default
+`/var/lib` path and container examples are for a Linux companion host. Venus OS
+rootfs changes do not survive firmware replacement; `/var/log` is volatile.
+
+Retention is not enforced automatically: `cleanup` currently reports a count
+and remains a placeholder, while `rotate` is an explicit CLI operation.
+Rotation archives do not have a bounded count, so `rotation_size_mb` alone does
+not bound total disk usage. Use a companion-host database with enforced
+retention, or implement and validate a maintenance policy before continuous GX
+recording. The current monitor captures property/interface and service-lifecycle
+signals; validate the specific Victron services and signal types needed on the
+target before treating it as a complete BusItem event archive.
+
+
 [![CI](https://github.com/victron-venus/dbus-event-log/actions/workflows/ci.yml/badge.svg)](https://github.com/victron-venus/dbus-event-log/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)

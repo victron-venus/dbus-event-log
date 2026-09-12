@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2] - 2026-09-11
+
+### Fixed
+
+- Include shared pytest fixtures in source distributions so the bundled tests can run.
+- Publish only wheel and source-distribution archives as release assets.
+
 ## [0.1.1] - 2026-09-11
 
 ### Fixed

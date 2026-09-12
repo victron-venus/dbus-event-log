@@ -1,6 +1,8 @@
 """Tests for MQTT publisher."""
+
 from unittest.mock import MagicMock, patch
 
+import paho.mqtt.client as mqtt
 import pytest
 
 from dbus_event_log.config import MQTTConfig
@@ -8,8 +10,8 @@ from dbus_event_log.models import DBusEvent, EventType
 from dbus_event_log.mqtt_publisher import AsyncMQTTPublisher, MQTTPublisher
 
 
-@pytest.fixture
-def mqtt_config() -> MQTTConfig:
+@pytest.fixture(name="mqtt_config")
+def mqtt_config_fixture() -> MQTTConfig:
     """Create MQTT config for testing."""
     return MQTTConfig(
         enabled=True,
@@ -22,8 +24,8 @@ def mqtt_config() -> MQTTConfig:
     )
 
 
-@pytest.fixture
-def sample_event() -> DBusEvent:
+@pytest.fixture(name="sample_event")
+def sample_event_fixture() -> DBusEvent:
     """Create a sample event."""
     return DBusEvent(
         event_type=EventType.SIGNAL,
@@ -53,7 +55,7 @@ class TestMQTTPublisher:
         assert publisher._client is None
 
     @patch("dbus_event_log.mqtt_publisher.mqtt.Client")
-    def test_connect_enabled(self, mock_client_class, mqtt_config: MQTTConfig) -> None:
+    def test_connect_enabled(self, mock_client_class: MagicMock, mqtt_config: MQTTConfig) -> None:
         """Test connect when MQTT is enabled."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
@@ -67,7 +69,7 @@ class TestMQTTPublisher:
         mock_client.loop_start.assert_called_once()
 
     @patch("dbus_event_log.mqtt_publisher.mqtt.Client")
-    def test_connect_with_auth(self, mock_client_class, mqtt_config: MQTTConfig) -> None:
+    def test_connect_with_auth(self, mock_client_class: MagicMock, mqtt_config: MQTTConfig) -> None:
         """Test connect with username/password."""
         mqtt_config.username = "user"
         mqtt_config.password = "pass"
@@ -80,7 +82,7 @@ class TestMQTTPublisher:
         mock_client.username_pw_set.assert_called_once_with("user", "pass")
 
     @patch("dbus_event_log.mqtt_publisher.mqtt.Client")
-    def test_disconnect(self, mock_client_class, mqtt_config: MQTTConfig) -> None:
+    def test_disconnect(self, mock_client_class: MagicMock, mqtt_config: MQTTConfig) -> None:
         """Test disconnect."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
@@ -94,9 +96,22 @@ class TestMQTTPublisher:
         assert publisher._client is None
         assert publisher._connected is False
 
+    def test_disconnect_callback_uses_paho_v2_dispatch(self, mqtt_config: MQTTConfig) -> None:
+        """A broker disconnect must clear state through the real Paho dispatcher."""
+        publisher = MQTTPublisher(mqtt_config)
+        with (
+            patch.object(mqtt.Client, "connect", return_value=mqtt.MQTT_ERR_SUCCESS),
+            patch.object(mqtt.Client, "loop_start", return_value=mqtt.MQTT_ERR_SUCCESS),
+        ):
+            publisher.connect()
+        assert publisher._client is not None
+        publisher._connected = True
+        publisher._client._do_on_disconnect(packet_from_broker=False, v1_rc=mqtt.MQTT_ERR_CONN_LOST)
+        assert publisher._connected is False
+
     @patch("dbus_event_log.mqtt_publisher.mqtt.Client")
     def test_publish_not_connected(
-        self, mock_client_class, mqtt_config: MQTTConfig, sample_event: DBusEvent
+        self, mock_client_class: MagicMock, mqtt_config: MQTTConfig, sample_event: DBusEvent
     ) -> None:
         """Test publish when not connected."""
         mock_client = MagicMock()
@@ -110,7 +125,7 @@ class TestMQTTPublisher:
 
     @patch("dbus_event_log.mqtt_publisher.mqtt.Client")
     def test_publish(
-        self, mock_client_class, mqtt_config: MQTTConfig, sample_event: DBusEvent
+        self, mock_client_class: MagicMock, mqtt_config: MQTTConfig, sample_event: DBusEvent
     ) -> None:
         """Test publish event."""
         mock_client = MagicMock()
@@ -128,7 +143,7 @@ class TestMQTTPublisher:
         assert call_args[1]["retain"] is False
 
     @patch("dbus_event_log.mqtt_publisher.mqtt.Client")
-    def test_publish_batch(self, mock_client_class, mqtt_config: MQTTConfig) -> None:
+    def test_publish_batch(self, mock_client_class: MagicMock, mqtt_config: MQTTConfig) -> None:
         """Test batch publish."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client

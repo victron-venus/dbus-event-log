@@ -1,13 +1,16 @@
 """CLI for dbus-event-log."""
+
 import asyncio
 import csv
 import json
+import logging
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
 import click
+from dateutil import parser
 from rich.console import Console
 from rich.table import Table
 
@@ -23,21 +26,24 @@ config = get_config()
 
 def setup_logging() -> None:
     """Configure application logging."""
-    import logging
-
+    json_formatter = None
     if config.logging.format == "json":
         try:
-            import pythonjsonlogger.jsonlogger
+            # JSON logging is optional; console logging works without the extra dependency.
+            # pylint: disable-next=import-outside-toplevel
+            from pythonjsonlogger.jsonlogger import JsonFormatter
         except ImportError:
-            pythonjsonlogger = None
+            pass
+        else:
+            json_formatter = JsonFormatter
 
     log_config = config.logging
     level = getattr(logging, log_config.level)
     fmt = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 
-    if log_config.format == "json" and pythonjsonlogger:
+    if log_config.format == "json" and json_formatter is not None:
         handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(pythonjsonlogger.jsonlogger.JsonFormatter(fmt))
+        handler.setFormatter(json_formatter(fmt))
     else:
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(logging.Formatter(fmt))
@@ -58,13 +64,12 @@ def setup_logging() -> None:
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
 def cli(config_path: str | None, verbose: bool) -> None:
     """D-Bus Event Log - Audit log for D-Bus commands and inverter state transitions."""
-    global config
+    global config  # pylint: disable=global-statement
+    # Keep the CLI configuration aligned with the shared factory configuration.
     if config_path:
         config = Config.from_yaml(Path(config_path))
         set_config(config)
     if verbose:
-        import logging
-
         logging.getLogger().setLevel(logging.DEBUG)
     setup_logging()
 
@@ -77,20 +82,21 @@ def monitor() -> None:
 
 async def _run_monitor() -> None:
     """Run the D-Bus monitor."""
-    monitor = DBusMonitor()
     publisher = AsyncMQTTPublisher(config.mqtt)
-
-    await publisher.start()
-    await monitor.start()
+    dbus_monitor = DBusMonitor(event_handler=publisher.publish)
 
     try:
+        await publisher.start()
+        await dbus_monitor.start()
         while True:
             await asyncio.sleep(1)
     except KeyboardInterrupt:
         console.print("\nShutting down...")
     finally:
-        await publisher.stop()
-        await monitor.stop()
+        try:
+            await dbus_monitor.stop()
+        finally:
+            await publisher.stop()
 
 
 @cli.command()
@@ -114,6 +120,8 @@ async def _run_monitor() -> None:
     default="table",
 )
 @click.option("--output", "-O", type=click.Path(), help="Output file path")
+# Each parameter corresponds to a public Click option.
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def query(
     since: str | None,
     until: str | None,
@@ -210,6 +218,8 @@ def cleanup(days: int) -> None:
     "event_type",
     type=click.Choice([e.value for e in EventType]),
 )
+# Each parameter corresponds to a public Click option.
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def export(
     export_format: str,
     output: str,
@@ -238,11 +248,11 @@ def export(
 
     path = Path(output)
     if export_format == "json":
-        with path.open("w") as f:
+        with path.open("w", encoding="utf-8") as f:
             json.dump(events, f, indent=2, default=str)
     else:
         if events:
-            with path.open("w", newline="") as f:
+            with path.open("w", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(f, fieldnames=cast(list[str], list(events[0].keys())))
                 writer.writeheader()
                 writer.writerows(events)
@@ -275,21 +285,12 @@ def vacuump() -> None:
 
 def _parse_time(time_str: str) -> str:
     """Parse time string to ISO format."""
-    from dateutil import parser
-
     if time_str.endswith(("h", "m", "s", "d")):
         unit = time_str[-1]
         value = int(time_str[:-1])
-        dt = datetime.now(UTC)
-        if unit == "s":
-            dt = dt.replace(second=dt.second - value)
-        elif unit == "m":
-            dt = dt.replace(minute=dt.minute - value)
-        elif unit == "h":
-            dt = dt.replace(hour=dt.hour - value)
-        elif unit == "d":
-            dt = dt.replace(day=dt.day - value)
-        return dt.isoformat()
+        units = {"s": "seconds", "m": "minutes", "h": "hours", "d": "days"}
+        delta = timedelta(**{units[unit]: value})
+        return (datetime.now(UTC) - delta).isoformat()
     parsed: datetime = parser.parse(time_str)
     return parsed.isoformat()
 
@@ -299,7 +300,7 @@ def _output_events(events: list[dict[str, Any]], fmt: str, output: str | None) -
     if fmt == "json":
         data = json.dumps(events, indent=2, default=str)
         if output:
-            Path(output).write_text(data)
+            Path(output).write_text(data, encoding="utf-8")
             console.print(f"Written to {output}")
         else:
             console.print(data)
@@ -308,7 +309,7 @@ def _output_events(events: list[dict[str, Any]], fmt: str, output: str | None) -
             console.print("No events to output")
             return
         if output:
-            with Path(output).open("w", newline="") as f:
+            with Path(output).open("w", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(f, fieldnames=events[0].keys())
                 writer.writeheader()
                 writer.writerows(events)
@@ -337,7 +338,7 @@ def _output_events(events: list[dict[str, Any]], fmt: str, output: str | None) -
                 event.get("event_type", ""),
                 event.get("service_name", "")[:30],
                 event.get("object_path", "")[:30],
-                event.get("member", "")[:20],
+                (event.get("member") or "")[:20],
                 args_str,
             )
         console.print(table)
@@ -345,7 +346,8 @@ def _output_events(events: list[dict[str, Any]], fmt: str, output: str | None) -
 
 def main() -> None:
     """Entry point for CLI."""
-    cli()
+    # Click supplies the decorated command parameters from argv.
+    cli()  # pylint: disable=no-value-for-parameter
 
 
 if __name__ == "__main__":

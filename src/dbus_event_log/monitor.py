@@ -1,15 +1,21 @@
 """D-Bus monitoring and event capture for dbus-event-log."""
+
 import asyncio
+import inspect
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable, Coroutine
+from datetime import UTC, datetime
 from typing import Any
 
 try:
     import pydbus
+    from gi.repository import GLib
+
     PYDBUS_AVAILABLE = True
 except ImportError:
     PYDBUS_AVAILABLE = False
     pydbus = None
+    GLib = None
 
 from dbus_event_log.config import Config, get_config
 from dbus_event_log.models import DBusEvent, EventType, SignalType
@@ -17,29 +23,38 @@ from dbus_event_log.storage import get_storage
 
 logger = logging.getLogger(__name__)
 
-SignalHandler = Callable[[tuple[Any, ...], dict[str, Any]], None]
-
 
 def _config() -> Config:
     """Get config used by this module."""
     return get_config()
 
 
+# Subscription handles and asynchronous lifecycle tasks have separate ownership.
+# pylint: disable-next=too-many-instance-attributes
 class DBusMonitor:
-    """Monitors D-Bus for signals and method calls."""
+    """Monitors supported D-Bus signals and service lifecycle events."""
 
-    def __init__(self) -> None:
+    def __init__(self, event_handler: Callable[[DBusEvent], Awaitable[None]] | None = None) -> None:
         """Initialize D-Bus monitor."""
         if not PYDBUS_AVAILABLE:
-            raise RuntimeError("pydbus not available. Install with: pip install pydbus")
+            raise RuntimeError(
+                "pydbus not available. Install GLib/Gio libraries "
+                "and the package's [monitor] extra."
+            )
         cfg = _config()
         self.bus = pydbus.SystemBus() if cfg.dbus.bus_type == "system" else pydbus.SessionBus()
         self.storage = get_storage()
+        self._event_handler = event_handler
         self._running = False
         self._subscriptions: dict[str, Any] = {}
+        self._dispatch_task: asyncio.Task[None] | None = None
+        self._event_tasks: set[asyncio.Task[None]] = set()
+        self._context: Any = None
 
     async def start(self) -> None:
         """Start monitoring D-Bus."""
+        if self._running:
+            return
         cfg = _config()
         logger.info("Starting D-Bus monitor on %s bus", cfg.dbus.bus_type)
         self._running = True
@@ -48,14 +63,37 @@ class DBusMonitor:
             await self._subscribe_to_service(service_pattern)
 
         await self._subscribe_to_name_changes()
+        self._context = GLib.MainContext.default()
+        self._dispatch_task = asyncio.create_task(self._dispatch_bus())
 
     async def stop(self) -> None:
         """Stop monitoring D-Bus."""
         logger.info("Stopping D-Bus monitor")
         self._running = False
         for sub in self._subscriptions.values():
-            sub.cancel()
+            sub.unsubscribe()
         self._subscriptions.clear()
+        if self._dispatch_task is not None:
+            await self._dispatch_task
+            self._dispatch_task = None
+        if self._event_tasks:
+            await asyncio.gather(*self._event_tasks)
+
+    async def _dispatch_bus(self) -> None:
+        """Dispatch GLib callbacks without blocking the asyncio event loop."""
+        while self._running:
+            # Bound each drain so a busy bus cannot starve storage tasks.
+            for _ in range(64):
+                if not self._context.pending():
+                    break
+                self._context.iteration(False)
+            await asyncio.sleep(0.01)
+
+    def _schedule_event(self, event: Coroutine[Any, Any, None]) -> None:
+        """Track event processing so shutdown waits for pending writes."""
+        task = asyncio.create_task(event)
+        self._event_tasks.add(task)
+        task.add_done_callback(self._event_tasks.discard)
 
     async def _subscribe_to_service(self, service_pattern: str) -> None:
         """Subscribe to signals from a service pattern."""
@@ -68,48 +106,75 @@ class DBusMonitor:
 
             for service in services:
                 await self._setup_signal_handlers(service)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # Keep one external bus/storage failure from stopping independent event processing.
             logger.warning("Failed to subscribe to %s: %s", service_pattern, e)
 
     def _discover_services(self, prefix: str) -> list[str]:
         """Discover services matching prefix."""
         try:
-            bus_names = self.bus.list_names()
+            bus_names = self.bus.dbus.ListNames()
             return [name for name in bus_names if name.startswith(prefix)]
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
+            # Service discovery may fail transiently while other configured names remain usable.
             return []
 
     async def _setup_signal_handlers(self, service: str) -> None:
         """Set up signal handlers for a service."""
         try:
-            obj = self.bus.get(service, "/")
 
-            def signal_handler(*args: Any, **kwargs: Any) -> None:
-                asyncio.create_task(self._handle_signal(service, args, kwargs))
+            def signal_handler(
+                sender: str, path: str, interface: str, signal_name: str, args: tuple[Any, ...]
+            ) -> None:
+                if self._running:
+                    self._schedule_event(
+                        self._handle_signal(
+                            service,
+                            args,
+                            {
+                                "signal_name": signal_name,
+                                "interface": interface,
+                                "path": path,
+                                "sender": sender,
+                            },
+                        )
+                    )
 
-            if hasattr(obj, "connect_to_signal"):
-                obj.connect_to_signal("PropertiesChanged", signal_handler)
-                obj.connect_to_signal("InterfacesAdded", signal_handler)
-                obj.connect_to_signal("InterfacesRemoved", signal_handler)
-
-            self._subscriptions[service] = obj
+            for signal_name in ("PropertiesChanged", "InterfacesAdded", "InterfacesRemoved"):
+                key = f"{service}:{signal_name}"
+                if key not in self._subscriptions:
+                    self._subscriptions[key] = self.bus.subscribe(
+                        sender=service, signal=signal_name, signal_fired=signal_handler
+                    )
             logger.debug("Subscribed to signals from %s", service)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # Keep one external bus/storage failure from stopping independent event processing.
             logger.debug("Could not setup handlers for %s: %s", service, e)
 
     async def _subscribe_to_name_changes(self) -> None:
         """Subscribe to D-Bus name owner changes."""
         try:
-            dbus_obj = self.bus.get("org.freedesktop.DBus", "/org/freedesktop/DBus")
 
-            def name_owner_changed(name: str, old_owner: str, new_owner: str) -> None:
-                asyncio.create_task(self._handle_name_owner_change(name, old_owner, new_owner))
+            def name_owner_changed(
+                _sender: str,
+                _path: str,
+                _interface: str,
+                _signal_name: str,
+                args: tuple[str, str, str],
+            ) -> None:
+                if self._running:
+                    self._schedule_event(self._handle_name_owner_change(*args))
 
-            if hasattr(dbus_obj, "connect_to_signal"):
-                dbus_obj.connect_to_signal("NameOwnerChanged", name_owner_changed)
-                self._subscriptions["dbus"] = dbus_obj
-                logger.debug("Subscribed to NameOwnerChanged")
-        except Exception as e:
+            self._subscriptions["dbus"] = self.bus.subscribe(
+                sender="org.freedesktop.DBus",
+                iface="org.freedesktop.DBus",
+                signal="NameOwnerChanged",
+                object="/org/freedesktop/DBus",
+                signal_fired=name_owner_changed,
+            )
+            logger.debug("Subscribed to NameOwnerChanged")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # Keep one external bus/storage failure from stopping independent event processing.
             logger.warning("Failed to subscribe to name changes: %s", e)
 
     async def _handle_signal(
@@ -118,7 +183,7 @@ class DBusMonitor:
         """Process incoming D-Bus signal."""
         cfg = _config()
         try:
-            timestamp = __import__("datetime").datetime.utcnow()
+            timestamp = datetime.now(UTC)
             signal_name = kwargs.get("signal_name", "Unknown")
             interface = kwargs.get("interface")
             object_path = kwargs.get("path", "/")
@@ -138,15 +203,16 @@ class DBusMonitor:
                 kwargs=kwargs,
             )
 
-            self.storage.insert(event)
+            await self._store_event(event)
             logger.debug("Captured signal: %s.%s", service, signal_name)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # Keep one external bus/storage failure from stopping independent event processing.
             logger.error("Error handling signal: %s", e)
 
     async def _handle_name_owner_change(self, name: str, old_owner: str, new_owner: str) -> None:
         """Process name owner change signal."""
         try:
-            timestamp = __import__("datetime").datetime.utcnow()
+            timestamp = datetime.now(UTC)
 
             if old_owner and not new_owner:
                 event_type = EventType.SERVICE_REMOVED
@@ -168,10 +234,19 @@ class DBusMonitor:
             )
 
             status = "added" if event_type == EventType.SERVICE_ADDED else "removed"
-            self.storage.insert(event)
+            await self._store_event(event)
             logger.info("Service %s: %s", name, status)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # Keep one external bus/storage failure from stopping independent event processing.
             logger.error("Error handling name owner change: %s", e)
+
+    async def _store_event(self, event: DBusEvent) -> None:
+        """Persist an event with either the synchronous or asynchronous backend."""
+        result = self.storage.insert(event)
+        if inspect.isawaitable(result):
+            await result
+        if self._event_handler is not None:
+            await self._event_handler(event)
 
     def _map_signal_type(self, signal_name: str) -> SignalType:
         """Map signal name to SignalType enum."""

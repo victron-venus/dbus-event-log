@@ -1,4 +1,5 @@
 """Tests for storage layer."""
+
 import tempfile
 from pathlib import Path
 
@@ -9,27 +10,27 @@ from dbus_event_log.models import DBusEvent, EventType
 from dbus_event_log.storage import SQLiteStorage
 
 
-@pytest.fixture
-def temp_db() -> Path:
+@pytest.fixture(name="temp_db")
+def temp_db_fixture() -> Path:
     """Create a temporary database file."""
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         return Path(f.name)
 
 
-@pytest.fixture
-def storage_config(temp_db: Path) -> StorageConfig:
+@pytest.fixture(name="storage_config")
+def storage_config_fixture(temp_db: Path) -> StorageConfig:
     """Create storage config with temp database."""
     return StorageConfig(sqlite_path=temp_db, backend="sqlite")
 
 
-@pytest.fixture
-def storage(storage_config: StorageConfig) -> SQLiteStorage:
+@pytest.fixture(name="storage")
+def storage_fixture(storage_config: StorageConfig) -> SQLiteStorage:
     """Create SQLite storage instance."""
     return SQLiteStorage(storage_config)
 
 
-@pytest.fixture
-def sample_event() -> DBusEvent:
+@pytest.fixture(name="sample_event")
+def sample_event_fixture() -> DBusEvent:
     """Create a sample event."""
     return DBusEvent(
         event_type=EventType.SIGNAL,
@@ -123,9 +124,7 @@ class TestSQLiteStorage:
 
     def test_get_event_types(self, storage: SQLiteStorage) -> None:
         """Test getting unique event types."""
-        event_signal = DBusEvent(
-            event_type=EventType.SIGNAL, service_name="test", object_path="/"
-        )
+        event_signal = DBusEvent(event_type=EventType.SIGNAL, service_name="test", object_path="/")
         event_method = DBusEvent(
             event_type=EventType.METHOD_CALL, service_name="test", object_path="/"
         )

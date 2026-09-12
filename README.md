@@ -10,7 +10,9 @@ measuring write volume and CPU use first.
 For a native deployment, use daemontools supervision and `/data/dbus-event-log`
 for persistent SQLite data (set `DBUS_EVENT_LOG_STORAGE_SQLITE_PATH`). The default
 `/var/lib` path and container examples are for a Linux companion host. Venus OS
-rootfs changes do not survive firmware replacement; `/var/log` is volatile.
+rootfs changes do not survive firmware replacement. On the audited image,
+`/var/log` resolves to persistent `/data/log`; bound native output with
+`multilog` rather than assuming reboot will clear it.
 
 SQLite retention and rotation run at monitor startup and periodically. The
 30-day age ceiling and four-archive limit prevent indefinite history growth
@@ -90,6 +92,32 @@ pip install -e '.[dev]'
 ```
 
 The base installation supports querying and exporting SQLite data without a running D-Bus or PyGObject.
+
+### Companion-host Compose example
+
+`docker compose up -d` builds the recorder with its monitoring dependencies and
+starts the example broker. Both services use the same Compose bridge network,
+so `DBUS_EVENT_LOG_MQTT_HOST=mosquitto` resolves to that broker. The mounted
+`/var/run/dbus` socket is the **container host's** bus, not the bus of a remote
+GX; verify that host bus policy permits the image's non-root user to subscribe.
+Use this example only on a companion host with the intended local D-Bus access.
+It is not a native Venus OS installer or a remote GX telemetry tunnel.
+
+All example containers use Docker output rotation (10 MiB per file, three files).
+Mosquitto logs to stdout so an additional persistent broker log cannot grow
+outside that policy. These output limits are separate from SQLite event
+retention. Existing named broker-log volumes are left for operator review when
+updating an already deployed stack; the example does not delete them.
+
+The Compose recorder uses environment configuration. Variable names use one
+underscore after the component, for example `DBUS_EVENT_LOG_MQTT_HOST` and
+`DBUS_EVENT_LOG_STORAGE_SQLITE_PATH`; `DBUS_EVENT_LOG_MQTT__HOST` is ignored.
+An unused configuration-file mount has been removed. To use YAML instead, mount
+your file and explicitly invoke `dbus-event-log --config /app/config.yaml monitor`;
+set its broker hostname to the correct host for that network. YAML values take
+precedence over the component environment variables when both specify a field.
+Do not switch the recorder to host networking while retaining the bridge-only
+`mosquitto` hostname.
 
 ## Configuration
 

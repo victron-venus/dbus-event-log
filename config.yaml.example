@@ -27,7 +27,7 @@ dbus:
     - "NameAcquired"
     - "NameLost"
 
-log:
+logging:
   level: INFO
   format: console
   file_path: null

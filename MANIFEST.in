@@ -1,1 +1,5 @@
 recursive-include tests *.py
+include docker-compose.yml
+include Dockerfile
+include config.yaml.example
+include mosquitto.conf

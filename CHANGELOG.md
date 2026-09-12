@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.4] - 2026-09-12
+
+### Fixed
+
+- Apply the companion Compose environment variables using the supported component
+  prefixes, and keep the recorder and broker on a shared DNS-capable network.
+- Remove an unused YAML mount, correct the example logging key and document
+  explicit YAML loading and configuration precedence.
+- Bound example container output and send broker logs to stdout instead of an
+  additional unbounded persistent file. Existing log volumes are not deleted.
+- Correct Venus OS log persistence guidance; this remains a companion-host
+  example and does not add a native GX recorder or SetupHelper installer.
+
 ## [0.1.3] - 2026-09-12
 
 ### Fixed

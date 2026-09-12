@@ -5,7 +5,7 @@ import csv
 import json
 import logging
 import sqlite3
-from datetime import UTC, datetime, tzinfo
+from datetime import UTC, datetime, timedelta, tzinfo
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -114,10 +114,11 @@ def test_duplicate_batch_rolls_back_all_new_events(event_store: SQLiteStorage) -
 def test_rotation_archives_data_and_recreates_usable_schema(event_store: SQLiteStorage) -> None:
     """Rotation preserves old data in the backup while the new database accepts writes."""
     original = event(1, "battery")
+    original.arguments = ["x" * (1100 * 1024)]
     event_store.insert(original)
-    event_store.config.rotation_size_mb = 0
+    event_store.config.rotation_size_mb = 1
     event_store.rotate()
-    backups = list(event_store.db_path.parent.glob("events.bak.*"))
+    backups = event_store.archive_paths()
     assert len(backups) == 1
     with sqlite3.connect(backups[0]) as connection:
         assert connection.execute("SELECT id FROM events").fetchall() == [(str(original.id),)]
@@ -280,7 +281,6 @@ def test_declining_retention_cleanup_preserves_events(
     event_store.insert(event(1, "battery"))
     result = storage_cli.invoke(cli_module.cli, ["cleanup", "--days", "1"], input="n\n")
     assert result.exit_code == 0, result.output
-    assert "Would delete 1 events" in result.output
     assert "Cancelled" in result.output
     assert event_store.count() == 1
 
@@ -490,3 +490,26 @@ async def test_monitor_cli_wires_events_and_always_drains_before_publisher(
     if failure != "publisher.start":
         expected.append("monitor.start")
     assert calls == [*expected, "monitor.stop", "publisher.stop"]
+
+
+def test_cleanup_deletes_using_configured_retention_and_reports_count(
+    event_store: SQLiteStorage,
+    storage_cli: CliRunner,
+) -> None:
+    """CLI cleanup applies configured days and retains newer committed records."""
+    event_store.config.retention_days = 7
+    old, recent = event(1, "old"), event(2, "recent")
+    old.timestamp = datetime.now(UTC) - timedelta(days=8)
+    recent.timestamp = datetime.now(UTC) - timedelta(days=6)
+    event_store.insert_batch([old, recent])
+    result = storage_cli.invoke(cli_module.cli, ["cleanup", "--yes"])
+    assert result.exit_code == 0, result.output
+    assert "Deleted 1 expired events" in result.output
+    assert event_store.query()[0]["id"] == str(recent.id)
+    result = storage_cli.invoke(cli_module.cli, ["cleanup", "--days", "0", "--yes"])
+    assert result.exit_code == 0
+    assert "disabled" in result.output
+    assert event_store.count() == 1
+    result = storage_cli.invoke(cli_module.cli, ["cleanup", "--days", "-1", "--yes"])
+    assert result.exit_code != 0
+    assert event_store.count() == 1

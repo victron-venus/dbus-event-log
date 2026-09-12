@@ -4,7 +4,9 @@ import asyncio
 import inspect
 import logging
 from collections.abc import Awaitable, Callable, Coroutine
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from functools import partial
 from typing import Any
 
 try:
@@ -19,7 +21,7 @@ except ImportError:
 
 from dbus_event_log.config import Config, get_config
 from dbus_event_log.models import DBusEvent, EventType, SignalType
-from dbus_event_log.storage import get_storage
+from dbus_event_log.storage import SQLiteStorage, get_storage
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +52,9 @@ class DBusMonitor:
         self._dispatch_task: asyncio.Task[None] | None = None
         self._event_tasks: set[asyncio.Task[None]] = set()
         self._context: Any = None
+        self._storage_executor: ThreadPoolExecutor | None = None
+        self._maintenance_task: asyncio.Task[None] | None = None
+        self._maintenance_stop = asyncio.Event()
 
     async def start(self) -> None:
         """Start monitoring D-Bus."""
@@ -57,7 +62,13 @@ class DBusMonitor:
             return
         cfg = _config()
         logger.info("Starting D-Bus monitor on %s bus", cfg.dbus.bus_type)
+        storage = self.storage
+        if isinstance(storage, SQLiteStorage):
+            await self._run_sqlite(partial(storage.maintain, startup=True))
         self._running = True
+        self._maintenance_stop.clear()
+        if isinstance(storage, SQLiteStorage):
+            self._maintenance_task = asyncio.create_task(self._maintain_storage(storage))
 
         for service_pattern in cfg.dbus.services:
             await self._subscribe_to_service(service_pattern)
@@ -70,6 +81,10 @@ class DBusMonitor:
         """Stop monitoring D-Bus."""
         logger.info("Stopping D-Bus monitor")
         self._running = False
+        self._maintenance_stop.set()
+        if self._maintenance_task is not None:
+            await self._maintenance_task
+            self._maintenance_task = None
         for sub in self._subscriptions.values():
             sub.unsubscribe()
         self._subscriptions.clear()
@@ -78,6 +93,9 @@ class DBusMonitor:
             self._dispatch_task = None
         if self._event_tasks:
             await asyncio.gather(*self._event_tasks)
+        if self._storage_executor is not None:
+            self._storage_executor.shutdown(wait=True)
+            self._storage_executor = None
 
     async def _dispatch_bus(self) -> None:
         """Dispatch GLib callbacks without blocking the asyncio event loop."""
@@ -242,11 +260,37 @@ class DBusMonitor:
 
     async def _store_event(self, event: DBusEvent) -> None:
         """Persist an event with either the synchronous or asynchronous backend."""
-        result = self.storage.insert(event)
-        if inspect.isawaitable(result):
-            await result
+        storage = self.storage
+        if isinstance(storage, SQLiteStorage):
+            await self._run_sqlite(partial(storage.insert, event))
+        else:
+            result = storage.insert(event)
+            if inspect.isawaitable(result):
+                await result
         if self._event_handler is not None:
             await self._event_handler(event)
+
+    async def _run_sqlite(self, operation: Callable[[], Any]) -> Any:
+        """Keep SQLite I/O off GLib/asyncio using one bounded worker thread."""
+        if self._storage_executor is None:
+            self._storage_executor = ThreadPoolExecutor(
+                max_workers=1, thread_name_prefix="event-store"
+            )
+        return await asyncio.get_running_loop().run_in_executor(self._storage_executor, operation)
+
+    async def _maintain_storage(self, storage: SQLiteStorage) -> None:
+        """Maintain idle databases too, and finish in-flight work before shutdown."""
+        while not self._maintenance_stop.is_set():
+            try:
+                await asyncio.wait_for(
+                    self._maintenance_stop.wait(),
+                    timeout=storage.config.maintenance_interval_seconds,
+                )
+            except TimeoutError:
+                try:
+                    await self._run_sqlite(storage.maintain)
+                except Exception:  # pylint: disable=broad-exception-caught
+                    logger.exception("SQLite retention/rotation maintenance failed")
 
     def _map_signal_type(self, signal_name: str) -> SignalType:
         """Map signal name to SignalType enum."""

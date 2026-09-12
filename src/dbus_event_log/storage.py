@@ -1,10 +1,16 @@
 """Storage layer for dbus-event-log."""
 
+import fcntl
 import json
+import re
 import sqlite3
+import threading
+import time
 from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -19,6 +25,17 @@ from dbus_event_log.config import StorageConfig, get_config
 from dbus_event_log.models import SCHEMA_VERSION, DBusEvent, EventType
 
 
+def _utc_timestamp(value: str) -> str | None:
+    """Compare legacy naive UTC and offset-aware timestamps at microsecond precision."""
+    try:
+        timestamp = datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        return None  # Preserve malformed legacy rows rather than guessing their age.
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=UTC)
+    return timestamp.astimezone(UTC).isoformat(timespec="microseconds")
+
+
 class SQLiteStorage:
     """SQLite storage backend for D-Bus events."""
 
@@ -26,6 +43,10 @@ class SQLiteStorage:
         """Initialize SQLite storage."""
         self.config = storage_config
         self.db_path = storage_config.sqlite_path
+        if self.db_path.is_symlink():
+            raise ValueError("SQLite database must not be a symbolic link")
+        self._thread_lock = threading.RLock()
+        self._lock_depth = 0
         self._ensure_db_exists()
         self._init_schema()
 
@@ -33,9 +54,9 @@ class SQLiteStorage:
         """Ensure database directory and file exist."""
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    def _init_schema(self) -> None:
-        """Initialize database schema."""
-        with self._connection() as conn:
+    def _init_schema(self, path: Path | None = None) -> None:
+        """Initialize the active database or a prepared replacement schema."""
+        with self._connection(path) as conn:
             conn.executescript("""
                 CREATE TABLE IF NOT EXISTS schema_version (
                     version INTEGER PRIMARY KEY
@@ -73,17 +94,41 @@ class SQLiteStorage:
             conn.commit()
 
     @contextmanager
-    def _connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get database connection with row factory."""
-        conn = sqlite3.connect(self.db_path)
-        try:
-            conn.row_factory = sqlite3.Row
-            yield conn
-        finally:
-            conn.close()
+    def _locked(self) -> Generator[None, None, None]:
+        """Coordinate connections and rotation across threads and library processes."""
+        with self._thread_lock:
+            if self._lock_depth:
+                yield
+                return
+            with self.db_path.with_name(self.db_path.name + ".lock").open("a") as lock:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+                self._lock_depth = 1
+                try:
+                    yield
+                finally:
+                    self._lock_depth = 0
+                    fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+    @contextmanager
+    def _connection(self, path: Path | None = None) -> Generator[sqlite3.Connection, None, None]:
+        """Close every transaction before releasing the service's rotation lock."""
+        with self._locked():
+            conn = sqlite3.connect(path or self.db_path)
+            try:
+                conn.row_factory = sqlite3.Row
+                conn.create_function("event_utc", 1, _utc_timestamp, deterministic=True)
+                yield conn
+            finally:
+                conn.close()
 
     def insert(self, event: DBusEvent) -> None:
         """Insert a single event."""
+        with self._locked():
+            self.rotate()
+            self._insert_one(event)
+
+    def _insert_one(self, event: DBusEvent) -> None:
+        """Write an event while its caller holds the rotation lock."""
         with self._connection() as conn:
             conn.execute(
                 """
@@ -120,6 +165,12 @@ class SQLiteStorage:
         """Insert multiple events in a transaction."""
         if not events:
             return
+        with self._locked():
+            self.rotate()
+            self._insert_batch(events)
+
+    def _insert_batch(self, events: list[DBusEvent]) -> None:
+        """Commit a batch while its caller holds the rotation lock."""
         with self._connection() as conn:
             conn.executemany(
                 """
@@ -247,16 +298,110 @@ class SQLiteStorage:
         with self._connection() as conn:
             conn.execute("VACUUM")
 
-    def rotate(self) -> None:
-        """Rotate database if it exceeds size limit."""
-        if not self.db_path.exists():
-            return
+    def archive_paths(self) -> list[Path]:
+        """List only this database's numbered, regular-file archives in creation order."""
+        pattern = re.compile(re.escape(self.db_path.name) + r"\.archive\.[0-9]{20}\.db")
+        return sorted(
+            path
+            for path in self.db_path.parent.iterdir()
+            if pattern.fullmatch(path.name) and not path.is_symlink() and path.is_file()
+        )
 
-        size_mb = self.db_path.stat().st_size / (1024 * 1024)
-        if size_mb >= self.config.rotation_size_mb:
-            backup_path = self.db_path.with_suffix(f".bak.{datetime.now():%Y%m%d}")
-            self.db_path.rename(backup_path)
-            self._init_schema()
+    def cleanup(self, days: int | None = None, *, now: datetime | None = None) -> int:
+        """Delete strictly expired rows from current and owned archived databases."""
+        retention = self.config.retention_days if days is None else days
+        if retention < 0:
+            raise ValueError("retention days cannot be negative")
+        if retention == 0:
+            return 0
+        cutoff = _utc_timestamp(
+            ((now or datetime.now(UTC)) - timedelta(days=retention)).isoformat()
+        )
+        deleted = 0
+        with self._locked():
+            for path in [self.db_path, *self.archive_paths()]:
+                with self._connection(path) as conn:
+                    cursor = conn.execute(
+                        "DELETE FROM events WHERE event_utc(timestamp) < ?", (cutoff,)
+                    )
+                    deleted += cursor.rowcount
+                    conn.commit()
+                    empty = conn.execute("SELECT 1 FROM events LIMIT 1").fetchone() is None
+                    if cursor.rowcount and not empty:
+                        conn.execute("VACUUM")
+                if empty and path != self.db_path:
+                    path.unlink()
+                elif empty and cursor.rowcount:
+                    self.vacuum()
+        return deleted
+
+    def maintain(self, *, startup: bool = False, now: datetime | None = None) -> None:
+        """Apply age and size ceilings; startup optionally reclaims existing free pages."""
+        with self._locked():
+            self.cleanup(now=now)
+            if startup and self.config.vacuum_on_startup:
+                self.vacuum()
+            self.rotate()
+            self._prune_archives()
+
+    def _prune_archives(self) -> None:
+        """Apply the configured count ceiling exclusively to service-owned archives."""
+        archives = self.archive_paths()
+        for path in archives[: max(0, len(archives) - self.config.rotation_max_archives)]:
+            path.unlink()
+
+    def rotate(self) -> Path | None:
+        """Rotate before the next write, without overwriting archives or losing WAL data."""
+        limit = self.config.rotation_size_mb * 1024 * 1024
+        with self._locked():
+            if not limit or not self.db_path.exists():
+                return None
+            wal = Path(str(self.db_path) + "-wal")
+            size = self.db_path.stat().st_size + (wal.stat().st_size if wal.exists() else 0)
+            if size < limit:
+                return None
+            # All cooperating library connections are closed under the same flock.
+            # Refuse rotation if an external WAL reader/writer prevents checkpointing.
+            with self._connection() as conn:
+                if conn.execute("SELECT 1 FROM events LIMIT 1").fetchone() is None:
+                    conn.execute("VACUUM")
+                    return None
+                checkpoint = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+                if checkpoint[0]:
+                    raise sqlite3.OperationalError(
+                        "WAL checkpoint busy; refusing database rotation"
+                    )
+                mode = conn.execute("PRAGMA journal_mode=DELETE").fetchone()[0]
+                if mode != "delete":
+                    raise sqlite3.OperationalError("Cannot close WAL before database rotation")
+            if any(
+                Path(str(self.db_path) + suffix).exists() for suffix in ("-wal", "-shm", "-journal")
+            ):
+                raise sqlite3.OperationalError("SQLite sidecars remain; refusing database rotation")
+            archives = self.archive_paths()
+            previous = int(archives[-1].name[-23:-3]) if archives else 0
+            sequence = max(time.time_ns(), previous + 1)
+            while True:
+                archive = self.db_path.with_name(f"{self.db_path.name}.archive.{sequence:020d}.db")
+                if not archive.exists() and not archive.is_symlink():
+                    break
+                sequence += 1
+            # Prepare a usable schema before moving the only active database.
+            with TemporaryDirectory(
+                prefix=f".{self.db_path.name}.rotate-", dir=self.db_path.parent
+            ) as directory:
+                replacement = Path(directory) / "replacement.db"
+                self._init_schema(replacement)
+                self.db_path.rename(archive)
+                try:
+                    replacement.replace(self.db_path)
+                except OSError:
+                    # Cooperating clients hold the same lock, so none can have written
+                    # into the missing active path. Restore it before reporting failure.
+                    archive.rename(self.db_path)
+                    raise
+            self._prune_archives()
+            return archive
 
 
 class TimescaleDBStorage:

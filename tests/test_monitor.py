@@ -2,6 +2,8 @@
 
 import asyncio
 import json
+import threading
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -302,3 +304,69 @@ async def test_failed_persistence_never_notifies_observer(
     )
     await monitor._handle_signal("battery", (), {"signal_name": "PropertiesChanged"})
     observer.assert_not_awaited()
+
+
+async def test_startup_and_idle_maintenance_apply_retention(
+    monitor_environment: tuple[DBusMonitor, MagicMock, Config, SQLiteStorage],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Configured age retention runs before subscriptions and again on an idle bus."""
+    monitor, _, config, storage = monitor_environment
+    old = DBusEvent(
+        timestamp=datetime.now(UTC) - timedelta(days=31),
+        event_type=EventType.SIGNAL,
+        service_name="old",
+        object_path="/",
+    )
+    storage.insert(old)
+    config.storage.maintenance_interval_seconds = 0.01
+    await monitor.start()
+    assert storage.count() == 0
+    # Change the policy so an existing event becomes expired without new traffic.
+    config.storage.retention_days = 60
+    storage.insert(old)
+    config.storage.retention_days = 30
+    config.storage.maintenance_interval_seconds = 0.01
+    completed = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    original = storage.maintain
+
+    def maintain() -> None:
+        original()
+        loop.call_soon_threadsafe(completed.set)
+
+    monkeypatch.setattr(storage, "maintain", maintain)
+    await asyncio.wait_for(completed.wait(), timeout=2)
+    assert storage.count() == 0
+    await monitor.stop()
+    assert monitor._maintenance_task is None
+    assert monitor._storage_executor is None
+
+
+async def test_shutdown_waits_for_in_flight_maintenance(
+    monitor_environment: tuple[DBusMonitor, MagicMock, Config, SQLiteStorage],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Shutdown must not leave a cancelled maintenance thread changing SQLite files."""
+    monitor, _, config, storage = monitor_environment
+    config.storage.maintenance_interval_seconds = 0.01
+    entered = asyncio.Event()
+    release = threading.Event()
+    loop = asyncio.get_running_loop()
+    original = storage.maintain
+
+    def maintain(*, startup: bool = False) -> None:
+        if not startup:
+            loop.call_soon_threadsafe(entered.set)
+            assert release.wait(timeout=3)
+        original(startup=startup)
+
+    monkeypatch.setattr(storage, "maintain", maintain)
+    await monitor.start()
+    await asyncio.wait_for(entered.wait(), timeout=2)
+    stopped = asyncio.create_task(monitor.stop())
+    await asyncio.sleep(0)
+    assert not stopped.done()
+    release.set()
+    await asyncio.wait_for(stopped, timeout=2)
+    assert monitor._storage_executor is None

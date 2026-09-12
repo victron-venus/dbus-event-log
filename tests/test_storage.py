@@ -140,8 +140,17 @@ class TestSQLiteStorage:
 
     def test_rotate(self, storage: SQLiteStorage, temp_db: Path) -> None:
         """Test database rotation."""
-        # Create a large enough file to trigger rotation
-        temp_db.write_bytes(b"x" * (200 * 1024 * 1024))  # 200MB
-        storage.rotate()
-        # File should be rotated and re-initialized
-        assert temp_db.exists() or temp_db.with_suffix(".bak").exists()
+        storage.config.rotation_size_mb = 1
+        event = DBusEvent(
+            event_type=EventType.SIGNAL,
+            service_name="test",
+            object_path="/",
+            arguments=["x" * (2 * 1024 * 1024)],
+        )
+        storage.insert(event)
+        archive = storage.rotate()
+        assert archive is not None
+        assert temp_db.exists()
+        assert storage.count() == 0
+        archived = SQLiteStorage(StorageConfig(sqlite_path=archive, rotation_size_mb=0))
+        assert archived.query()[0]["id"] == str(event.id)

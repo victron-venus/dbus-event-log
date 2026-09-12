@@ -184,24 +184,27 @@ def stats() -> None:
 
 
 @cli.command()
-@click.option("--days", "-d", default=30, help="Retention period in days")
-def cleanup(days: int) -> None:
-    """Clean up old events based on retention policy."""
+@click.option(
+    "--days",
+    "-d",
+    type=click.IntRange(min=0),
+    default=None,
+    help="Retention days (configured value by default; 0 disables age cleanup)",
+)
+@click.option("--yes", "-y", is_flag=True, help="Confirm deletion without an interactive prompt")
+def cleanup(days: int | None, yes: bool) -> None:
+    """Delete expired SQLite events from the current database and owned archives."""
     storage = get_storage()
     if not isinstance(storage, SQLiteStorage):
         console.print("Cleanup only available for SQLite storage backend")
         return
-
-    cutoff_dt = datetime.now(UTC) - __import__("datetime").timedelta(days=days)
-    cutoff_str = cutoff_dt.isoformat()
-
-    # Count events to be deleted
-    count = storage.count(end_time=cutoff_str)
-    console.print(f"Would delete {count} events older than {days} days")
-
-    if click.confirm("Proceed with deletion?"):
-        # Note: Actual deletion would need to be implemented
-        console.print("Cleanup not fully implemented yet - placeholder")
+    retention = storage.config.retention_days if days is None else days
+    if retention == 0:
+        console.print("Age retention is disabled")
+        return
+    if yes or click.confirm(f"Delete events older than {retention} days?"):
+        deleted = storage.cleanup(retention)
+        console.print(f"Deleted {deleted} expired events")
     else:
         console.print("Cancelled")
 
@@ -265,8 +268,8 @@ def rotate() -> None:
     """Rotate database if size exceeds limit."""
     storage = get_storage()
     if isinstance(storage, SQLiteStorage):
-        storage.rotate()
-        console.print("Database rotated")
+        archive = storage.rotate()
+        console.print(f"Database rotated to {archive}" if archive else "Rotation not required")
     else:
         console.print("Rotation not supported for current storage backend")
 

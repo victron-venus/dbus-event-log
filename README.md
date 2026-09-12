@@ -12,14 +12,13 @@ for persistent SQLite data (set `DBUS_EVENT_LOG_STORAGE_SQLITE_PATH`). The defau
 `/var/lib` path and container examples are for a Linux companion host. Venus OS
 rootfs changes do not survive firmware replacement; `/var/log` is volatile.
 
-Retention is not enforced automatically: `cleanup` currently reports a count
-and remains a placeholder, while `rotate` is an explicit CLI operation.
-Rotation archives do not have a bounded count, so `rotation_size_mb` alone does
-not bound total disk usage. Use a companion-host database with enforced
-retention, or implement and validate a maintenance policy before continuous GX
-recording. The current monitor captures property/interface and service-lifecycle
-signals; validate the specific Victron services and signal types needed on the
-target before treating it as a complete BusItem event archive.
+SQLite retention and rotation run at monitor startup and periodically. The
+30-day age ceiling and four-archive limit prevent indefinite history growth
+with the default size limit enabled. Tune the limits below for available flash
+space, and measure write volume on the actual GX before deployment. The current
+monitor captures property/interface and service-lifecycle signals; validate the
+specific Victron services and signal types needed on the target before treating
+it as a complete BusItem event archive.
 
 
 [![CI](https://github.com/victron-venus/dbus-event-log/actions/workflows/ci.yml/badge.svg)](https://github.com/victron-venus/dbus-event-log/actions/workflows/ci.yml)
@@ -103,6 +102,8 @@ storage:
   timescaledb_dsn: "postgresql://user:pass@host/db"
   retention_days: 30
   rotation_size_mb: 100
+  rotation_max_archives: 4
+  maintenance_interval_seconds: 300
   vacuum_on_startup: true
 
 mqtt:
@@ -134,10 +135,10 @@ logging:
 
 Or use environment variables:
 ```bash
-export DBUS_EVENT_LOG_STORAGE__BACKEND=sqlite
-export DBUS_EVENT_LOG_STORAGE__SQLITE_PATH=/data/events.db
-export DBUS_EVENT_LOG_MQTT__HOST=mosquitto
-export DBUS_EVENT_LOG_DBUS__SERVICES='["com.victronenergy.*"]'
+export DBUS_EVENT_LOG_STORAGE_BACKEND=sqlite
+export DBUS_EVENT_LOG_STORAGE_SQLITE_PATH=/data/events.db
+export DBUS_EVENT_LOG_MQTT_HOST=mosquitto
+export DBUS_EVENT_LOG_DBUS_SERVICES='["com.victronenergy.*"]'
 ```
 
 ## Usage
@@ -180,12 +181,58 @@ dbus-event-log stats
 ### Database Maintenance
 
 ```bash
-dbus-event-log rotate      # Rotate if > rotation_size_mb
-dbus-event-log vacuump     # Reclaim space
-dbus-event-log cleanup --days 30  # Preview old events; deletion is not implemented
+dbus-event-log rotate      # Rotate when the configured size threshold is reached
+dbus-event-log vacuump     # Reclaim space in the active database
+dbus-event-log cleanup    # Delete expired rows using configured retention, with confirmation
+dbus-event-log cleanup --days 7 --yes  # Explicit age override for unattended maintenance
 ```
 
-`retention_days` does not currently trigger automatic deletion.
+The SQLite monitor applies maintenance before subscribing to D-Bus, then every
+`maintenance_interval_seconds` (300 seconds by default), even when no events
+arrive. Storage I/O runs on one worker thread so cleanup and `VACUUM` do not block
+the bus event loop. Shutdown waits for pending storage work. Direct library
+users can call `SQLiteStorage.maintain()` for age cleanup; size rotation also
+runs before each subsequent insert or batch.
+
+- `retention_days: 30` deletes records strictly older than 30 days from the active
+  database and its owned archives. Records at the exact cutoff survive. Legacy
+  timestamps without an offset are treated as UTC; malformed timestamps are
+  preserved. `0` disables age deletion.
+- `rotation_size_mb: 100` rotates the active database when its size, including
+  committed WAL pages, reaches 100 MiB. A single committed event or batch may
+  exceed this threshold; it is never split or truncated. `0` disables size
+  rotation, which removes the disk growth bound on the active database.
+- `rotation_max_archives: 4` retains at most four archives plus the active
+  database. Oldest archives are removed first, even if their records are younger
+  than `retention_days`. These are retention ceilings, not a minimum history
+  guarantee. Count must be at least one; negative age/size limits and nonpositive
+  or nonfinite maintenance intervals are rejected.
+
+The default nominal budget is five 100 MiB databases, plus per-file overshoot
+from one event/batch and temporary SQLite journal/compaction space. This is not a
+hard filesystem quota. Choose smaller limits on constrained GX storage and keep
+free space for `VACUUM`. Expired rows are compacted only when deletion occurred;
+`vacuum_on_startup` additionally compacts the active database at startup.
+
+Archives have collision-free names such as
+`events.db.archive.01789300496000000000.db`. Maintenance touches only regular,
+non-symlink files matching that database's exact archive name format in the
+same directory. Legacy `.bak.YYYYMMDD` backups, unrelated databases, directories,
+and symlinks are excluded and require separate operator review. The active
+database is never pruned. Query/export/statistics commands read the active
+database only; copy a retained archive elsewhere and select that copy through
+`DBUS_EVENT_LOG_STORAGE_SQLITE_PATH` to inspect older history.
+
+Library instances and the CLI share a persistent advisory `.lock` file, and all
+SQLite connections close before rotation. Committed WAL data is checkpointed
+before the database is renamed; a busy checkpoint or remaining sidecar causes
+rotation to fail without renaming the active database. The replacement schema is
+prepared before rotation, and a failed replacement rename restores the original
+active database. Do not run raw external
+SQLite writers or hold external readers open during maintenance: they do not
+participate in this advisory lock. Do not remove the lock file while any client
+is running. TimescaleDB retention must be configured on the database server;
+these SQLite settings do not install a TimescaleDB retention policy.
 
 ## Event Structure
 
@@ -258,7 +305,7 @@ Import the dashboard from `docs/grafana-dashboard.json` or use the inverter-moni
 flowchart TB
     subgraph "dbus-event-log"
         DBusMonitor["DBusMonitor<br/>(pydbus async)"]
-        SQLiteStorage["SQLiteStorage<br/>(connection pool)"]
+        SQLiteStorage["SQLiteStorage<br/>(serialized connections)"]
         MQTTPublisher["MQTTPublisher<br/>(paho-mqtt async)"]
     end
 

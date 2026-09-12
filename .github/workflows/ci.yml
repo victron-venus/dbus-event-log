@@ -47,6 +47,31 @@ jobs:
         run: uv sync --extra dev
       - name: Build package
         run: uv build
+      - name: Test the source distribution
+        run: |
+          .venv/bin/python - <<'PY'
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+          import tarfile
+          from tempfile import TemporaryDirectory
+
+          archives = list(Path("dist").glob("*.tar.gz"))
+          if len(archives) != 1:
+              raise RuntimeError("Expected one source distribution")
+          with TemporaryDirectory(prefix="dbus-event-log-sdist-") as directory:
+              with tarfile.open(archives[0]) as archive:
+                  archive.extractall(directory, filter="data")
+              project = next(Path(directory).iterdir())
+              environment = dict(os.environ, PYTHONPATH=str(project / "src"))
+              subprocess.run(
+                  [sys.executable, "-m", "pytest", "-q"],
+                  cwd=project,
+                  env=environment,
+                  check=True,
+              )
+          PY
       - name: Upload artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

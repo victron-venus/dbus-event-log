@@ -1,0 +1,5 @@
+target-version = "py311"
+extend-exclude = ["__pycache__"]
+[lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]

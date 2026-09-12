@@ -57,4 +57,6 @@ jobs:
           name: Release ${{ steps.version.outputs.version }}
           body: |
             Release ${{ steps.version.outputs.version }} of dbus-event-log.
-          files: dist/*
+          files: |
+            dist/*.whl
+            dist/*.tar.gz

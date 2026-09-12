@@ -13,6 +13,16 @@ import tarfile
 import tomllib
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import NotRequired, TypedDict
+
+
+class PackageConfig(TypedDict):
+    """Declared archive inputs and optional distribution build settings."""
+
+    name: str
+    include: NotRequired[list[str]]
+    source: NotRequired[bool]
+    wheel: NotRequired[bool]
 
 
 def validate_version(root: Path, version: str, channel: str) -> None:
@@ -40,7 +50,7 @@ def validate_version(root: Path, version: str, channel: str) -> None:
         raise ValueError(message)
 
 
-def package_inputs(root: Path, config: dict) -> tuple[list[str], list[str]]:
+def package_inputs(root: Path, config: PackageConfig) -> tuple[list[str], list[str]]:
     """Select only declared Git-tracked files and require every native runtime input."""
     tracked = (
         subprocess.check_output(["git", "ls-files", "-z"], cwd=root)
@@ -91,7 +101,11 @@ def write_archive(root: Path, name: str, selected: list[str], archive: Path) -> 
 
 
 def build_distributions(
-    root: Path, config: dict, tracked: list[str], output: Path, assets: list[Path]
+    root: Path,
+    config: PackageConfig,
+    tracked: list[str],
+    output: Path,
+    assets: list[Path],
 ) -> list[Path]:
     """Build wheels/sdists in an isolated tracked snapshot and check their metadata."""
     # Backends may update tracked egg-info files; isolate all build writes.
@@ -129,7 +143,7 @@ def build_distributions(
 
 def build_package(root: Path, version: str, channel: str, output: Path) -> list[Path]:
     """Build reproducible archives and wheels, preserving committed version metadata."""
-    config = json.loads((root / ".release-package.json").read_text())
+    config: PackageConfig = json.loads((root / ".release-package.json").read_text())
     validate_version(root, version, channel)
     output.mkdir(parents=True, exist_ok=True)
     if any(output.iterdir()):

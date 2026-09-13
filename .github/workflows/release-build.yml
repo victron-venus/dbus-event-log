@@ -1,0 +1,46 @@
+name: Build Release Candidate
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      channel:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - name: Install package build tools
+        run: >-
+          python -m pip install --only-binary=:all: build==1.2.2.post1 twine==6.1.0
+      - name: Build complete candidate assets
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+        run: bash scripts/package-release.sh "$RELEASE_VERSION" "$RELEASE_CHANNEL"
+      - name: Enable emulation for ARM64 builds
+        uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a
+      - name: Set up container builder
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e
+      - name: Export container without publishing a registry tag
+        run: bash scripts/package-container.sh
+      - name: Verify all packaged checksums
+        working-directory: release-dist
+        run: sha256sum --check SHA256SUMS
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: release-assets
+          path: release-dist/*
+          if-no-files-found: error
+          retention-days: 30

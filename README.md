@@ -33,6 +33,12 @@ it as a complete BusItem event archive.
 
 Audit log for D-Bus commands and inverter state transitions with chronology, filtering, and export.
 
+<!-- ci-release-process:start -->
+## Release process
+
+See the [release strategy](RELEASING.md) for validation, nightly, beta, RC and stable promotion rules, and the [operator runbook](docs/release-workflow.md) for local commands.
+<!-- ci-release-process:end -->
+
 ## Overview
 
 `dbus-event-log` records selected D-Bus signals and service lifecycle events on Victron Energy systems for incident analysis. It captures `PropertiesChanged`, `InterfacesAdded`, and `InterfacesRemoved` from configured services, plus `NameOwnerChanged` from the bus. It does not intercept method calls or derive state transitions automatically.

@@ -1,22 +1,15 @@
 name: CI
 
 on:
+  workflow_call:
   push:
     branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '**.json'
   pull_request:
     branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '**.json'
 
 permissions:
   contents: read
-  packages: write
+
 
 jobs:
   ci:
@@ -90,13 +83,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-      - name: Login to GHCR
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
@@ -104,7 +90,7 @@ jobs:
           load: true
           push: false
           tags: |
-            ghcr.io/victron-venus/dbus-event-log:latest
+            ghcr.io/victron-venus/dbus-event-log:ci
             ghcr.io/victron-venus/dbus-event-log:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -115,13 +101,3 @@ jobs:
             --entrypoint dbus-run-session \
             ghcr.io/victron-venus/dbus-event-log:${{ github.sha }} \
             -- python /tmp/smoke_monitor.py
-      - name: Publish verified image
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/victron-venus/dbus-event-log:latest
-            ghcr.io/victron-venus/dbus-event-log:${{ github.sha }}
-          cache-from: type=gha

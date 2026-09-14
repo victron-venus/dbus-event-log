@@ -34,6 +34,19 @@ def validate_version(root: Path, version: str, channel: str) -> None:
         message = "Unknown release channel"
         raise ValueError(message)
     policy = json.loads((root / ".release-policy.json").read_text())
+    if "versioning" in policy:
+        subprocess.run(
+            [
+                sys.executable,
+                str(Path(__file__).with_name("release_version_adapter.py")),
+                version.removeprefix("v"),
+                channel,
+                "--root",
+                str(root),
+            ],
+            check=True,
+        )
+        return
     if policy.get("version_file") == "pyproject.toml":
         committed = tomllib.loads((root / "pyproject.toml").read_text())["project"][
             "version"
@@ -78,7 +91,16 @@ def package_inputs(root: Path, config: PackageConfig) -> tuple[list[str], list[s
         if config.get("source", False)
         or any(name == item or name.startswith(item + "/") for item in includes)
     )
-    return tracked, selected
+    # These generated records contain only frozen build identity and input hashes.
+    # Include them explicitly; all other untracked operator files remain excluded.
+    evidence = [
+        name
+        for name in (".release-plan.json", ".release-inputs.json")
+        if (root / name).is_file() and not (root / name).is_symlink()
+    ]
+    return sorted(set(tracked + evidence)), sorted(
+        set(selected + evidence)
+    ) if selected else []
 
 
 def write_archive(root: Path, name: str, selected: list[str], archive: Path) -> None:

@@ -5,7 +5,10 @@ cd "$(dirname "$0")/.."
 [[ -f release-dist/SHA256SUMS ]] || { echo 'Build package assets first.' >&2; exit 1; }
 asset="dbus-event-log-container.oci.tar"
 [[ ! -e "release-dist/$asset" ]] || { echo 'Container output already exists.' >&2; exit 1; }
-docker buildx build --platform linux/amd64,linux/arm64 --output "type=oci,dest=release-dist/$asset" .
+version_labels=$(python3 scripts/release_container_labels.py --shell)
+read -r package_version source_revision <<< "$version_labels"
+docker buildx build --label "org.opencontainers.image.version=$package_version" \
+  --label "org.opencontainers.image.revision=$source_revision" --platform linux/amd64,linux/arm64 --output "type=oci,dest=release-dist/$asset" .
 python3 - "$asset" <<'CHECKSUM'
 import hashlib
 import sys

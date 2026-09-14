@@ -11,7 +11,7 @@
   ],
   "notes": [
     "Hardware-free checks do not validate a live Venus OS device, D-Bus firmware ABI, physical sensors or in-place device upgrades.",
-    "Candidate packaging preserves committed runtime version metadata. Nightly/beta/RC identity is recorded by the release manifest.",
+    "Candidate overlays identify beta/nightly packages; RC packages retain the base version so stable promotes the exact verified bytes.",
     "OCI container assets are verified and promoted with the GitHub release. Registry and PyPI deployment must use a separately reviewed promotion adapter; CI does not update latest."
   ],
   "version_file": "pyproject.toml",
@@ -20,5 +20,59 @@
   },
   "mode": "release",
   "repository": "victron-venus/dbus-event-log",
-  "visibility": "public"
+  "visibility": "public",
+  "versioning": {
+    "schema": 1,
+    "promotion": "promote-bytes",
+    "files": [
+      {
+        "path": "pyproject.toml",
+        "format": "toml",
+        "value": "package",
+        "field": "project.version",
+        "ecosystem": "pep440"
+      },
+      {
+        "path": "uv.lock",
+        "format": "uv-lock",
+        "value": "package",
+        "package": "dbus-event-log",
+        "ecosystem": "pep440"
+      },
+      {
+        "path": "src/dbus_event_log/__init__.py",
+        "format": "python",
+        "value": "package",
+        "field": "__version__",
+        "ecosystem": "pep440"
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "dbus_event_log-*.whl",
+        "format": "wheel",
+        "value": "package",
+        "package": "dbus-event-log",
+        "ecosystem": "pep440"
+      },
+      {
+        "path": "dbus_event_log-*.tar.gz",
+        "format": "sdist",
+        "value": "package",
+        "package": "dbus-event-log",
+        "ecosystem": "pep440"
+      },
+      {
+        "path": "dbus-event-log-container.oci.tar",
+        "format": "oci",
+        "field": [
+          "config",
+          "Labels",
+          "org.opencontainers.image.version"
+        ],
+        "value": "package"
+      }
+    ],
+    "toolkit_revision": "5671b9a05817576a8ae6bd69cacfb3202c60ad0a"
+  }
 }

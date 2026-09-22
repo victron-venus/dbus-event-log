@@ -2,10 +2,6 @@ name: CI
 
 on:
   workflow_call:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
 
 permissions:
   contents: read
@@ -71,6 +67,7 @@ jobs:
           name: dist
           path: dist/
 
+    timeout-minutes: 30
   docker:
     name: Docker
     runs-on: ubuntu-latest
@@ -101,3 +98,4 @@ jobs:
             --entrypoint dbus-run-session \
             ghcr.io/victron-venus/dbus-event-log:${{ github.sha }} \
             -- python /tmp/smoke_monitor.py
+    timeout-minutes: 30

@@ -2,7 +2,8 @@
   "validation_workflows": [
     "ci.yml",
     "release-security.yml",
-    "codeql.yml"
+    "codeql.yml",
+    "dependency-review.yml"
   ],
   "artifact_pattern": "release-assets*",
   "local_checks": [
@@ -74,5 +75,6 @@
       }
     ],
     "toolkit_revision": "ba7c4ece1188974df04799158e35603e968a4bac"
-  }
+  },
+  "single_entry_ci": true
 }

@@ -1,9 +1,6 @@
 name: Release Security
 on:
   workflow_call:
-  pull_request:
-  push:
-    branches: [main]
 permissions:
   contents: read
 jobs:

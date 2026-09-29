@@ -495,6 +495,28 @@ class LifecycleTests(unittest.TestCase):
         self.gh.source_policies[SHA] = copy.deepcopy(self.policy)
         (self.root / ".release-policy.json").write_bytes(rc.json_bytes(self.policy))
 
+    def test_prepare_uses_refreshed_run_after_transient_status(self):
+        """The frozen-plan prepare boundary waits without bypassing execution guards."""
+        original_api = self.gh.api
+        statuses = iter(("queued", "pending", "in_progress"))
+
+        def delayed(path, method="GET", body=None):
+            value = original_api(path, method, body)
+            if path == "actions/runs/99":
+                value["status"] = next(statuses)
+            return value
+
+        with (
+            patch.object(self.gh, "api", side_effect=delayed),
+            patch.object(rc.time, "sleep") as sleep,
+            patch.object(rc.time, "monotonic", return_value=0),
+        ):
+            result = lifecycle.prepare(self.args)
+        self.assertEqual(sleep.call_count, 2)
+        self.assertEqual(result["channel"], "beta")
+        self.assertEqual(len(self.gh.ledger_writes), 1)
+        self.assertEqual(self.gh.writes, [])
+
     def test_prepare_build_receipt_publish_keeps_exact_identity(self):
         result = lifecycle.prepare(self.args)
         self.assertEqual(result["build"], "true")

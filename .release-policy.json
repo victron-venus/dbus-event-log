@@ -74,8 +74,7 @@
         "value": "package"
       }
     ],
-    "toolkit_revision": "b1379701745de1aefebddb60e674a68a81289da9"
+    "toolkit_revision": "73daa871b253a389c03c371713767ac41871d40e"
   },
-  "single_entry_ci": true,
-  "publication_token_secret": "BOT_PAT"
+  "single_entry_ci": true
 }

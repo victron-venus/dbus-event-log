@@ -53,6 +53,8 @@ API_PATHS = {
         r"contents/\.release-policy\.json\?ref=[0-9a-f]{40}",
         r"contents/release-version-state\.json\?ref=release-version-state",
         r"git/ref/heads/release-version-state",
+        r"git/ref/heads/(?:[A-Za-z0-9_.~-]|%[0-9A-F]{2})+",
+        r"actions/workflows/release-pipeline\.yml/runs\?branch=(?:[A-Za-z0-9_.~-]|%[0-9A-F]{2})+&event=push&head_sha=[0-9a-f]{40}&per_page=100",
         r"compare/[0-9a-f]{40}\.\.\.(?:[A-Za-z0-9_.~-]|%[0-9A-F]{2})+",
     ),
     "POST": (r"(?:git/refs|releases)",),
@@ -450,6 +452,86 @@ def checked_out_sha() -> str:
     return result.stdout.strip()
 
 
+# Verify each independently supplied identity before recording supersession.
+# pylint: disable-next=too-many-locals
+def superseded_candidate(gh: GitHub, info: dict, run: dict, channel: str):
+    """Skip only automatic candidates with a proven newer default-branch run.
+
+    This is not a publication claim about the successor: its checks may still
+    fail. API errors and an unproven replacement remain failures. Call again
+    immediately before publication writes; GitHub provides no atomic head/tag CAS.
+    """
+    if (run["event"], channel) not in {("push", "beta"), ("schedule", "nightly")}:
+        return None
+    branch = info["default_branch"]
+    require(
+        repository_info(gh)["default_branch"] == branch,
+        "Default branch changed during this run; dispatch a fresh release",
+    )
+    path = f"git/ref/heads/{quote(branch, safe='')}"
+    ref = gh.api(path)
+    require(
+        isinstance(ref, dict)
+        and ref.get("ref") == f"refs/heads/{branch}"
+        and isinstance(ref.get("object"), dict)
+        and ref["object"].get("type") == "commit"
+        and isinstance(ref["object"].get("sha"), str)
+        and SHA_RE.fullmatch(ref["object"]["sha"]),
+        "Cannot verify current default branch for automatic publication",
+    )
+    head = ref["object"]["sha"]
+    if head == run["head_sha"]:
+        return None
+    comparison = gh.api(f"compare/{run['head_sha']}...{head}")
+    require(
+        isinstance(comparison, dict)
+        and comparison.get("status") == "ahead"
+        and comparison.get("merge_base_commit", {}).get("sha") == run["head_sha"],
+        "Automatic release source is not a verified ancestor of current default HEAD",
+    )
+    replacement = gh.api(
+        "actions/workflows/release-pipeline.yml/runs"
+        f"?branch={quote(branch, safe='')}&event=push&head_sha={head}&per_page=100"
+    )
+    # A boolean is not an authoritative API count.
+    # pylint: disable-next=unidiomatic-typecheck
+    require(
+        isinstance(replacement, dict)
+        and type(replacement.get("total_count")) is int
+        and replacement["total_count"] == 1
+        and isinstance(replacement.get("workflow_runs"), list)
+        and len(replacement["workflow_runs"]) == 1,
+        "Default branch advanced without one proven replacement release run; "
+        "inspect its release workflow and dispatch a fresh run at current HEAD",
+    )
+    successor = replacement["workflow_runs"][0]
+    require(isinstance(successor, dict), "Invalid replacement release run")
+    validate_run_provenance(
+        gh, successor, info, head, positive(successor.get("run_attempt"), "run attempt")
+    )
+    require(
+        successor.get("event") == "push"
+        and positive(successor.get("id"), "successor run ID")
+        > positive(run.get("id"), "source run ID")
+        and positive(successor.get("run_number"), "successor run number")
+        > positive(run.get("run_number"), "source run number")
+        and successor.get("status")
+        in {"queued", "requested", "pending", "waiting", "in_progress", "completed"},
+        "Replacement must be a newer automatic run of the default-branch release workflow",
+    )
+    require(
+        gh.api(path) == ref,
+        "Default branch changed while verifying replacement; retry at current HEAD",
+    )
+    return {
+        "status": "superseded",
+        "source_sha": run["head_sha"],
+        "superseded_by": head,
+        "successor_run_id": str(successor["id"]),
+        "successor_run_url": f"https://github.com/{gh.repo}/actions/runs/{successor['id']}",
+    }
+
+
 def check_execution(
     gh: GitHub, run_id: int, channel: str, info: dict, run: dict
 ) -> None:
@@ -778,6 +860,17 @@ def publish(
 def emit_result(result: dict) -> None:
     """Print the result and write validated single-line Actions outputs."""
     print(json.dumps(result, sort_keys=True))
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary and result.get("status") == "superseded":
+        with open(summary, "a", encoding="utf-8") as handle:
+            handle.write(
+                "### Automatic release superseded\n\n"
+                f"Source `{result['source_sha']}` was replaced by default HEAD "
+                f"`{result['superseded_by']}`. "
+                f"[Replacement run]({result['successor_run_url']}) must pass its own checks; "
+                "this does not confirm publication. No tag, release or promotion evidence "
+                "was created, and the publication floor was not advanced.\n"
+            )
     output = os.environ.get("GITHUB_OUTPUT")
     if output:
         with open(output, "a", encoding="utf-8") as handle:
@@ -804,7 +897,7 @@ def candidate(args) -> dict:
         positive(args.run_attempt, "run attempt"),
     )
     info = repository_info(gh)
-    wait_for_executing_run(gh, run_id, args.channel, info, args.sha, attempt)
+    run = wait_for_executing_run(gh, run_id, args.channel, info, args.sha, attempt)
     policy_snapshot = source_policy_snapshot(gh, args.sha)
     require_release_policy(
         policy_snapshot["data"], gh.repo, qualified=args.channel == "rc"
@@ -814,6 +907,9 @@ def candidate(args) -> dict:
         "Versioned policies require the frozen-plan publisher, not post-build allocation",
     )
     check_ancestry(gh, args.sha, info["default_branch"])
+    superseded = superseded_candidate(gh, info, run, args.channel)
+    if superseded:
+        return superseded
     if args.channel in ("beta", "rc"):
         # Once a base version is final, further candidates would mislabel new
         # code as an already released version. Nightlies retain run identities.
@@ -841,6 +937,9 @@ def candidate(args) -> dict:
         }
         content = json_bytes(manifest)
         (stage / MANIFEST).write_bytes(content)
+        superseded = superseded_candidate(gh, info, run, args.channel)
+        if superseded:
+            return superseded
         EVIDENCE.parent.mkdir(parents=True, exist_ok=True)
         EVIDENCE.write_bytes(content)
         release = publish(
@@ -854,6 +953,7 @@ def candidate(args) -> dict:
             f"See `{MANIFEST}` for checksums and immutable Actions evidence provenance.",
         )
     return {
+        "status": "published",
         "tag": tag,
         "release_url": release["html_url"],
         "manifest_path": str(EVIDENCE),

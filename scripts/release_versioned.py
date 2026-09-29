@@ -36,11 +36,8 @@ def context(gh, channel, gate=False):
     run_id = rc.positive(os.environ.get("GITHUB_RUN_ID"), "run ID")
     attempt = rc.positive(os.environ.get("GITHUB_RUN_ATTEMPT"), "run attempt")
     info = rc.repository_info(gh)
-    run = gh.api(f"actions/runs/{run_id}")
-    rc.require(run.get("id") == run_id, "Execution run identity mismatch")
-    rc.check_execution(gh, run_id, channel, info, run)
-    rc.validate_run(
-        gh, run, info, run.get("head_sha", ""), attempt, completed=False, gate=gate
+    run = rc.wait_for_executing_run(
+        gh, run_id, channel, info, rc.checked_out_sha(), attempt, gate=gate
     )
     snapshot = rc.source_policy_snapshot(gh, run["head_sha"])
     rc.require_release_policy(

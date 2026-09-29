@@ -37,7 +37,31 @@ concurrency:
   group: release-${{ github.repository }}
   cancel-in-progress: false
 jobs:
+  scope:
+    name: Change scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.scope.outputs.run }}
+      reason: ${{ steps.scope.outputs.reason }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: scope
+        name: Classify documentation and build inputs
+        env:
+          DOCUMENTATION_PATHS: '[]'
+          REQUIRED_PATHS: '[]'
+          FORCE_FULL: 'true'
+        run: |
+          args=()
+          if [[ "$FORCE_FULL" == true ]]; then args+=(--force); fi
+          python3 scripts/change_scope.py "${args[@]}" --documentation-paths-json "$DOCUMENTATION_PATHS" --required-paths-json "$REQUIRED_PATHS"
   prepare:
+    needs: scope
+    if: ${{ needs.scope.outputs.run == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
@@ -71,6 +95,8 @@ jobs:
     needs: prepare
     if: ${{ needs.prepare.outputs.build == 'true' }}
     uses: ./.github/workflows/quality-gate.yml
+    with:
+      force-full: true
     permissions:
       contents: read
       actions: read
@@ -136,7 +162,8 @@ jobs:
       - run: python3 scripts/release.py collect .release-download .release-assets
       - name: Publish checked candidate
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.BOT_PAT }}
+          RELEASE_REQUIRE_WORKFLOW_SCOPE: 'true'
           CHANNEL: ${{ needs.prepare.outputs.channel }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: python3 scripts/release_versioned.py publish --repo "$GITHUB_REPOSITORY" --assets .release-assets
@@ -161,7 +188,8 @@ jobs:
       - *id001
       - name: Promote RC bytes after approval
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.BOT_PAT }}
+          RELEASE_REQUIRE_WORKFLOW_SCOPE: 'true'
           RC_TAG: ${{ inputs.rc_tag }}
         run: python3 scripts/release_control.py promote --repo "$GITHUB_REPOSITORY" --rc "$RC_TAG" --run-id "$GITHUB_RUN_ID"
   final:
@@ -191,7 +219,8 @@ jobs:
       - run: python3 scripts/release.py collect .release-download .release-assets
       - name: Publish the separately validated final packages after approval
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.BOT_PAT }}
+          RELEASE_REQUIRE_WORKFLOW_SCOPE: 'true'
           CHANNEL: ${{ needs.prepare.outputs.channel }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: python3 scripts/release_versioned.py publish --repo "$GITHUB_REPOSITORY" --assets .release-assets

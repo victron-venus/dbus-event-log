@@ -161,13 +161,14 @@ jobs:
           merge-multiple: false
       - run: python3 scripts/release.py collect .release-download .release-assets
       - name: Publish checked candidate
+        id: publication
         env:
-          GH_TOKEN: ${{ secrets.BOT_PAT }}
-          RELEASE_REQUIRE_WORKFLOW_SCOPE: 'true'
+          GH_TOKEN: ${{ github.token }}
           CHANNEL: ${{ needs.prepare.outputs.channel }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: python3 scripts/release_versioned.py publish --repo "$GITHUB_REPOSITORY" --assets .release-assets
       - name: Store immutable promotion evidence
+        if: ${{ steps.publication.outputs.status != 'superseded' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: release-evidence
@@ -188,8 +189,7 @@ jobs:
       - *id001
       - name: Promote RC bytes after approval
         env:
-          GH_TOKEN: ${{ secrets.BOT_PAT }}
-          RELEASE_REQUIRE_WORKFLOW_SCOPE: 'true'
+          GH_TOKEN: ${{ github.token }}
           RC_TAG: ${{ inputs.rc_tag }}
         run: python3 scripts/release_control.py promote --repo "$GITHUB_REPOSITORY" --rc "$RC_TAG" --run-id "$GITHUB_RUN_ID"
   final:
@@ -218,13 +218,14 @@ jobs:
           merge-multiple: false
       - run: python3 scripts/release.py collect .release-download .release-assets
       - name: Publish the separately validated final packages after approval
+        id: publication
         env:
-          GH_TOKEN: ${{ secrets.BOT_PAT }}
-          RELEASE_REQUIRE_WORKFLOW_SCOPE: 'true'
+          GH_TOKEN: ${{ github.token }}
           CHANNEL: ${{ needs.prepare.outputs.channel }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: python3 scripts/release_versioned.py publish --repo "$GITHUB_REPOSITORY" --assets .release-assets
       - name: Store immutable promotion evidence
+        if: ${{ steps.publication.outputs.status != 'superseded' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: release-evidence

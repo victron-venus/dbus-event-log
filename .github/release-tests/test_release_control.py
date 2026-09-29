@@ -98,6 +98,7 @@ def run(run_id=17, completed=True):
     """Return a trusted default-branch Actions run with configurable completion."""
     return {
         "id": run_id,
+        "run_number": run_id,
         "repository": {"full_name": REPO},
         "head_repository": {"full_name": REPO},
         "head_sha": SHA,
@@ -120,6 +121,8 @@ class FakeGitHub:
     def __init__(self):
         self.info = {"full_name": REPO, "default_branch": "main"}
         self.runs = {17: run(), 99: run(99, False)}
+        self.default_head = SHA
+        self.successors = []
         self.source_policies = {SHA: policy()}
         self.policy_reads = []
         self.jobs = [
@@ -199,6 +202,16 @@ class FakeGitHub:
             self.writes.append((path, method, deepcopy(body)))
         if path == "":
             return deepcopy(self.info)
+        if path == "git/ref/heads/main":
+            return {
+                "ref": "refs/heads/main",
+                "object": {"type": "commit", "sha": self.default_head},
+            }
+        if path.startswith("actions/workflows/release-pipeline.yml/runs?"):
+            return {
+                "total_count": len(self.successors),
+                "workflow_runs": deepcopy(self.successors),
+            }
         if path.startswith(f"contents/{rc.POLICY}?ref="):
             sha = path.split("?ref=", 1)[1]
             self.policy_reads.append(sha)
@@ -210,7 +223,10 @@ class FakeGitHub:
         if path == "environments/release":
             return deepcopy(self.environment)
         if path.startswith("compare/"):
-            return {"status": "identical", "merge_base_commit": {"sha": SHA}}
+            return {
+                "status": "identical" if self.default_head == SHA else "ahead",
+                "merge_base_commit": {"sha": SHA},
+            }
         if path.startswith("git/ref/tags/"):
             tag = path.removeprefix("git/ref/tags/")
             if tag not in self.refs:
@@ -578,6 +594,7 @@ class ReleaseControlTests(unittest.TestCase):
                     rc, "EVIDENCE", self.directory / "evidence" / rc.MANIFEST
                 ):
                     result = rc.candidate(args)
+                self.assertEqual(result["status"], "published")
                 released = next(
                     value
                     for value in self.gh.releases.values()
@@ -587,6 +604,55 @@ class ReleaseControlTests(unittest.TestCase):
                 self.assertFalse(released["draft"])
                 self.assertEqual(released["make_latest"], "false")
                 self.assertTrue(result["tag"].startswith(f"v2.0.0-{channel}."))
+
+    def test_legacy_automatic_candidate_never_writes_evidence_when_superseded(self):
+        """Both publication entry points apply the same early and final guard."""
+        assets = self.directory / "automatic"
+        assets.mkdir()
+        (assets / "candidate.zip").write_bytes(b"candidate-build")
+        evidence = self.directory / "evidence" / rc.MANIFEST
+        args = argparse.Namespace(
+            repo=REPO,
+            channel="beta",
+            version="2.0.0",
+            sha=SHA,
+            run_id="99",
+            run_attempt="1",
+            sequence=None,
+            assets=str(assets),
+        )
+        self.gh.runs[99]["event"] = "push"
+        os.environ["GITHUB_EVENT_NAME"] = "push"
+        original = rc.stage_assets
+
+        def advance():
+            self.gh.default_head = "b" * 40
+            self.gh.successors = [
+                {
+                    **run(100, False),
+                    "head_sha": "b" * 40,
+                    "event": "push",
+                }
+            ]
+
+        for late in (True, False):
+            self.gh.default_head = SHA
+
+            def staged(*values):
+                result = original(*values)
+                advance()
+                return result
+
+            if not late:
+                advance()
+            with (
+                patch.object(rc, "stage_assets", side_effect=staged),
+                patch.object(rc, "EVIDENCE", evidence),
+            ):
+                result = rc.candidate(args)
+            self.assertEqual(result["status"], "superseded")
+            self.assertEqual(self.gh.writes, [])
+            self.assertFalse(evidence.exists())
 
     def test_candidate_base_cannot_already_be_stable(self):
         """Candidate base cannot already be stable."""
@@ -1444,6 +1510,178 @@ class ExecutingRunStatusTests(unittest.TestCase):
                     )
             api.assert_not_called()
         self.sleep.assert_not_called()
+
+
+class SupersededCandidateTests(unittest.TestCase):
+    """Use real API response fields to prove replacement without claiming release."""
+
+    def setUp(self):
+        self.gh = FakeGitHub()
+        self.source = {**run(99, False), "event": "push"}
+        self.head = "b" * 40
+        self.successor = {
+            **run(100, False),
+            "event": "push",
+            "head_sha": self.head,
+        }
+        self.gh.default_head = self.head
+        self.gh.successors = [self.successor]
+
+    def check(self, channel="beta"):
+        return rc.superseded_candidate(self.gh, self.gh.info, self.source, channel)
+
+    def test_current_head_always_uses_normal_publication(self):
+        self.gh.default_head = SHA
+        self.gh.successors = []
+        self.assertIsNone(self.check())
+        self.assertEqual(self.gh.writes, [])
+
+    def test_push_and_schedule_only_record_proven_supersession(self):
+        for event, channel in (("push", "beta"), ("schedule", "nightly")):
+            self.source["event"] = event
+            result = self.check(channel)
+            self.assertEqual(result["status"], "superseded")
+            self.assertEqual(result["source_sha"], SHA)
+            self.assertEqual(result["superseded_by"], self.head)
+            self.assertEqual(result["successor_run_id"], "100")
+            self.assertNotIn("manifest_path", result)
+            self.assertEqual(self.gh.writes, [])
+
+    def test_manual_dispatch_is_unchanged_even_at_older_source(self):
+        self.source["event"] = "workflow_dispatch"
+        with patch.object(self.gh, "api") as api:
+            for channel in ("beta", "nightly", "rc", "stable"):
+                self.assertIsNone(self.check(channel))
+            api.assert_not_called()
+
+    def test_successor_completion_is_not_a_publication_claim(self):
+        for status, conclusion in (("queued", None), ("completed", "failure")):
+            self.successor.update(status=status, conclusion=conclusion)
+            self.assertEqual(self.check()["status"], "superseded")
+
+    def test_missing_or_ambiguous_replacement_fails_closed(self):
+        for successors in ([], [self.successor, self.successor]):
+            self.gh.successors = successors
+            with self.assertRaisesRegex(rc.ReleaseError, "one proven replacement"):
+                self.check()
+        self.assertEqual(self.gh.writes, [])
+
+    def test_forged_old_or_manual_replacement_fails_closed(self):
+        for change in (
+            {"repository": {"full_name": "other/repo"}},
+            {"head_repository": {"full_name": "other/repo"}},
+            {"head_branch": "other"},
+            {"head_sha": SHA},
+            {"path": ".github/workflows/other.yml"},
+            {"event": "workflow_dispatch"},
+            {"id": 99},
+            {"run_number": 99},
+            {"run_attempt": 0},
+            {"status": "unknown"},
+        ):
+            with self.subTest(change=change):
+                self.gh.successors = [{**self.successor, **change}]
+                with self.assertRaises(rc.ReleaseError):
+                    self.check()
+        self.assertEqual(self.gh.writes, [])
+
+    def test_malformed_or_changed_ref_and_divergence_fail_closed(self):
+        original = self.gh.api
+        for bad_ref in (
+            {},
+            {"ref": "refs/heads/other"},
+            {"ref": "refs/heads/main", "object": {"type": "tag", "sha": self.head}},
+            {"ref": "refs/heads/main", "object": {"type": "commit", "sha": "short"}},
+        ):
+
+            def malformed(path, method="GET", body=None):
+                return (
+                    bad_ref
+                    if path == "git/ref/heads/main"
+                    else original(path, method, body)
+                )
+
+            with patch.object(self.gh, "api", side_effect=malformed):
+                with self.assertRaisesRegex(
+                    rc.ReleaseError, "verify current default branch"
+                ):
+                    self.check()
+        for status in ("diverged", "behind", "identical"):
+
+            def divergent(path, method="GET", body=None):
+                if path.startswith("compare/"):
+                    return {"status": status, "merge_base_commit": {"sha": SHA}}
+                return original(path, method, body)
+
+            with patch.object(self.gh, "api", side_effect=divergent):
+                with self.assertRaises(rc.ReleaseError):
+                    self.check()
+        reads = 0
+
+        def changing(path, method="GET", body=None):
+            nonlocal reads
+            result = original(path, method, body)
+            if path == "git/ref/heads/main":
+                reads += 1
+                if reads > 1:
+                    result["object"]["sha"] = "c" * 40
+            return result
+
+        with patch.object(self.gh, "api", side_effect=changing):
+            with self.assertRaisesRegex(rc.ReleaseError, "changed while verifying"):
+                self.check()
+
+    def test_default_branch_rename_does_not_skip_against_an_old_branch(self):
+        original = self.gh.api
+
+        def renamed(path, method="GET", body=None):
+            value = original(path, method, body)
+            if path == "":
+                value["default_branch"] = "renamed"
+            return value
+
+        with patch.object(self.gh, "api", side_effect=renamed):
+            with self.assertRaisesRegex(rc.ReleaseError, "Default branch changed"):
+                self.check()
+
+    def test_unknown_api_response_and_errors_do_not_become_success(self):
+        original = self.gh.api
+        for response in (
+            {},
+            {"total_count": True, "workflow_runs": [self.successor]},
+            {"total_count": 101, "workflow_runs": [self.successor]},
+        ):
+
+            def invalid(path, method="GET", body=None):
+                if path.startswith("actions/workflows/"):
+                    return response
+                return original(path, method, body)
+
+            with patch.object(self.gh, "api", side_effect=invalid):
+                with self.assertRaises(rc.ReleaseError):
+                    self.check()
+        with patch.object(self.gh, "api", side_effect=rc.GitHubError("HTTP 403")):
+            with self.assertRaises(rc.GitHubError):
+                self.check()
+
+    def test_narrow_transport_accepts_only_the_fixed_successor_query(self):
+        client = rc.GitHub(REPO)
+        path = (
+            "actions/workflows/release-pipeline.yml/runs"
+            f"?branch=main&event=push&head_sha={self.head}&per_page=100"
+        )
+        result = subprocess.CompletedProcess(
+            [], 0, b'{"total_count":0,"workflow_runs":[]}', b""
+        )
+        with patch.object(rc.subprocess, "run", return_value=result) as command:
+            client.api(path)
+            self.assertEqual(command.call_args.args[0][-1], f"repos/{REPO}/{path}")
+        for invalid in (
+            path.replace("event=push", "event=pull_request"),
+            path.replace("release-pipeline.yml", "other.yml"),
+        ):
+            with self.assertRaises(rc.ReleaseError):
+                client.api(invalid)
 
 
 if __name__ == "__main__":

@@ -81,6 +81,15 @@ never update stable/latest. All required platforms must build before publication
 `release-manifest.json` records source SHA, workflow/run attempt and every payload
 SHA-256. The manifest is also saved in immutable Actions evidence for 90 days.
 
+Automatic push betas and scheduled nightlies publish the current default HEAD.
+An older source is explicitly marked `superseded` only after ancestry and one
+newer automatic replacement run at current HEAD are verified. This does not claim
+that the replacement passed or published. No tag, release or promotion evidence
+is created for that skipped publication, and its reserved number is not reused.
+Missing replacement evidence or API failures remain errors. Manual releases keep
+their existing checks. A race after the final check can still fail publication;
+inspect the error and dispatch a fresh run at current HEAD, never reset the ledger.
+
 ## Stable promotion
 
 After testing the RC on the intended target/environment:

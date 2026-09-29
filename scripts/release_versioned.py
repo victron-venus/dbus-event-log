@@ -275,6 +275,9 @@ def publish_versioned(args):
     rc.ensure_absent(gh, plan["tag"])
     if channel in {"beta", "rc"}:
         rc.ensure_absent(gh, f"v{plan['base_version']}")
+    superseded = rc.superseded_candidate(gh, info, run, channel)
+    if superseded:
+        return superseded
     with tempfile.TemporaryDirectory(prefix="release-versioned-") as temp:
         stage = Path(temp)
         assets = rc.stage_assets(Path(args.assets), stage)
@@ -306,8 +309,6 @@ def publish_versioned(args):
             manifest["derived_from_rc"] = parent
         content = rc.json_bytes(manifest)
         (stage / rc.MANIFEST).write_bytes(content)
-        rc.EVIDENCE.parent.mkdir(parents=True, exist_ok=True)
-        rc.EVIDENCE.write_bytes(content)
         # Recheck immediately before the first public release mutation.
         verify_reservation(gh, plan, run["id"], parent)
         if channel == "stable":
@@ -317,6 +318,11 @@ def publish_versioned(args):
             if parent
             else f"{channel} candidate with a version fixed before compilation."
         )
+        superseded = rc.superseded_candidate(gh, info, run, channel)
+        if superseded:
+            return superseded
+        rc.EVIDENCE.parent.mkdir(parents=True, exist_ok=True)
+        rc.EVIDENCE.write_bytes(content)
         begin_publication(gh, plan, run["id"], parent)
         result = rc.publish(
             gh,
@@ -329,6 +335,7 @@ def publish_versioned(args):
             f"See `{rc.MANIFEST}` for package hashes and version input evidence.",
         )
     return {
+        "status": "published",
         "tag": plan["tag"],
         "release_url": result["html_url"],
         "manifest_path": str(rc.EVIDENCE),

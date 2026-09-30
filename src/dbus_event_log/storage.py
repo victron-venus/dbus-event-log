@@ -1,5 +1,6 @@
 """Storage layer for dbus-event-log."""
 
+import asyncio
 import fcntl
 import json
 import re
@@ -414,17 +415,25 @@ class TimescaleDBStorage:
         if not self.dsn:
             raise ValueError("TimescaleDB DSN not configured")
         self._pool: Any = None
+        self._pool_lock = asyncio.Lock()
 
     async def _get_pool(self) -> Any:
-        """Get or create connection pool."""
+        """Share one initialized pool across concurrent first events."""
         if self._pool is None:
-            self._pool = await asyncpg.create_pool(self.dsn)
-            await self._init_schema()
+            async with self._pool_lock:
+                if self._pool is None:
+                    pool = await asyncpg.create_pool(self.dsn)
+                    try:
+                        await self._init_schema(pool)
+                    except (Exception, asyncio.CancelledError):  # pylint: disable=broad-exception-caught
+                        # Never expose a pool whose schema setup failed or was cancelled.
+                        await pool.close()
+                        raise
+                    self._pool = pool
         return self._pool
 
-    async def _init_schema(self) -> None:
+    async def _init_schema(self, pool: Any) -> None:
         """Initialize TimescaleDB schema."""
-        pool = await self._get_pool()
         async with pool.acquire() as conn:
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS events (
@@ -551,9 +560,10 @@ class TimescaleDBStorage:
 
     async def close(self) -> None:
         """Close connection pool."""
-        if self._pool:
-            await self._pool.close()
-            self._pool = None
+        async with self._pool_lock:
+            if self._pool:
+                pool, self._pool = self._pool, None
+                await pool.close()
 
 
 def get_storage() -> SQLiteStorage | TimescaleDBStorage:

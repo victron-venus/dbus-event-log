@@ -7,6 +7,8 @@
 
 # Fixture byte layouts and descriptive test names are intentional; cleanup uses unittest.
 # pylint: disable=missing-function-docstring,missing-class-docstring,line-too-long,consider-using-with
+# Keep candidate byte verification beside the final-build lifecycle regressions.
+# pylint: disable=too-many-lines
 # Imports follow the vendored script path setup.
 # pylint: disable=wrong-import-position
 
@@ -22,6 +24,7 @@ import tempfile
 import unittest
 import zipfile
 from datetime import datetime, timezone
+from functools import partial
 from pathlib import Path
 from unittest.mock import patch
 
@@ -58,9 +61,7 @@ def policy(profile="final-build"):
     }
 
 
-class LedgerGitHub(
-    legacy_tests.FakeGitHub
-):  # pylint: disable=too-many-instance-attributes
+class LedgerGitHub(legacy_tests.FakeGitHub):  # pylint: disable=too-many-instance-attributes
     """Model GitHub's atomic file update, independently from release mutations."""
 
     def __init__(self):
@@ -147,6 +148,227 @@ class LedgerGitHub(
             if archive_id in self.evidence_archives:
                 return self.evidence_archives[archive_id]
         return super().binary(path)
+
+
+class DownloadingGitHub(legacy_tests.FakeGitHub):
+    """Model downloads updating telemetry before the final candidate snapshot."""
+
+    def __init__(self, mutation=None):
+        super().__init__()
+        self.mutation = mutation
+        self.downloads = []
+        for asset in self.assets[10]:
+            asset.update(
+                download_count=0,
+                digest="sha256:" + rc.digest(self.files[asset["id"]]),
+                url=f"https://api.github.com/repos/{REPO}/releases/assets/{asset['id']}",
+                browser_download_url=(
+                    f"https://github.com/{REPO}/releases/download/"
+                    f"{legacy_tests.RC_TAG}/{asset['name']}"
+                ),
+                updated_at="2026-09-12T01:00:00Z",
+                extra_metadata={"download_count": 0},
+            )
+
+    def binary(self, path):
+        data = super().binary(path)
+        if path.startswith("releases/assets/"):
+            asset = next(
+                item
+                for item in self.assets[10]
+                if item["id"] == int(path.split("/")[-1])
+            )
+            asset["download_count"] += 1
+            self.downloads.append(asset["name"])
+        return data
+
+    def api(self, path, method="GET", body=None):
+        if (
+            path.startswith("git/ref/tags/")
+            and self.snapshot_reads == 1
+            and self.mutation
+        ):
+            self.mutation(self)
+            self.mutation = None
+        return super().api(path, method, body)
+
+
+class CandidateDownloadTests(unittest.TestCase):
+    """Exercise the real RC gate while the asset GETs change remote metadata."""
+
+    def verify(self, gh):
+        return lifecycle.verified_rc(gh, legacy_tests.RC_TAG, gh.info, gh.runs[99])
+
+    def test_own_downloads_do_not_invalidate_unchanged_candidate(self):
+        gh = DownloadingGitHub()
+        manifest, parent = self.verify(gh)
+        self.assertEqual(manifest, legacy_tests.manifest())
+        self.assertEqual(parent["source_sha"], SHA)
+        self.assertEqual(gh.downloads, [rc.MANIFEST, "package.tar.gz"])
+        self.assertEqual([asset["download_count"] for asset in gh.assets[10]], [1, 1])
+        self.assertEqual(gh.writes, [])
+
+    def test_payloads_use_streaming_and_only_one_private_staged_file(self):
+        gh = legacy_tests.FakeGitHub()
+        candidate = legacy_tests.manifest()
+        gh.files[22] = b"another verified payload"
+        candidate["assets"].append(
+            {
+                "name": "second.zip",
+                "size": len(gh.files[22]),
+                "sha256": rc.digest(gh.files[22]),
+            }
+        )
+        gh.files[21] = rc.json_bytes(candidate)
+        gh.assets[10][1]["size"] = len(gh.files[21])
+        gh.assets[10].append(
+            {
+                "id": 22,
+                "name": "second.zip",
+                "size": len(gh.files[22]),
+                "state": "uploaded",
+            }
+        )
+        gh.set_evidence(gh.files[21])
+        binary = gh.binary
+        staged = []
+
+        def metadata_only(path):
+            self.assertNotIn(path, {"releases/assets/20", "releases/assets/22"})
+            return binary(path)
+
+        def stream(path, output):
+            destination = Path(output.name)
+            self.assertEqual(list(destination.parent.iterdir()), [destination])
+            output.write(gh.files[int(path.split("/")[-1])])
+            staged.append(destination)
+
+        with (
+            patch.object(gh, "binary", side_effect=metadata_only),
+            patch.object(gh, "download_asset", side_effect=stream) as download,
+        ):
+            manifest, _ = self.verify(gh)
+        self.assertEqual(manifest, candidate)
+        self.assertEqual(download.call_count, 2)
+        self.assertEqual(len(staged), 2)
+        self.assertTrue(all(not path.exists() for path in staged))
+        self.assertTrue(all(not path.parent.exists() for path in staged))
+        self.assertEqual(gh.writes, [])
+
+    def test_streamed_corruption_and_truncation_reject_before_acceptance(self):
+        def corrupt(mutate, source, paths, path, output):
+            paths.append(Path(output.name))
+            output.write(mutate(source.binary(path)))
+
+        for change in (
+            lambda data: b"x" * len(data),
+            lambda data: data[:-1],
+            lambda data: data + b"extra",
+        ):
+            gh = legacy_tests.FakeGitHub()
+            staged = []
+
+            with (
+                patch.object(
+                    gh,
+                    "download_asset",
+                    side_effect=partial(corrupt, change, gh, staged),
+                ),
+                self.assertRaises(rc.ReleaseError),
+            ):
+                self.verify(gh)
+            self.assertEqual(len(staged), 1)
+            self.assertFalse(staged[0].parent.exists())
+            self.assertEqual(gh.snapshot_reads, 1)
+            self.assertEqual(gh.writes, [])
+
+    def test_interrupted_stream_never_accepts_or_leaves_private_payload(self):
+        def fail(download_error, paths, _path, output):
+            paths.append(Path(output.name))
+            output.write(b"incomplete")
+            raise download_error
+
+        for error in (
+            rc.GitHubError("HTTP 500"),
+            rc.GitHubError("asset download exceeded 900 seconds"),
+            KeyboardInterrupt(),
+        ):
+            with self.subTest(error=str(error)):
+                gh = legacy_tests.FakeGitHub()
+                staged = []
+
+                with (
+                    patch.object(
+                        gh, "download_asset", side_effect=partial(fail, error, staged)
+                    ),
+                    self.assertRaises(type(error)),
+                ):
+                    self.verify(gh)
+                self.assertEqual(len(staged), 1)
+                self.assertFalse(staged[0].parent.exists())
+                self.assertEqual(gh.snapshot_reads, 1)
+                self.assertEqual(gh.writes, [])
+
+    def test_asset_mutation_during_downloads_still_rejects_candidate(self):
+        for field, value in {
+            "id": 999,
+            "digest": "sha256:" + "0" * 64,
+            "size": 999,
+            "state": "new",
+            "name": "changed.tar.gz",
+            "url": "https://api.github.com/changed",
+            "browser_download_url": "https://github.com/changed",
+            "updated_at": "2026-09-12T02:00:00Z",
+            # Unknown fields, including nested counters, remain part of identity.
+            "extra_metadata": {"download_count": 1},
+        }.items():
+            with self.subTest(field=field):
+
+                def change(candidate, key=field, new=value):
+                    candidate.assets[10][0][key] = new
+
+                gh = DownloadingGitHub(change)
+                with self.assertRaises(rc.ReleaseError):
+                    self.verify(gh)
+                self.assertEqual(gh.downloads, [rc.MANIFEST, "package.tar.gz"])
+                self.assertEqual(gh.writes, [])
+
+    def test_release_and_tag_changes_during_downloads_still_reject_candidate(self):
+        def replace_release(gh):
+            gh.releases[10]["id"] = 11
+            gh.assets[11] = gh.assets[10]
+
+        changes = {
+            "release.updated_at": lambda gh: gh.releases[10].update(
+                updated_at="2026-09-12T02:00:00Z"
+            ),
+            "release.target_commitish": lambda gh: gh.releases[10].update(
+                target_commitish="b" * 40
+            ),
+            "release.id": replace_release,
+            "release.tag_name": lambda gh: gh.releases[10].update(
+                tag_name="v1.2.3-rc.3"
+            ),
+            "release.draft": lambda gh: gh.releases[10].update(draft=True),
+            "release.prerelease": lambda gh: gh.releases[10].update(prerelease=False),
+            "tag.commit": lambda gh: gh.refs[legacy_tests.RC_TAG]["object"].update(
+                sha="b" * 40
+            ),
+            "tag.type": lambda gh: gh.refs[legacy_tests.RC_TAG]["object"].update(
+                type="tag"
+            ),
+            "asset.removal": lambda gh: gh.assets[10].pop(),
+            "asset.addition": lambda gh: gh.assets[10].append(
+                dict(gh.assets[10][0], id=100, name="unexpected.zip")
+            ),
+        }
+        for name, change in changes.items():
+            with self.subTest(change=name):
+                gh = DownloadingGitHub(change)
+                with self.assertRaises(rc.ReleaseError):
+                    self.verify(gh)
+                self.assertEqual(gh.downloads, [rc.MANIFEST, "package.tar.gz"])
+                self.assertEqual(gh.writes, [])
 
 
 class AllocationTests(unittest.TestCase):
@@ -643,6 +865,74 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(len(self.gh.ledger_writes), 2)
         self.assertNotIn(plan["tag"], self.gh.refs)
 
+    def reject_workflow_drift_without_publication(self, publish):
+        """Keep an allocated plan reusable when a known permission failure is found."""
+        self.gh.default_head = "b" * 40
+        self.gh.github_directories[self.gh.default_head][0]["sha"] = "d" * 40
+        ledger = copy.deepcopy(self.gh.ledger)
+        ledger_writes = copy.deepcopy(self.gh.ledger_writes)
+        writes = copy.deepcopy(self.gh.writes)
+        with self.assertRaisesRegex(rc.ReleaseError, "workflows differ"):
+            publish()
+        self.assertEqual(self.gh.ledger, ledger)
+        self.assertEqual(self.gh.ledger_writes, ledger_writes)
+        self.assertEqual(self.gh.writes, writes)
+        self.assertNotIn("v1.2.3", self.gh.refs)
+
+    def test_manual_beta_and_rc_workflow_drift_preserves_publication_floor(self):
+        for channel, run_id in (("beta", 100), ("rc", 101)):
+            with self.subTest(channel=channel):
+                self.gh.default_head = SHA
+                self.start_run(channel, run_id)
+                lifecycle.prepare(self.args)
+                self.build_current()
+                self.reject_workflow_drift_without_publication(
+                    partial(lifecycle.publish_versioned, self.args)
+                )
+                self.assertFalse(rc.EVIDENCE.exists())
+
+    def test_final_build_workflow_drift_preserves_rc_floor_and_evidence(self):
+        candidate, _, _ = self.release_run("rc", 100)
+        accepted = rc.EVIDENCE.read_bytes()
+        self.start_run("stable", 101, candidate["tag"])
+        lifecycle.prepare(self.args)
+        self.build_current()
+        self.reject_workflow_drift_without_publication(
+            partial(lifecycle.publish_versioned, self.args)
+        )
+        self.assertEqual(rc.EVIDENCE.read_bytes(), accepted)
+
+    def test_byte_promotion_workflow_drift_preserves_rc_floor(self):
+        self.policy = policy("promote-bytes")
+        self.gh.source_policies[SHA] = self.policy
+        Path(rc.POLICY).write_bytes(rc.json_bytes(self.policy))
+        candidate, _, _ = self.release_run("rc", 100)
+        self.start_run("stable", 101, candidate["tag"])
+        arguments = argparse.Namespace(repo=REPO, rc=candidate["tag"], run_id="101")
+        with patch.object(rc, "GitHub", return_value=self.gh):
+            self.reject_workflow_drift_without_publication(
+                partial(rc.promote, arguments)
+            )
+
+    def test_workflow_change_after_floor_write_still_cannot_create_tag(self):
+        lifecycle.prepare(self.args)
+        plan = self.build_current()
+        original = lifecycle.begin_publication
+
+        def advance_after_floor(*args):
+            original(*args)
+            self.gh.default_head = "b" * 40
+            self.gh.github_directories[self.gh.default_head][0]["sha"] = "d" * 40
+
+        with patch.object(
+            lifecycle, "begin_publication", side_effect=advance_after_floor
+        ):
+            with self.assertRaisesRegex(rc.ReleaseError, "workflows differ"):
+                lifecycle.publish_versioned(self.args)
+        self.assertEqual(self.gh.ledger["publication_floor"], plan["build_number"])
+        self.assertEqual(self.gh.writes, [])
+        self.assertNotIn(plan["tag"], self.gh.refs)
+
     def test_stale_request_rejects_before_reserving(self):
         Path(os.environ["GITHUB_EVENT_PATH"]).write_text(
             json.dumps({"inputs": {"channel": "beta", "expected_sha": "b" * 40}}),
@@ -773,7 +1063,7 @@ class LifecycleTests(unittest.TestCase):
             lifecycle.publish_versioned(self.args)
         self.assertEqual(self.gh.writes, previous)
 
-    def test_final_toolchain_drift_requires_new_rc_before_publication(self):
+    def test_final_toolchain_drift_blocks_before_publication(self):
         candidate, _, _ = self.release_run("rc", 100)
         self.start_run("stable", 101, candidate["tag"])
         lifecycle.prepare(self.args)
@@ -783,11 +1073,13 @@ class LifecycleTests(unittest.TestCase):
         inputs["toolchain"]["rustc"] = "rustc unexpected different compiler"
         input_path.write_bytes(rc.json_bytes(inputs))
         previous = copy.deepcopy(self.gh.writes)
+        allocations = copy.deepcopy(self.gh.ledger_writes)
         with self.assertRaisesRegex(
             rc.ReleaseError, "toolchain differs from accepted RC"
         ):
             lifecycle.publish_versioned(self.args)
         self.assertEqual(self.gh.writes, previous)
+        self.assertEqual(self.gh.ledger_writes, allocations)
 
     def test_changed_rc_bytes_or_evidence_block_final_before_reservation(self):
         candidate, _, _ = self.release_run("rc", 100)

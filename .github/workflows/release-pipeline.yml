@@ -104,7 +104,6 @@ jobs:
   build:
     needs:
       - prepare
-      - checks
     if: ${{ needs.prepare.outputs.build == 'true' }}
     uses: ./.github/workflows/release-build.yml
     permissions:

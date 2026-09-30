@@ -349,6 +349,191 @@ async def test_timescale_pool_schema_insert_and_close(
     pool.close.assert_awaited_once()
 
 
+async def test_timescale_concurrent_start_creates_one_ready_pool(
+    timescale_driver: tuple[TimescaleDBStorage, MagicMock, AsyncMock, MagicMock],
+) -> None:
+    """A first-event burst shares one pool and waits until its schema is usable."""
+    storage, connection, create_pool, _ = timescale_driver
+    connecting, connected = asyncio.Event(), asyncio.Event()
+    initializing, ready = asyncio.Event(), asyncio.Event()
+    pools: list[MagicMock] = []
+
+    async def create(_dsn: str) -> MagicMock:
+        candidate = MagicMock()
+        candidate.acquire.return_value.__aenter__.return_value = connection
+        candidate.close = AsyncMock()
+        pools.append(candidate)
+        connecting.set()
+        await connected.wait()
+        return candidate
+
+    async def initialize(_sql: str) -> None:
+        initializing.set()
+        await ready.wait()
+
+    create_pool.side_effect = create
+    connection.execute.side_effect = initialize
+    tasks = [asyncio.create_task(storage._get_pool()) for _ in range(20)]
+    try:
+        await asyncio.wait_for(connecting.wait(), timeout=2)
+        connected.set()
+        await asyncio.wait_for(initializing.wait(), timeout=2)
+        assert create_pool.await_count == 1
+        assert not any(task.done() for task in tasks)
+        # Arriving after the driver connects must still wait for schema setup.
+        tasks.append(asyncio.create_task(storage._get_pool()))
+        await asyncio.sleep(0)
+        assert not tasks[-1].done()
+        ready.set()
+        assert await asyncio.gather(*tasks) == [pools[0]] * 21
+        assert connection.execute.await_count == 1
+        await storage.close()
+        pools[0].close.assert_awaited_once()
+    finally:
+        connected.set()
+        ready.set()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
+async def test_timescale_schema_failure_closes_pool_and_allows_retry(
+    timescale_driver: tuple[TimescaleDBStorage, MagicMock, AsyncMock, MagicMock],
+) -> None:
+    """A pool with an incomplete schema is never cached or reused after failure."""
+    storage, connection, create_pool, pool = timescale_driver
+    replacement = MagicMock()
+    replacement.acquire.return_value.__aenter__.return_value = connection
+    replacement.close = AsyncMock()
+    create_pool.side_effect = [pool, replacement]
+    connection.execute.side_effect = RuntimeError("schema unavailable")
+    with pytest.raises(RuntimeError, match="schema unavailable"):
+        await storage._get_pool()
+    pool.close.assert_awaited_once()
+    assert storage._pool is None
+    connection.execute.side_effect = None
+    assert await storage._get_pool() is replacement
+    assert create_pool.await_count == 2
+    await storage.close()
+    pool.close.assert_awaited_once()
+    replacement.close.assert_awaited_once()
+
+
+async def test_timescale_canceled_initializer_closes_candidate_and_waiter_retries(
+    timescale_driver: tuple[TimescaleDBStorage, MagicMock, AsyncMock, MagicMock],
+) -> None:
+    """Canceling schema setup releases its pool and does not poison queued events."""
+    storage, connection, create_pool, pool = timescale_driver
+    replacement = MagicMock()
+    replacement.acquire.return_value.__aenter__.return_value = connection
+    replacement.close = AsyncMock()
+    create_pool.side_effect = [pool, replacement]
+    started = asyncio.Event()
+
+    async def initialize(_sql: str) -> None:
+        if not started.is_set():
+            started.set()
+            await asyncio.Event().wait()
+
+    connection.execute.side_effect = initialize
+    creator = asyncio.create_task(storage._get_pool())
+    await asyncio.wait_for(started.wait(), timeout=2)
+    waiter = asyncio.create_task(storage._get_pool())
+    creator.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await creator
+    assert await asyncio.wait_for(waiter, timeout=2) is replacement
+    pool.close.assert_awaited_once()
+    replacement.close.assert_not_awaited()
+    assert create_pool.await_count == 2
+    assert connection.execute.await_count == 2
+    await storage.close()
+    replacement.close.assert_awaited_once()
+
+
+async def test_timescale_canceled_waiter_does_not_cancel_initialization(
+    timescale_driver: tuple[TimescaleDBStorage, MagicMock, AsyncMock, MagicMock],
+) -> None:
+    """A canceled follower neither closes the creator's pool nor interrupts its schema."""
+    storage, connection, create_pool, pool = timescale_driver
+    started, ready = asyncio.Event(), asyncio.Event()
+
+    async def initialize(_sql: str) -> None:
+        started.set()
+        await ready.wait()
+
+    connection.execute.side_effect = initialize
+    creator = asyncio.create_task(storage._get_pool())
+    try:
+        await asyncio.wait_for(started.wait(), timeout=2)
+        waiter = asyncio.create_task(storage._get_pool())
+        await asyncio.sleep(0)
+        waiter.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await waiter
+        assert not creator.done()
+        pool.close.assert_not_awaited()
+        ready.set()
+        assert await creator is pool
+        create_pool.assert_awaited_once()
+        await storage.close()
+        pool.close.assert_awaited_once()
+    finally:
+        ready.set()
+        await asyncio.gather(creator, return_exceptions=True)
+
+
+# Explicit connection, schema and close barriers keep each race phase deterministic.
+# pylint: disable-next=too-many-locals
+async def test_timescale_close_waits_for_creation_and_serializes_reopening(
+    timescale_driver: tuple[TimescaleDBStorage, MagicMock, AsyncMock, MagicMock],
+) -> None:
+    """Close waits for an unpublished pool; new users wait for retirement to finish."""
+    storage, connection, create_pool, pool = timescale_driver
+    replacement = MagicMock()
+    replacement.acquire.return_value.__aenter__.return_value = connection
+    replacement.close = AsyncMock()
+    create_pool.side_effect = [pool, replacement]
+    started, ready = asyncio.Event(), asyncio.Event()
+    closing, closed = asyncio.Event(), asyncio.Event()
+
+    async def initialize(_sql: str) -> None:
+        started.set()
+        await ready.wait()
+
+    async def close() -> None:
+        closing.set()
+        await closed.wait()
+
+    connection.execute.side_effect = initialize
+    pool.close.side_effect = close
+    creator = asyncio.create_task(storage._get_pool())
+    tasks = [creator]
+    try:
+        await asyncio.wait_for(started.wait(), timeout=2)
+        retirement = asyncio.create_task(storage.close())
+        tasks.append(retirement)
+        await asyncio.sleep(0)
+        assert not retirement.done()
+        pool.close.assert_not_awaited()
+        ready.set()
+        assert await creator is pool
+        await asyncio.wait_for(closing.wait(), timeout=2)
+        reopening = asyncio.create_task(storage._get_pool())
+        tasks.append(reopening)
+        await asyncio.sleep(0)
+        assert not reopening.done()
+        create_pool.assert_awaited_once()
+        closed.set()
+        await retirement
+        assert await reopening is replacement
+        assert create_pool.await_count == 2
+        await storage.close()
+        replacement.close.assert_awaited_once()
+    finally:
+        ready.set()
+        closed.set()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
 async def test_timescale_query_binds_filters_and_empty_batch_does_not_connect(
     timescale_driver: tuple[TimescaleDBStorage, MagicMock, AsyncMock, MagicMock],
 ) -> None:

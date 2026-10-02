@@ -63,3 +63,7 @@ bandit-results.json
 .release-plan.json
 .release-inputs.json
 release-assets/
+# Intermediate native platform artifacts
+native-container-amd64/
+native-container-arm64/
+native-inputs/

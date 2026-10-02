@@ -69,33 +69,8 @@ jobs:
 
     timeout-minutes: 30
   docker:
-    name: Docker
-    runs-on: ubuntu-latest
+    name: Native container packaging
     needs: build
-    steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - name: Build image
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          load: true
-          push: false
-          tags: |
-            ghcr.io/victron-venus/dbus-event-log:ci
-            ghcr.io/victron-venus/dbus-event-log:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Verify monitoring on an isolated session bus
-        run: |
-          docker run --rm \
-            --mount "type=bind,source=$PWD/tests/smoke_monitor.py,target=/tmp/smoke_monitor.py,readonly" \
-            --entrypoint dbus-run-session \
-            ghcr.io/victron-venus/dbus-event-log:${{ github.sha }} \
-            -- python /tmp/smoke_monitor.py
-    timeout-minutes: 30
+    # Release runs exercise this exact adapter after validation with the allocated plan.
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
+    uses: ./.github/workflows/native-container-check.yml

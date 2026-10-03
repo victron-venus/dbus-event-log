@@ -76,7 +76,9 @@ class NativeContainerAdapterTests(unittest.TestCase):
             f"      'org.opencontainers.image.revision': '{REVISION}'}}}}}}\n"
             "    print(json.dumps([image]))\n"
             "elif args[0] == 'run':\n"
-            "    if os.getenv('TEST_SMOKE_FAILURE') == 'true':\n"
+            "    failure = os.getenv('TEST_SMOKE_FAILURE')\n"
+            "    session_failure = failure == 'session-bus' and 'dbus-run-session' in args\n"
+            "    if failure == 'true' or session_failure:\n"
             "        sys.exit(1)\n"
             "else:\n"
             "    print('Docker Buildx test-version')\n",
@@ -183,6 +185,19 @@ class NativeContainerAdapterTests(unittest.TestCase):
                 shutil.rmtree(self.root / "native-container-amd64")
                 (self.root / "docker-calls.jsonl").unlink()
                 self.environment.pop(variable)
+
+    def test_failed_session_bus_smoke_cannot_attest_a_successful_identity_probe(self) -> None:
+        """Passing the first runtime probe cannot hide failure of the actual monitor."""
+        self.environment["TEST_SMOKE_FAILURE"] = "session-bus"
+        result = self._run()
+        self.assertNotEqual(result.returncode, 0)
+        smoke = [call for call in self._calls() if call[0] == "run"]
+        self.assertEqual(len(smoke), 2)
+        self.assertEqual(smoke[0][smoke[0].index("--entrypoint") + 1], "python")
+        self.assertEqual(smoke[1][smoke[1].index("--entrypoint") + 1], "dbus-run-session")
+        output = self.root / "native-container-amd64"
+        self.assertFalse((output / "native-build.json").exists())
+        self.assertFalse((output / "release-inputs-native-amd64.json").exists())
 
     def test_reused_output_is_rejected_before_docker(self) -> None:
         """Existing outputs cannot be mixed with another plan or attempt."""

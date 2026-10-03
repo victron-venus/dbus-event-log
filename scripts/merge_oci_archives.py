@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import io
 import json
@@ -17,8 +18,15 @@ import re
 import stat
 import tarfile
 import tempfile
-from contextlib import ExitStack
+import zlib
+from contextlib import ExitStack, suppress
 from pathlib import Path
+
+try:
+    from compression import zstd
+except ImportError:  # Python < 3.14 has no standard-library Zstandard decoder.
+    zstd = None
+
 
 BLOB_PREFIX = "blobs/sha256/"
 DIGEST_PREFIX = "sha256:"
@@ -29,6 +37,10 @@ CONFIG = "application/vnd.oci.image.config.v1+json"
 EMPTY_CONFIG = "application/vnd.oci.empty.v1+json"
 ATTESTATION = "application/vnd.docker.attestation.manifest.v1+json"
 IN_TOTO = "application/vnd.in-toto+json"
+PROVENANCE_TYPES = {
+    "https://slsa.dev/provenance/v0.2",
+    "https://slsa.dev/provenance/v1",
+}
 LAYER_TYPES = {
     "application/vnd.oci.image.layer.v1.tar",
     "application/vnd.oci.image.layer.v1.tar+gzip",
@@ -39,6 +51,11 @@ DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
 MAX_JSON = 2_000_000
 MAX_JSON_TOTAL = 32_000_000
 CHUNK = 1024 * 1024
+MAX_LAYER_BYTES = 8 * 1024**3
+MAX_ROOTFS_BYTES = 32 * 1024**3
+COMPRESSION_ERRORS = (OSError, EOFError, zlib.error) + (
+    (zstd.ZstdError,) if zstd is not None else ()
+)
 
 
 def require(condition, message):
@@ -120,6 +137,8 @@ class Archive:
         self.attestations = []
         self.visited = 0
         self.metadata_bytes = 0
+        self.layer_identities = {}
+        self.rootfs_bytes = 0
         require(not self.path.is_symlink(), "Input archive must not be a symlink")
         descriptor = os.open(
             self.path,
@@ -336,12 +355,63 @@ class Archive:
             ),
             "Invalid OCI root filesystem identity",
         )
+        for layer, expected_digest in zip(layers, rootfs["diff_ids"]):
+            require(
+                self.layer_digest(layer) == expected_digest,
+                "OCI layer content differs from config rootfs diff_id",
+            )
         self.images.append(
             {
                 "descriptor": self.descriptor_key(descriptor),
                 "config_sha256": config["digest"][7:],
             }
         )
+
+    def layer_digest(self, descriptor):
+        """Bind the archived filesystem bytes to the config used by native smoke."""
+        key = (descriptor["digest"], descriptor["mediaType"])
+        if key in self.layer_identities:
+            checked, size = self.layer_identities[key]
+            self.rootfs_bytes += size
+            require(
+                self.rootfs_bytes <= MAX_ROOTFS_BYTES,
+                "OCI root filesystem exceeds expanded size limit",
+            )
+            return checked
+        with ExitStack() as stack:
+            stream = stack.enter_context(
+                self.tar.extractfile(self.blobs[BLOB_PREFIX + descriptor["digest"][7:]])
+            )
+            if descriptor["mediaType"].endswith("+gzip"):
+                stream = stack.enter_context(gzip.GzipFile(fileobj=stream))
+            elif descriptor["mediaType"].endswith("+zstd"):
+                require(
+                    zstd is not None,
+                    "Zstandard OCI validation requires Python 3.14+ with compression.zstd",
+                )
+                stream = stack.enter_context(
+                    zstd.ZstdFile(
+                        stream, options={zstd.DecompressionParameter.window_log_max: 27}
+                    )
+                )
+            digest, size = hashlib.sha256(), 0
+            try:
+                for chunk in iter(lambda: stream.read(CHUNK), b""):
+                    size += len(chunk)
+                    require(
+                        size <= MAX_LAYER_BYTES, "OCI layer exceeds expanded size limit"
+                    )
+                    require(
+                        self.rootfs_bytes + size <= MAX_ROOTFS_BYTES,
+                        "OCI root filesystem exceeds expanded size limit",
+                    )
+                    digest.update(chunk)
+            except COMPRESSION_ERRORS as error:
+                raise ValueError("Invalid compressed OCI layer") from error
+        self.rootfs_bytes += size
+        checked = DIGEST_PREFIX + digest.hexdigest()
+        self.layer_identities[key] = (checked, size)
+        return checked
 
     def attestation(self, descriptor, data, annotations):
         platform = descriptor.get("platform")
@@ -413,6 +483,7 @@ class Archive:
             isinstance(layers, list) and 0 < len(layers) <= 4096,
             "Invalid attestation layers",
         )
+        predicate_types = set()
         for layer in layers:
             self.blob(layer, {IN_TOTO})
             statement = self.read_json(BLOB_PREFIX + layer["digest"][7:])
@@ -435,7 +506,14 @@ class Archive:
                 ),
                 "Attestation statement subject differs from image",
             )
-        self.attestations.append({"digest": descriptor["digest"], "subject": subject})
+            predicate_types.add(statement["predicateType"])
+        self.attestations.append(
+            {
+                "digest": descriptor["digest"],
+                "subject": subject,
+                "predicate_types": sorted(predicate_types),
+            }
+        )
 
     def unchanged(self):
         current = os.fstat(self.stream.fileno())
@@ -549,6 +627,11 @@ def merge_archives(inputs, output, version, revision):
                         "config_digest": DIGEST_PREFIX
                         + archive.images[0]["config_sha256"],
                         "manifest_digest": archive.images[0]["descriptor"]["digest"],
+                        "provenance_digests": [
+                            item["digest"]
+                            for item in archive.attestations
+                            if PROVENANCE_TYPES.intersection(item["predicate_types"])
+                        ],
                         "attestation_digests": [
                             item["digest"] for item in archive.attestations
                         ],
@@ -576,7 +659,11 @@ def merge_archives(inputs, output, version, revision):
             os.link(temporary, output)
             return result
         finally:
-            os.unlink(temporary)
+            # A cleanup failure must not turn a successful publication into an
+            # exception or hide the original failure. Hidden orphans are not
+            # selected by the final release payload glob.
+            with suppress(OSError):
+                os.unlink(temporary)
 
 
 def confined_cli_path(root, value, new=False):

@@ -37,7 +37,7 @@ VERSION = {"version": "v5.5.0", "commit": "c395761df6afe1a69e476bc60a013a94bcbc1
 PACKAGING_ABSENT = "packaging workflow not detected"
 
 
-def validate(result, repository: str, commit: str) -> None:
+def validate(result: object, repository: str, commit: str) -> None:
     """Validate JSON emitted from the same Result as the action's SARIF."""
     if not repository or not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("GITHUB_REPOSITORY and the full GITHUB_SHA are required")

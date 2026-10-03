@@ -6,19 +6,23 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 SPEC = importlib.util.spec_from_file_location(
     "validate_scorecard_json",
     Path(__file__).resolve().parents[1] / "scripts/validate_scorecard_json.py",
 )
+if SPEC is None or SPEC.loader is None:
+    MODULE_LOAD_ERROR = "Cannot load the Scorecard guard test module"
+    raise RuntimeError(MODULE_LOAD_ERROR)
 guard = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(guard)
 REPO = "owner/project"
 SHA = "a" * 40
 
 
-def complete():
+def complete() -> dict[str, Any]:
     """Build a complete result, including upstream disabled checks."""
     return {
         "repo": {"name": f"github.com/{REPO}", "commit": SHA},
@@ -33,19 +37,19 @@ def complete():
 class ScorecardJSONTests(unittest.TestCase):
     """Preserve findings while rejecting incomplete or unrelated scans."""
 
-    def test_complete_clean_and_failing_checks_pass(self):
+    def test_complete_clean_and_failing_checks_pass(self) -> None:
         for score in (0, 4, 10):
             result = complete()
             result["checks"][0]["score"] = score
             guard.validate(result, REPO, SHA)
 
-    def test_upstream_packaging_not_applicable_is_preserved(self):
+    def test_upstream_packaging_not_applicable_is_preserved(self) -> None:
         result = complete()
         check = next(check for check in result["checks"] if check["name"] == "Packaging")
         check.update(score=-1, reason=guard.PACKAGING_ABSENT)
         guard.validate(result, REPO, SHA)
 
-    def test_packaging_runtime_errors_and_other_inconclusive_results_fail(self):
+    def test_packaging_runtime_errors_and_other_inconclusive_results_fail(self) -> None:
         changes = [
             {"reason": "internal error: " + guard.PACKAGING_ABSENT},
             {"reason": "Packaging workflow not detected"},
@@ -67,7 +71,7 @@ class ScorecardJSONTests(unittest.TestCase):
                 with self.assertRaises((TypeError, ValueError)):
                     guard.validate(result, REPO, SHA)
 
-    def test_invalid_or_incomplete_checks_fail(self):
+    def test_invalid_or_incomplete_checks_fail(self) -> None:
         for score in (-1, -2, 11, True, "10", None):
             with self.subTest(score=score):
                 result = complete()
@@ -75,7 +79,7 @@ class ScorecardJSONTests(unittest.TestCase):
                 with self.assertRaises((TypeError, ValueError)):
                     guard.validate(result, REPO, SHA)
 
-    def test_missing_duplicate_unknown_and_malformed_checks_fail(self):
+    def test_missing_duplicate_unknown_and_malformed_checks_fail(self) -> None:
         original = complete()
         cases = [
             None,
@@ -93,7 +97,7 @@ class ScorecardJSONTests(unittest.TestCase):
                 with self.assertRaises((TypeError, ValueError)):
                     guard.validate(result, REPO, SHA)
 
-    def test_repository_commit_and_version_are_bound_to_the_run(self):
+    def test_repository_commit_and_version_are_bound_to_the_run(self) -> None:
         for field, value in (
             ("repo", {"name": "github.com/other/repo", "commit": SHA}),
             ("repo", {"name": f"github.com/{REPO}", "commit": "b" * 40}),
@@ -105,7 +109,7 @@ class ScorecardJSONTests(unittest.TestCase):
                 with self.assertRaises((TypeError, ValueError)):
                     guard.validate(result, REPO, SHA)
 
-    def test_missing_run_identity_and_invalid_root_fail(self):
+    def test_missing_run_identity_and_invalid_root_fail(self) -> None:
         for result, repo, sha in (
             (complete(), "", SHA),
             (complete(), REPO, ""),
@@ -114,7 +118,7 @@ class ScorecardJSONTests(unittest.TestCase):
             with self.assertRaises((TypeError, ValueError)):
                 guard.validate(result, repo, sha)
 
-    def test_failed_guard_removes_stale_sarif(self):
+    def test_failed_guard_removes_stale_sarif(self) -> None:
         for content in (None, "{invalid", "{}", json.dumps({"checks": []})):
             with (
                 self.subTest(content=content),
@@ -132,7 +136,7 @@ class ScorecardJSONTests(unittest.TestCase):
                     guard.main()
                 self.assertFalse((root / "results.sarif").exists())
 
-    def test_successful_guard_preserves_original_sarif(self):
+    def test_successful_guard_preserves_original_sarif(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "results.json").write_text(json.dumps(complete()))

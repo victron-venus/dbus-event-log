@@ -1,7 +1,7 @@
 """Tests for dbus-event-log."""
 
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from dbus_event_log.models import DBusEvent, EventType, SignalType
@@ -70,3 +70,14 @@ class TestSignalType:
         assert SignalType.INTERFACES_ADDED.value == "InterfacesAdded"
         assert SignalType.INTERFACES_REMOVED.value == "InterfacesRemoved"
         assert SignalType.NAME_OWNER_CHANGED.value == "NameOwnerChanged"
+
+
+def test_default_timestamp_is_timezone_aware() -> None:
+    """Events without an explicit timestamp serialize a UTC offset for MQTT."""
+    event = DBusEvent(
+        event_type=EventType.SIGNAL,
+        service_name="com.example",
+        object_path="/",
+    )
+    assert event.timestamp.tzinfo is UTC
+    assert event.to_mqtt_payload()["ts"].endswith("+00:00")

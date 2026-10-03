@@ -14,6 +14,8 @@ import os
 import re
 import stat
 import subprocess
+import tempfile
+from contextlib import suppress
 from pathlib import Path
 
 import merge_oci_archives
@@ -152,6 +154,30 @@ def verify_native_input(root, directory, platform, policy, plan, inputs, run):
     return archive, {"build": build, "receipt": verified[0]}
 
 
+def publish_evidence(path: Path, payload: bytes) -> None:
+    """Publish complete serialized evidence atomically without replacing a file."""
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            prefix=".native-evidence-", dir=path.parent, delete=False
+        ) as stream:
+            temporary = Path(stream.name)
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        # An operator or concurrent process may create the destination after
+        # validation. link refuses that race without replacing the other file.
+        os.link(temporary, path)
+    finally:
+        if temporary is not None:
+            # Cleanup must neither roll back a published evidence/OCI pair nor
+            # replace the original failure. A hidden temporary orphan is safe:
+            # it is excluded from release payload globbing and can be removed
+            # with the disposable workspace when filesystem access recovers.
+            with suppress(OSError):
+                temporary.unlink()
+
+
 def assemble(root: Path, directories: dict[str, Path], output: Path, evidence: Path):
     """Validate both native builds before preserving their blobs in a final archive."""
     root = root.resolve(strict=True)
@@ -206,6 +232,10 @@ def assemble(root: Path, directories: dict[str, Path], output: Path, evidence: P
                 "Native OCI input lost its build attestations",
             )
             require(
+                merged["images"][platform].get("provenance_digests"),
+                "Native OCI input lacks SLSA build provenance",
+            )
+            require(
                 merged["images"][platform]["config_digest"]
                 == build["build"]["image_config_digest"],
                 "Native smoke tested a different image from the OCI payload",
@@ -218,8 +248,7 @@ def assemble(root: Path, directories: dict[str, Path], output: Path, evidence: P
             "native_builds": builds,
             "assembly": merged,
         }
-        with evidence.open("x", encoding="utf-8") as stream:
-            stream.write(version_receipt.canonical(result).decode())
+        publish_evidence(evidence, version_receipt.canonical(result))
     except Exception:
         output.unlink()
         raise

@@ -5,6 +5,7 @@
 # fmt: off
 """Exercise native OCI assembly without Docker, registry access or extraction."""
 
+import gzip
 import hashlib
 import importlib.util
 import io
@@ -39,10 +40,31 @@ class MergeTest(unittest.TestCase):
         entries["blobs/sha256/" + digest[7:]] = raw
         return {"mediaType": media, "digest": digest, "size": len(raw)}
 
-    def fixture(self, architecture, nested=True, attestation=None):
+    @staticmethod
+    def layer_bytes():
+        stream = io.BytesIO()
+        with tarfile.open(fileobj=stream, mode="w") as archive:
+            data = b"shared filesystem layer\n"
+            entry = tarfile.TarInfo("fixture.txt")
+            entry.size = len(data)
+            archive.addfile(entry, io.BytesIO(data))
+        return stream.getvalue()
+
+    def fixture(
+        self,
+        architecture,
+        nested=True,
+        attestation=None,
+        *,
+        layer_content=None,
+        layer_media="application/vnd.oci.image.layer.v1.tar",
+        diff_id=None,
+    ):
         entries = {"oci-layout": b'{"imageLayoutVersion":"1.0.0"}'}
         layer = self.blob(
-            entries, b"shared compressed layer", next(iter(sorted(oci.LAYER_TYPES)))
+            entries,
+            self.layer_bytes() if layer_content is None else layer_content,
+            layer_media,
         )
         config = self.blob(
             entries,
@@ -55,7 +77,13 @@ class MergeTest(unittest.TestCase):
                         "org.opencontainers.image.revision": REVISION,
                     }
                 },
-                "rootfs": {"type": "layers", "diff_ids": ["sha256:" + "a" * 64]},
+                "rootfs": {
+                    "type": "layers",
+                    "diff_ids": [
+                        diff_id
+                        or "sha256:" + hashlib.sha256(self.layer_bytes()).hexdigest()
+                    ],
+                },
             },
             oci.CONFIG,
         )
@@ -209,9 +237,7 @@ class MergeTest(unittest.TestCase):
 
     def test_corrupt_layer_with_unchanged_length_fails(self):
         entries = self.fixture("amd64")
-        layer = next(
-            name for name, raw in entries.items() if raw == b"shared compressed layer"
-        )
+        layer = next(name for name, raw in entries.items() if raw == self.layer_bytes())
         entries[layer] = b"X" + entries[layer][1:]
         inputs = self.inputs(entries)
         with self.assertRaisesRegex(ValueError, "blob digest"):
@@ -220,9 +246,7 @@ class MergeTest(unittest.TestCase):
 
     def test_missing_blob_and_wrong_descriptor_size_fail(self):
         entries = self.fixture("amd64", nested=False)
-        layer = next(
-            name for name, raw in entries.items() if raw == b"shared compressed layer"
-        )
+        layer = next(name for name, raw in entries.items() if raw == self.layer_bytes())
         del entries[layer]
         inputs = self.inputs(entries)
         with self.assertRaisesRegex(ValueError, "Missing OCI blob"):
@@ -352,6 +376,161 @@ class MergeTest(unittest.TestCase):
             ):
                 self.merge(inputs)
 
+    def test_layer_diff_id_must_match_even_with_valid_blob_hashes(self):
+        for content, media in (
+            (self.layer_bytes(), "application/vnd.oci.image.layer.v1.tar"),
+            (
+                gzip.compress(self.layer_bytes()),
+                "application/vnd.oci.image.layer.v1.tar+gzip",
+            ),
+        ):
+            entries = self.fixture(
+                "amd64",
+                layer_content=content,
+                layer_media=media,
+                diff_id="sha256:" + "f" * 64,
+            )
+            inputs = self.inputs(entries)
+            with (
+                self.subTest(media=media),
+                self.assertRaisesRegex(ValueError, "diff_id"),
+            ):
+                self.merge(inputs)
+            self.assertFalse(self.output.exists())
+
+    def test_gzip_layers_are_verified_without_changing_their_bytes(self):
+        content = gzip.compress(self.layer_bytes())
+        entries = self.fixture(
+            "amd64",
+            layer_content=content,
+            layer_media="application/vnd.oci.image.layer.v1.tar+gzip",
+        )
+        self.merge(self.inputs(entries))
+        name = oci.BLOB_PREFIX + hashlib.sha256(content).hexdigest()
+        self.assertEqual(self.load(self.output)[name], content)
+
+    def test_corrupt_compression_fails_despite_matching_blob_digest(self):
+        valid = gzip.compress(self.layer_bytes())
+        for content in (b"not gzip", valid[:-3], valid[:-8] + b"badcrc!!"):
+            entries = self.fixture(
+                "amd64",
+                layer_content=content,
+                layer_media="application/vnd.oci.image.layer.v1.tar+gzip",
+            )
+            inputs = self.inputs(entries)
+            with (
+                self.subTest(content=content[-8:]),
+                self.assertRaisesRegex(ValueError, "compressed OCI"),
+            ):
+                self.merge(inputs)
+            self.assertFalse(self.output.exists())
+
+    def test_expanded_layer_and_rootfs_limits_fail_before_output(self):
+        entries = self.fixture(
+            "amd64",
+            layer_content=gzip.compress(self.layer_bytes()),
+            layer_media="application/vnd.oci.image.layer.v1.tar+gzip",
+        )
+        for name in ("MAX_LAYER_BYTES", "MAX_ROOTFS_BYTES"):
+            inputs = self.inputs(entries)
+            with (
+                self.subTest(limit=name),
+                mock.patch.object(oci, name, 100),
+                self.assertRaisesRegex(ValueError, "expanded size"),
+            ):
+                self.merge(inputs)
+            self.assertFalse(self.output.exists())
+
+    def test_repeated_layers_count_toward_expanded_rootfs_limit(self):
+        entries = self.fixture("amd64", nested=False)
+
+        def repeat(body):
+            body["layers"] *= 2
+            config = body["config"]
+            details = json.loads(entries[oci.BLOB_PREFIX + config["digest"][7:]])
+            details["rootfs"]["diff_ids"] *= 2
+            body["config"] = self.blob(entries, details, oci.CONFIG)
+
+        self.rewrite_manifest(entries, repeat)
+        inputs = self.inputs(entries)
+        with (
+            mock.patch.object(oci, "MAX_ROOTFS_BYTES", len(self.layer_bytes()) + 1),
+            self.assertRaisesRegex(ValueError, "root filesystem exceeds"),
+        ):
+            self.merge(inputs)
+        self.assertFalse(self.output.exists())
+
+    def test_zstd_without_decoder_fails_closed(self):
+        entries = self.fixture(
+            "amd64",
+            layer_content=b"zstd fixture",
+            layer_media="application/vnd.oci.image.layer.v1.tar+zstd",
+        )
+        inputs = self.inputs(entries)
+        with (
+            mock.patch.object(oci, "zstd", None),
+            self.assertRaisesRegex(ValueError, "requires Python"),
+        ):
+            self.merge(inputs)
+        self.assertFalse(self.output.exists())
+
+    @unittest.skipIf(oci.zstd is None, "Requires standard-library Zstandard")
+    def test_zstd_layers_are_verified_and_corruption_is_rejected(self):
+        content = oci.zstd.compress(self.layer_bytes())
+        entries = self.fixture(
+            "amd64",
+            layer_content=content,
+            layer_media="application/vnd.oci.image.layer.v1.tar+zstd",
+        )
+        self.merge(self.inputs(entries))
+        self.output.unlink()
+        for invalid in (content[:-3], b"not zstd"):
+            entries = self.fixture(
+                "amd64",
+                layer_content=invalid,
+                layer_media="application/vnd.oci.image.layer.v1.tar+zstd",
+            )
+            inputs = self.inputs(entries)
+            with (
+                self.subTest(invalid=invalid),
+                self.assertRaisesRegex(ValueError, "compressed OCI"),
+            ):
+                self.merge(inputs)
+            self.assertFalse(self.output.exists())
+
+    def test_provenance_is_distinguished_from_other_attestations(self):
+        for predicate in (
+            "https://slsa.dev/provenance/v0.2",
+            "https://slsa.dev/provenance/v1",
+            "https://spdx.dev/Document",
+        ):
+            with self.subTest(predicate=predicate):
+                entries = self.fixture("amd64", nested=False, attestation="artifact")
+
+                def mutate(body, entries=entries, predicate=predicate):
+                    layer = body["layers"][0]
+                    statement = json.loads(
+                        entries["blobs/sha256/" + layer["digest"][7:]]
+                    )
+                    statement["predicateType"] = predicate
+                    body["layers"] = [self.blob(entries, statement, oci.IN_TOTO)]
+
+                self.rewrite_manifest(entries, mutate, index=1)
+                result = self.merge(self.inputs(entries))
+                details = result["images"]["linux/amd64"]
+                self.assertEqual(len(details["attestation_digests"]), 1)
+                expected = (
+                    details["attestation_digests"]
+                    if predicate in oci.PROVENANCE_TYPES
+                    else []
+                )
+                self.assertEqual(details["provenance_digests"], expected)
+                self.assertEqual(
+                    result["inputs"][0]["attestations"][0]["predicate_types"],
+                    [predicate],
+                )
+                self.output.unlink()
+
     def test_no_runnable_image_and_unsupported_variant_fail(self):
         entries = self.fixture("amd64", nested=False, attestation="legacy")
         root = json.loads(entries["index.json"])
@@ -453,6 +632,32 @@ class MergeTest(unittest.TestCase):
             self.merge(inputs)
         self.assertEqual(self.output.read_bytes(), b"raced")
         self.assertEqual(list(self.root.glob(".oci-merge-*")), [])
+
+    def test_cleanup_failure_cannot_invalidate_published_archive(self):
+        inputs = self.inputs()
+        with mock.patch.object(
+            oci.os, "unlink", side_effect=PermissionError("cleanup denied")
+        ):
+            result = self.merge(inputs)
+        self.assertEqual(
+            result["output"]["sha256"],
+            hashlib.sha256(self.output.read_bytes()).hexdigest(),
+        )
+        self.assertEqual(len(list(self.root.glob(".oci-merge-*"))), 1)
+
+    def test_cleanup_failure_preserves_original_publication_error(self):
+        inputs = self.inputs()
+        with (
+            mock.patch.object(
+                oci.os, "link", side_effect=FileExistsError("output raced")
+            ),
+            mock.patch.object(
+                oci.os, "unlink", side_effect=PermissionError("cleanup denied")
+            ),
+            self.assertRaisesRegex(FileExistsError, "output raced"),
+        ):
+            self.merge(inputs)
+        self.assertFalse(self.output.exists())
 
     def test_failed_write_leaves_no_output_or_temporary_file(self):
         inputs = self.inputs()

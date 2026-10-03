@@ -94,7 +94,7 @@ class NativeReceiptTests(unittest.TestCase):
         path.write_text(json.dumps(value, sort_keys=True) + "\n")
         return path
 
-    def make_native(self, platform, attestations=True):
+    def make_native(self, platform, attestations=True, predicate_types=None):
         arch = platform.split("/")[1]
         directory = self.root / arch
         directory.mkdir(exist_ok=True)
@@ -133,22 +133,27 @@ class NativeReceiptTests(unittest.TestCase):
         manifest["platform"] = {"os": "linux", "architecture": arch}
         manifests = [manifest]
         if attestations:
-            statement = blob(
-                {
-                    "_type": "https://in-toto.io/Statement/v0.1",
-                    "predicateType": "https://slsa.dev/provenance/v0.2",
-                    "subject": [
-                        {
-                            "name": "native",
-                            "digest": {
-                                "sha256": manifest["digest"][7:],
-                            },
-                        }
-                    ],
-                    "predicate": {},
-                },
-                oci.IN_TOTO,
-            )
+            statements = [
+                blob(
+                    {
+                        "_type": "https://in-toto.io/Statement/v0.1",
+                        "predicateType": predicate,
+                        "subject": [
+                            {
+                                "name": "native",
+                                "digest": {
+                                    "sha256": manifest["digest"][7:],
+                                },
+                            }
+                        ],
+                        "predicate": {},
+                    },
+                    oci.IN_TOTO,
+                )
+                for predicate in (
+                    predicate_types or ["https://slsa.dev/provenance/v0.2"]
+                )
+            ]
             attestation = blob(
                 {
                     "schemaVersion": 2,
@@ -156,7 +161,7 @@ class NativeReceiptTests(unittest.TestCase):
                     "artifactType": oci.ATTESTATION,
                     "config": blob({}, oci.EMPTY_CONFIG),
                     "subject": manifest,
-                    "layers": [statement],
+                    "layers": statements,
                 },
                 oci.MANIFEST,
             )
@@ -247,6 +252,134 @@ class NativeReceiptTests(unittest.TestCase):
             self.assemble()
         self.assertFalse(self.output.exists())
         self.assertFalse(self.evidence.exists())
+
+    def test_sbom_alone_does_not_replace_build_provenance(self):
+        self.make_native("linux/arm64", predicate_types=["https://spdx.dev/Document"])
+        with self.assertRaisesRegex(ValueError, "lacks SLSA build provenance"):
+            self.assemble()
+        self.assertFalse(self.output.exists())
+        self.assertFalse(self.evidence.exists())
+
+    def test_sbom_and_slsa_provenance_can_coexist(self):
+        self.make_native(
+            "linux/arm64",
+            predicate_types=[
+                "https://spdx.dev/Document",
+                "https://slsa.dev/provenance/v1",
+            ],
+        )
+        result = self.assemble()
+        image = result["assembly"]["images"]["linux/arm64"]
+        self.assertTrue(image["provenance_digests"])
+        self.assertEqual(image["provenance_digests"], image["attestation_digests"])
+
+    def test_partial_evidence_write_is_cleaned_and_retry_succeeds(self):
+        original = native.tempfile.NamedTemporaryFile
+
+        class PartialWrite:
+            """Simulate a real partial write before the filesystem reports failure."""
+
+            def __init__(self, *args, **kwargs):
+                self.stream = original(*args, **kwargs)
+
+            def __enter__(self):
+                self.stream.__enter__()
+                return self
+
+            def __exit__(self, *args):
+                return self.stream.__exit__(*args)
+
+            def __getattr__(self, name):
+                return getattr(self.stream, name)
+
+            def write(self, payload):
+                self.stream.write(payload[:37])
+                self.stream.flush()
+                raise OSError("simulated disk full during evidence write")
+
+        with (
+            patch.object(native.tempfile, "NamedTemporaryFile", PartialWrite),
+            self.assertRaisesRegex(OSError, "disk full"),
+        ):
+            self.assemble()
+        self.assertFalse(self.output.exists())
+        self.assertFalse(self.evidence.exists())
+        self.assertEqual(list(self.evidence.parent.glob(".native-evidence-*")), [])
+        result = self.assemble()
+        self.assertTrue(self.output.is_file())
+        self.assertEqual(json.loads(self.evidence.read_text()), result)
+
+    def test_evidence_destination_race_preserves_the_other_file(self):
+        original = native.os.link
+
+        def raced(source, destination):
+            if Path(destination) == self.evidence:
+                self.evidence.write_bytes(b"independent operator file")
+            return original(source, destination)
+
+        with (
+            patch.object(native.os, "link", side_effect=raced),
+            self.assertRaises(FileExistsError),
+        ):
+            self.assemble()
+        self.assertFalse(self.output.exists())
+        self.assertEqual(self.evidence.read_bytes(), b"independent operator file")
+        self.assertEqual(list(self.evidence.parent.glob(".native-evidence-*")), [])
+
+    def test_cleanup_failure_after_publication_keeps_valid_output_pair(self):
+        original_unlink = Path.unlink
+
+        def cleanup_failure(path, *args, **kwargs):
+            if path.name.startswith(".native-evidence-"):
+                raise PermissionError("temporary cleanup denied")
+            return original_unlink(path, *args, **kwargs)
+
+        with patch.object(Path, "unlink", cleanup_failure):
+            result = self.assemble()
+        self.assertTrue(self.output.is_file())
+        self.assertEqual(json.loads(self.evidence.read_text()), result)
+        self.assertEqual(
+            hashlib.sha256(self.output.read_bytes()).hexdigest(),
+            result["assembly"]["output"]["sha256"],
+        )
+        temporary = list(self.evidence.parent.glob(".native-evidence-*"))
+        self.assertEqual(len(temporary), 1)
+        self.assertEqual(temporary[0].read_bytes(), self.evidence.read_bytes())
+
+    def test_cleanup_failure_before_publication_preserves_original_error(self):
+        original_unlink = Path.unlink
+        original_link = native.os.link
+
+        def cleanup_failure(path, *args, **kwargs):
+            if path.name.startswith(".native-evidence-"):
+                raise PermissionError("secondary cleanup failure")
+            return original_unlink(path, *args, **kwargs)
+
+        def publication_failure(source, destination):
+            if Path(destination) == self.evidence:
+                raise PermissionError("original publication failure")
+            return original_link(source, destination)
+
+        with (
+            patch.object(Path, "unlink", cleanup_failure),
+            patch.object(native.os, "link", side_effect=publication_failure),
+            self.assertRaisesRegex(PermissionError, "original publication failure"),
+        ):
+            self.assemble()
+        self.assertFalse(self.output.exists())
+        self.assertFalse(self.evidence.exists())
+
+    def test_evidence_serialization_failure_does_not_create_files(self):
+        with (
+            patch.object(
+                version_receipt, "canonical", side_effect=ValueError("invalid evidence")
+            ),
+            self.assertRaisesRegex(ValueError, "invalid evidence"),
+        ):
+            self.assemble()
+        self.assertFalse(self.output.exists())
+        self.assertFalse(self.evidence.exists())
+        self.assertEqual(list(self.evidence.parent.glob(".native-evidence-*")), [])
 
     def test_archive_change_between_receipt_and_merge_is_rejected(self):
         original = oci.merge_archives

@@ -46,7 +46,15 @@ source distribution, downloads the intermediate artifacts separately, and runs
 `scripts/package-container.sh`. The shared assembler verifies the frozen plan,
 current version inputs, intermediate receipts and native-build evidence. It
 checks the complete OCI content graph, including blob digests and sizes,
-platforms, labels and attestation references, before merging it offline.
+platforms, labels and attestation references, before merging it offline. It also
+streams each decompressed layer and checks its hash against the image config's
+`rootfs.diff_ids`, binding the archive filesystem to the image that passed smoke.
+Expanded data is limited to 8 GiB per layer and 32 GiB per archive. The current
+BuildKit gzip exports work on the workflow's Python 3.11; optional Zstandard
+inputs require Python 3.14+ with `compression.zstd` and a bounded decoder window.
+Each platform must include SLSA provenance (`v0.2` or `v1`); an SBOM alone does not
+satisfy that requirement. Evidence is written atomically so a failed disk write
+cannot leave a partial JSON file that blocks a retry.
 
 The final asset name remains `dbus-event-log-container.oci.tar`. Assembly preserves
 the original platform image blobs and provenance. It also writes
@@ -80,6 +88,25 @@ The run is named **Native container validation**. Inspect both native jobs and
 the final package job before accepting its result. This manual check does not
 publish a beta, RC or stable release. Use the normal release client and allocated
 plan for publication.
+
+## Retrying a failed run
+
+Use **Re-run all jobs** when retrying native packaging. Both platform artifacts
+and the final package must belong to the same workflow run and attempt. Re-running
+only failed jobs can retain a successful platform from the previous attempt;
+its artifact name and receipt will not match the new attempt. Assembly rejects
+that mixture rather than accepting evidence from different attempts.
+
+To retry the complete workflow from the CLI, replace `RUN_ID` with its numeric
+GitHub Actions run ID:
+
+```sh
+gh run rerun RUN_ID --repo victron-venus/dbus-event-log
+```
+
+Do not add `--failed` or `--job`. Re-running **Native container validation** remains
+a packaging-only check. Re-running a release workflow still applies its normal
+release allocation and publication checks; it does not bypass them.
 
 ## Measuring performance
 

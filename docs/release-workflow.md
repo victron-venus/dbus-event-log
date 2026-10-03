@@ -140,8 +140,10 @@ credentials/streams and production access are not implied by unit tests or build
 The release engine/client are vendored from `victron-venus/venus-os-ci-toolkit`.
 They are excluded from consumer-specific formatting/type policy. Application
 release workflows run the mandatory Release tooling contracts job; validation-only
-projects receive the local client, whose contracts run in the toolkit. Update the toolkit source and rerun
-`scripts/install_release.py`; `--check` detects drift.
+projects receive the local client, whose contracts run in the toolkit. Update the toolkit source, then run
+`python3 scripts/install_release.py /path/to/consumer` from the toolkit checkout;
+add `--check` to detect drift without writing files. The installer is not vendored
+into consumer repositories.
 
 References: [GitHub schedules](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule),
 [protected environments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments),

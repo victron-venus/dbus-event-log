@@ -27,9 +27,9 @@ COPY config.yaml.example ./config.yaml
 
 # Install the real D-Bus monitoring bindings and fail the build if imports break.
 RUN pip install --no-cache-dir --only-binary=:all: --require-hashes -r requirements-docker-build.txt && \
-    pip install --no-cache-dir --no-build-isolation --require-hashes -r requirements-docker-cairo.txt && \
-    pip install --no-cache-dir --no-build-isolation --require-hashes -r requirements-docker.txt && \
-    pip install --no-cache-dir --no-index --no-deps --no-build-isolation . && \
+    pip install --no-cache-dir --only-binary=:all: --no-binary=pycairo --no-build-isolation --require-hashes -r requirements-docker-cairo.txt && \
+    pip install --no-cache-dir --only-binary=:all: --no-binary=pygobject,pycairo --no-build-isolation --require-hashes -r requirements-docker.txt && \
+    pip install --no-cache-dir --only-binary=:all: --no-binary=dbus-event-log --no-index --no-deps --no-build-isolation . && \
     python -c "import pydbus; from gi.repository import GLib, Gio"
 
 # Create non-root user

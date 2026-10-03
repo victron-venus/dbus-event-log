@@ -21,12 +21,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy project files
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md requirements-docker*.txt ./
 COPY src/ ./src/
 COPY config.yaml.example ./config.yaml
 
 # Install the real D-Bus monitoring bindings and fail the build if imports break.
-RUN pip install --no-cache-dir ".[monitor]" && \
+RUN pip install --no-cache-dir --only-binary=:all: --require-hashes -r requirements-docker-build.txt && \
+    pip install --no-cache-dir --no-build-isolation --require-hashes -r requirements-docker-cairo.txt && \
+    pip install --no-cache-dir --no-build-isolation --require-hashes -r requirements-docker.txt && \
+    pip install --no-cache-dir --no-index --no-deps --no-build-isolation . && \
     python -c "import pydbus; from gi.repository import GLib, Gio"
 
 # Create non-root user

@@ -1,1 +1,2 @@
+# Regenerate with uv pip compile --universal --generate-hashes --python-version 3.12.
 bandit==1.9.2

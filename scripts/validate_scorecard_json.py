@@ -37,7 +37,7 @@ VERSION = {"version": "v5.5.0", "commit": "c395761df6afe1a69e476bc60a013a94bcbc1
 PACKAGING_ABSENT = "packaging workflow not detected"
 
 
-def validate_check(check: object, seen: set) -> str:
+def validate_check(check: object, seen: set[str]) -> str:
     """Reject malformed or incomplete individual check results."""
     if not isinstance(check, dict):
         raise TypeError("Invalid Scorecard check")
@@ -80,7 +80,7 @@ def validate(result: object, repository: str, commit: str) -> None:
     checks = result.get("checks")
     if not isinstance(checks, list):
         raise TypeError("Scorecard checks are missing")
-    seen = set()
+    seen: set[str] = set()
     for check in checks:
         seen.add(validate_check(check, seen))
     if seen != CHECKS:

@@ -35,27 +35,27 @@ jobs:
       uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
       with:
         egress-policy: audit
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
-    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: '3.11'
     - name: Download frozen release version plan
-      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
         name: ${{ inputs.release_plan_artifact }}
         path: .
     - name: Apply frozen release version inputs
       run: python3 scripts/version_plan.py sync --root . --plan .release-plan.json
     - name: Set up native container builder
-      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
     - name: Build and smoke test the native OCI image
       env:
         NATIVE_PLATFORM: ${{ matrix.platform }}
         NATIVE_ARCH: ${{ matrix.arch }}
       run: bash scripts/build-native-container.sh "$NATIVE_PLATFORM" "native-container-$NATIVE_ARCH"
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: native-container-${{ matrix.arch }}-${{ github.run_attempt }}
         path: native-container-${{ matrix.arch }}/*
@@ -71,14 +71,14 @@ jobs:
       uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
       with:
         egress-policy: audit
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
-    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: '3.11'
     - name: Download frozen release version plan
-      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
         name: ${{ inputs.release_plan_artifact }}
         path: .
@@ -93,12 +93,12 @@ jobs:
         RELEASE_CHANNEL: ${{ inputs.channel }}
       run: bash scripts/package-release.sh "$RELEASE_VERSION" "$RELEASE_CHANNEL"
     - name: Download native AMD64 image and build receipt
-      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
         name: native-container-amd64-${{ github.run_attempt }}
         path: native-inputs/amd64
     - name: Download native ARM64 image and build receipt
-      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
         name: native-container-arm64-${{ github.run_attempt }}
         path: native-inputs/arm64
@@ -113,7 +113,7 @@ jobs:
         RELEASE_ASSET_TARGET: package
         RELEASE_ASSET_PATTERN_0: release-dist/*
       run: python3 scripts/stage_release_assets.py --target "$RELEASE_ASSET_TARGET" --pattern "$RELEASE_ASSET_PATTERN_0"
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: release-assets
         path: release-assets/package/*

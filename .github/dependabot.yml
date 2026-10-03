@@ -1,15 +1,15 @@
 version: 2
 updates:
-  - package-ecosystem: github-actions
-    directory: /
-    schedule:
-      interval: daily
-
-    groups:
-      codeql:
-        patterns:
-          - github/codeql-action/*
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: daily
+  # Renovate owns CI updates. The ignore rule also prevents separate
+  # Dependabot security-update PRs; vulnerability alerts remain enabled.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: '*'

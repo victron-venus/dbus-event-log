@@ -10,7 +10,7 @@ permissions:
 jobs:
   ci:
     name: CI
-    uses: victron-venus/venus-os-ci-toolkit/.github/workflows/python-ci.yml@db6a937bd8b15409d9abefe574565001deda7b4b # main
+    uses: victron-venus/venus-os-ci-toolkit/.github/workflows/python-ci.yml@64c15c96f351edc808ce21e2423077417c73a9de # main
     with:
       python-version: '3.11'
 

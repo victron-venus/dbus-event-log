@@ -1,6 +1,6 @@
 """Event models for dbus-event-log."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
@@ -44,7 +44,7 @@ class DBusEvent(BaseModel):
     )
 
     id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     event_type: EventType
     service_name: str
     object_path: str

@@ -1,5 +1,6 @@
 recursive-include tests *.py
 include scripts/validate_scorecard_json.py
+include scripts/cerbo-manual.sh
 include docker-compose.yml
 include Dockerfile
 include config.yaml.example

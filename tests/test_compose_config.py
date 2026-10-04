@@ -77,11 +77,13 @@ def test_compose_rotates_output_without_an_unbounded_broker_file() -> None:
     """All sample processes share finite output retention; the broker logs there."""
     compose = yaml.safe_load(COMPOSE_PATH.read_text())
     for service in compose["services"].values():
+        assert service["restart"] == "no"
         assert service["logging"] == {
             "driver": "json-file",
             "options": {"max-size": "10m", "max-file": "3"},
         }
     broker_config = (COMPOSE_PATH.parent / "mosquitto.conf").read_text()
+    assert compose["services"]["dbus-event-log"]["command"] == ["monitor", "--duration", "900"]
     assert "log_dest stdout" in broker_config.splitlines()
     assert not any(line.startswith("log_dest file") for line in broker_config.splitlines())
     assert not any(

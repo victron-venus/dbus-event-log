@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # Bump when DBusEvent fields, MQTT topic layout, or SQLite schema change.
 # Subscribers and storage backends gate migrations on this.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class EventType(StrEnum):
@@ -30,6 +30,7 @@ class SignalType(StrEnum):
 
     SIGNAL = "signal"
     PROPERTIES_CHANGED = "PropertiesChanged"
+    ITEMS_CHANGED = "ItemsChanged"
     INTERFACES_ADDED = "InterfacesAdded"
     INTERFACES_REMOVED = "InterfacesRemoved"
     NAME_OWNER_CHANGED = "NameOwnerChanged"

@@ -241,6 +241,13 @@ only selected service/method calls and their matching replies are stored.
 Bus-management calls are excluded. Signal selection remains independent of
 the method-member filter. Captured arguments may contain private values; keep
 the database and exports private and leave MQTT disabled if sharing is unwanted.
+Method calls, returns and errors are excluded from MQTT by default, even when
+signal publishing is enabled. Sharing these records requires the separate
+`mqtt.publish_method_events: true` setting (or
+`DBUS_EVENT_LOG_MQTT_PUBLISH_METHOD_EVENTS=true`). Use an access-controlled broker
+and protected transport before opting in; the example anonymous broker is not
+suitable for sharing private command data. Local storage is unaffected by this
+publication setting.
 
 For each `method_call`, `source_unique_name` and `kwargs.caller` identify the
 caller. `unix_user_id` and `process_id` are included when the bus can resolve

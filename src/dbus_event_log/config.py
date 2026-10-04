@@ -29,6 +29,7 @@ class MQTTConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="DBUS_EVENT_LOG_MQTT_")
 
     enabled: bool = True
+    publish_method_events: bool = False
     host: str = "localhost"
     port: int = 1883
     username: str | None = None

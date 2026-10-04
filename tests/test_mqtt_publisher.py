@@ -180,6 +180,32 @@ class TestAsyncMQTTPublisher:
             assert publisher._task.cancelled()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "event_type", [EventType.METHOD_CALL, EventType.METHOD_RETURN, EventType.ERROR]
+    )
+    @pytest.mark.parametrize("allow_methods", [False, True])
+    async def test_method_publication_requires_explicit_opt_in(
+        self, event_type: EventType, allow_methods: bool, sample_event: DBusEvent
+    ) -> None:
+        """Async and direct publishers protect command data while still publishing signals."""
+        config = MQTTConfig(publish_method_events=True) if allow_methods else MQTTConfig()
+        event = sample_event.model_copy(update={"event_type": event_type})
+        with patch("dbus_event_log.mqtt_publisher.mqtt.Client") as client_class:
+            publisher = AsyncMQTTPublisher(config)
+            await publisher.start()
+            publisher._connected = True
+            try:
+                await publisher.publish(event)
+                await publisher.publish(sample_event)
+                await publisher._queue.join()
+                assert client_class.return_value.publish.call_count == (2 if allow_methods else 1)
+                client_class.return_value.publish.reset_mock()
+                MQTTPublisher.publish(publisher, event)
+                assert client_class.return_value.publish.call_count == int(allow_methods)
+            finally:
+                await publisher.stop()
+
+    @pytest.mark.asyncio
     async def test_publish_queues_event(
         self, mqtt_config: MQTTConfig, sample_event: DBusEvent
     ) -> None:

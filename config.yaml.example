@@ -8,6 +8,8 @@ storage:
 
 mqtt:
   enabled: true
+  # Explicitly opt in before sharing captured command arguments/replies and caller metadata.
+  publish_method_events: false
   host: localhost
   port: 1883
   username: null

@@ -129,3 +129,33 @@ def test_startup_failure_releases_client_and_keeps_recorder_independent() -> Non
     client.disconnect.assert_called_once()
     client.loop_stop.assert_called_once()
     assert publisher._client is None and not publisher._connected
+
+
+def test_real_thread_start_failure_does_not_escape_or_retain_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Paho retains an unstarted Thread whose join raises during loop_stop."""
+
+    def fail_start(_thread: threading.Thread) -> None:
+        raise RuntimeError("Cannot start new thread")
+
+    monkeypatch.setattr(threading.Thread, "start", fail_start)
+    publisher = MQTTPublisher(MQTTConfig(host="unused.invalid"))
+    publisher.connect()
+    assert publisher._client is None and not publisher._connected
+
+
+@pytest.mark.parametrize("failing_cleanup", ["disconnect", "loop_stop"])
+def test_cleanup_failure_still_attempts_both_calls_and_clears_state(
+    failing_cleanup: str,
+) -> None:
+    """One cleanup failure must not retain publisher state or skip the other call."""
+    client = MagicMock()
+    getattr(client, failing_cleanup).side_effect = RuntimeError("Cleanup failed")
+    publisher = MQTTPublisher(MQTTConfig())
+    publisher._client = client
+    publisher._connected = True
+    publisher.disconnect()
+    client.disconnect.assert_called_once()
+    client.loop_stop.assert_called_once()
+    assert publisher._client is None and not publisher._connected

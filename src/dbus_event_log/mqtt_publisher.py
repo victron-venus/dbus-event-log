@@ -69,11 +69,19 @@ class MQTTPublisher:
 
     def disconnect(self) -> None:
         """Disconnect from MQTT broker."""
-        if self._client:
-            self._client.disconnect()
-            self._client.loop_stop()
-            self._client = None
-            self._connected = False
+        client = self._client
+        if client:
+            try:
+                client.disconnect()
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                logger.error("Failed to disconnect MQTT client cleanly: %s", e)
+            try:
+                client.loop_stop()
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                logger.error("Failed to stop MQTT client loop cleanly: %s", e)
+            finally:
+                self._client = None
+                self._connected = False
             logger.info("MQTT client disconnected")
 
     def _on_connect(

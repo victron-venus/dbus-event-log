@@ -37,9 +37,12 @@ class MQTTPublisher:
         self._connected = False
 
     def connect(self) -> None:
-        """Connect to MQTT broker."""
+        """Start one nonblocking MQTT connection loop, retrying an unavailable broker."""
         if not self.config.enabled:
             logger.info("MQTT publishing disabled")
+            return
+
+        if self._client is not None:
             return
 
         self._client = mqtt.Client(
@@ -55,19 +58,20 @@ class MQTTPublisher:
         self._client.on_publish = self._on_publish
 
         try:
-            self._client.connect(self.config.host, self.config.port, keepalive=60)
+            self._client.reconnect_delay_set(min_delay=1, max_delay=30)
+            self._client.connect_async(self.config.host, self.config.port, keepalive=60)
             self._client.loop_start()
             logger.info("MQTT client connecting to %s:%s", self.config.host, self.config.port)
         except Exception as e:  # pylint: disable=broad-exception-caught
             # A broker failure must not terminate the independent D-Bus event recorder.
             logger.error("Failed to connect to MQTT broker: %s", e)
-            self._client = None
+            self.disconnect()
 
     def disconnect(self) -> None:
         """Disconnect from MQTT broker."""
         if self._client:
-            self._client.loop_stop()
             self._client.disconnect()
+            self._client.loop_stop()
             self._client = None
             self._connected = False
             logger.info("MQTT client disconnected")

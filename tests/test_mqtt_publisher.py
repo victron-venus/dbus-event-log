@@ -65,7 +65,8 @@ class TestMQTTPublisher:
 
         mock_client_class.assert_called_once()
         mock_client.username_pw_set.assert_not_called()
-        mock_client.connect.assert_called_once_with("localhost", 1883, keepalive=60)
+        mock_client.connect_async.assert_called_once_with("localhost", 1883, keepalive=60)
+        mock_client.reconnect_delay_set.assert_called_once_with(min_delay=1, max_delay=30)
         mock_client.loop_start.assert_called_once()
 
     @patch("dbus_event_log.mqtt_publisher.mqtt.Client")
@@ -100,7 +101,7 @@ class TestMQTTPublisher:
         """A broker disconnect must clear state through the real Paho dispatcher."""
         publisher = MQTTPublisher(mqtt_config)
         with (
-            patch.object(mqtt.Client, "connect", return_value=mqtt.MQTT_ERR_SUCCESS),
+            patch.object(mqtt.Client, "connect_async", return_value=None),
             patch.object(mqtt.Client, "loop_start", return_value=mqtt.MQTT_ERR_SUCCESS),
         ):
             publisher.connect()

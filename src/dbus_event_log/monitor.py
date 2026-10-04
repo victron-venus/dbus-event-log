@@ -91,14 +91,14 @@ class DBusMonitor:
         logger.info("Stopping D-Bus monitor")
         self._running = False
         self._maintenance_stop.set()
-        if self._maintenance_task is not None:
-            await self._maintenance_task
-            self._maintenance_task = None
         for sub in self._subscriptions.values():
             sub.unsubscribe()
         self._subscriptions.clear()
         if self._method_capture is not None:
             await asyncio.to_thread(self._method_capture.stop_capture)
+        if self._maintenance_task is not None:
+            await self._maintenance_task
+            self._maintenance_task = None
         try:
             if self._method_task is not None:
                 await self._method_task
@@ -140,8 +140,8 @@ class DBusMonitor:
         capture = self._method_capture
         assert capture is not None
         try:
-            # The bus may still accept messages while stop() awaits maintenance
-            # and closes the transport. Drain only after that producer is closed.
+            # The bus may still accept messages while stop() closes the transport.
+            # Drain only after that producer is closed.
             while self._running or capture.connection is not None or capture.pending:
                 for event in await asyncio.to_thread(capture.poll):
                     await self._store_event(event)

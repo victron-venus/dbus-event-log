@@ -40,6 +40,7 @@ def register_test_service(connection: Any) -> int:
         parameters: Any,
         invocation: Any,
     ) -> None:
+        """Serve deterministic calls and emit one real batch signal per successful write."""
         if member == "Fail":
             invocation.return_dbus_error("org.example.Refused", "Synthetic refusal")
             return
@@ -134,6 +135,7 @@ async def smoke_monitor(database: Path) -> None:
         caller.set_exit_on_close(False)
 
         async def invoke(destination: str, method: str, parameters: Any = None) -> Any:
+            """Call from a separate connection while the main loop dispatches the service."""
             return await asyncio.to_thread(
                 caller.call_sync,
                 destination,

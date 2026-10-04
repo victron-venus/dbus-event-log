@@ -36,6 +36,7 @@ def message(kind: int = 1, **overrides: Any) -> MagicMock:
         getattr(result, "get_" + key).return_value = value
     result.get_body.return_value.unpack.return_value = body
     result.get_body.return_value.get_size.return_value = 64
+    result.get_header_fields.return_value = []
     result.copy.return_value = result
     return result
 
@@ -251,6 +252,7 @@ def test_service_appearing_during_startup_is_routable(
     recorder = MethodCapture(DBusConfig(), ":1.99")
     names: list[str] = []
     lookup, observer = MagicMock(), MagicMock()
+    lookup.get_unique_name.return_value = ":1.98"
     observer.call_sync.side_effect = lambda *_args: names.append("com.victronenergy.test")
 
     def bus_call(method: str, _parameters: Any = None) -> Any:
@@ -258,6 +260,10 @@ def test_service_appearing_during_startup_is_routable(
             return names.copy()
         if method == "GetNameOwner":
             return ":1.20"
+        if method == "GetId":
+            recorder._filter(
+                None, message(sender=":1.98", destination=BUS_NAME, member="GetId"), True, None
+            )
         return {}
 
     monkeypatch.setattr(recorder, "_new_connection", MagicMock(side_effect=[lookup, observer]))
@@ -272,3 +278,139 @@ def test_service_appearing_during_startup_is_routable(
     event = recorder._decode(datetime.now(UTC), message(destination=":1.20"))
     assert event is not None and event.service_name == "com.victronenergy.test"
     recorder.close()
+
+
+def test_startup_snapshot_rewinds_replacement_before_replaying_calls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Calls before an owner replacement retain the old destination and matching reply."""
+    recorder = MethodCapture(DBusConfig(services=["com.victronenergy.*"]), ":1.99")
+    lookup, observer = MagicMock(), MagicMock()
+    lookup.get_unique_name.return_value = ":1.98"
+    observer.is_closed.return_value = False
+
+    def observe(wire_message: MagicMock) -> None:
+        """Deliver a daemon-ordered message through the production filter."""
+        recorder._filter(None, wire_message, True, None)
+
+    def bus_call(method: str, _parameters: Any = None) -> Any:
+        """Interleave method traffic and ownership changes with discovery replies."""
+        if method == "ListNames":
+            return ["com.victronenergy.test"]
+        if method == "GetNameOwner":
+            observe(message(destination=":1.20"))
+            observe(message(destination="com.victronenergy.test", serial=43))
+            # Discovery receives the new owner before this queued transition is decoded.
+            observe(
+                message(
+                    4,
+                    sender=BUS_NAME,
+                    member="NameOwnerChanged",
+                    arguments=("com.victronenergy.test", ":1.20", ":1.21"),
+                )
+            )
+            return ":1.21"
+        if method == "GetId":
+            observe(message(sender=":1.98", destination=BUS_NAME, member="GetId"))
+            for serial in (42, 43):
+                observe(message(2, sender=":1.20", destination=":1.10", reply_serial=serial))
+        return {}
+
+    monkeypatch.setattr(recorder, "_new_connection", MagicMock(side_effect=[lookup, observer]))
+    monkeypatch.setattr(recorder, "_bus_call", bus_call)
+    monkeypatch.setattr(module, "Gio", SimpleNamespace(DBusCallFlags=SimpleNamespace(NONE=0)))
+    monkeypatch.setattr(
+        module, "GLib", SimpleNamespace(Variant=lambda _signature, value: value, Error=RuntimeError)
+    )
+    recorder.start()
+    events = recorder.poll()
+    calls = [event for event in events if event.event_type == EventType.METHOD_CALL]
+    replies = [event for event in events if event.event_type == EventType.METHOD_RETURN]
+    assert len(calls) == len(replies) == 2
+    assert all(call.destination_unique_name == ":1.20" for call in calls)
+    assert {reply.kwargs["call_event_id"] for reply in replies} == {str(call.id) for call in calls}
+    assert recorder._owners["com.victronenergy.test"] == ":1.21"
+    recorder.close()
+
+
+def test_unknown_owner_rejects_foreign_reply_until_acquisition(capture: MethodCapture) -> None:
+    """Service activation may resolve a pending destination, but cannot authenticate a stranger."""
+    when = datetime.now(UTC)
+    capture._owners.clear()
+    call = capture._decode(when, message())
+    assert call is not None and call.destination_unique_name is None
+    foreign = message(2, sender=":1.777", destination=":1.10", reply_serial=42)
+    assert capture._decode(when, foreign) is None
+    capture._decode(
+        when,
+        message(
+            4,
+            sender=BUS_NAME,
+            member="NameOwnerChanged",
+            arguments=("com.victronenergy.test", "", ":1.20"),
+        ),
+    )
+    assert capture._decode(when, foreign) is None
+    reply = capture._decode(when, message(2, sender=":1.20", destination=":1.10", reply_serial=42))
+    assert reply is not None and reply.kwargs["call_event_id"] == str(call.id)
+
+
+def test_bus_error_is_matched_without_a_destination_owner(capture: MethodCapture) -> None:
+    """Daemon-generated activation failures can legitimately precede any service ownership."""
+    when = datetime.now(UTC)
+    capture._owners.clear()
+    call = capture._decode(when, message())
+    reply = capture._decode(
+        when,
+        message(
+            3,
+            sender=BUS_NAME,
+            destination=":1.10",
+            reply_serial=42,
+            error_name="org.freedesktop.DBus.Error.ServiceUnknown",
+        ),
+    )
+    assert call and reply and reply.kwargs["call_event_id"] == str(call.id)
+
+
+def test_byte_budget_rejects_queue_before_count_limit(capture: MethodCapture) -> None:
+    """Large payloads cannot fill every count slot independently of the byte budget."""
+    capture.config.max_pending_bytes = 1024
+    capture._ready = True
+    wire_message = message()
+    wire_message.get_body.return_value.get_size.return_value = 400
+    for _ in range(3):
+        capture._filter(None, wire_message, True, None)
+    assert len(capture._queue) == 2
+    assert capture._queued_bytes == 832
+    with pytest.raises(RuntimeError, match="overflow"):
+        capture.poll()
+
+
+def test_poll_bounds_decoding_and_retains_only_reply_metadata(capture: MethodCapture) -> None:
+    """Batch unpacking stays bounded and outstanding replies do not retain call payloads."""
+    capture._ready = True
+    for serial in range(3):
+        wire_message = message(serial=serial, arguments=("payload",))
+        wire_message.get_body.return_value.get_size.return_value = 600 * 1024
+        capture._filter(None, wire_message, True, None)
+    for count in range(3):
+        events = capture.poll()
+        assert len(events) == 1
+        assert events[0].arguments == ["payload"]
+        assert capture._queued_bytes == (2 - count) * (600 * 1024 + 16)
+    assert not capture.pending
+    assert all(not call.arguments for _started, call in capture._calls.values())
+
+
+def test_successful_handshake_starts_capture_before_call_sync_returns(
+    capture: MethodCapture,
+) -> None:
+    """A method arriving immediately behind BecomeMonitor's reply is not silently discarded."""
+    handshake = message(member="BecomeMonitor", serial=7)
+    assert capture._filter(None, handshake, False, None) is handshake
+    reply = message(2, sender=BUS_NAME, reply_serial=7)
+    assert capture._filter(None, reply, True, None) is reply
+    assert capture._ready
+    capture._filter(None, message(), True, None)
+    assert len(capture.poll()) == 1

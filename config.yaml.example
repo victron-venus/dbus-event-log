@@ -24,6 +24,7 @@ dbus:
   # Empty records all methods to selected services; narrow this for write investigations.
   method_members: [SetValue, SetText, Set]
   max_pending_events: 1024
+  max_pending_bytes: 8388608  # queued method payload budget, not a process-memory quota
   services:
     - "com.victronenergy.*"
     - "org.freedesktop.Notifications"

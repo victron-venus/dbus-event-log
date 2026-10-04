@@ -118,6 +118,29 @@ async def test_method_consumer_waits_for_transport_close(
         await monitor.stop()
 
 
+async def test_failed_method_start_releases_library_resources(
+    monitor_environment: tuple[DBusMonitor, MagicMock, Config, SQLiteStorage],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A denied method monitor cannot leave an unexpected signal recorder running."""
+    monitor, bus, config, _ = monitor_environment
+    config.dbus.capture_methods = True
+    bus.con = SimpleNamespace(get_unique_name=lambda: ":1.99")
+    capture = MagicMock()
+    capture.start.side_effect = RuntimeError("BecomeMonitor denied")
+    monkeypatch.setattr(monitor_module, "MethodCapture", lambda *_args: capture)
+    with pytest.raises(RuntimeError, match="BecomeMonitor denied"):
+        await monitor.start()
+    assert not monitor._running
+    assert not monitor._subscriptions
+    assert monitor._dispatch_task is None
+    assert monitor._maintenance_task is None
+    assert monitor._storage_executor is None
+    assert monitor._method_capture is None
+    capture.stop_capture.assert_called_once()
+    capture.close.assert_called_once()
+
+
 @pytest.mark.parametrize(
     ("name", "kind"),
     [

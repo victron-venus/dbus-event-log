@@ -83,7 +83,12 @@ class DBusMonitor:
         self._dispatch_task = asyncio.create_task(self._dispatch_bus())
         if cfg.dbus.capture_methods:
             self._method_capture = MethodCapture(cfg.dbus, self.bus.con.get_unique_name())
-            await asyncio.to_thread(self._method_capture.start)
+            try:
+                await asyncio.to_thread(self._method_capture.start)
+            except Exception:
+                # Library callers deserve the same failed-start cleanup as the CLI.
+                await self.stop()
+                raise
             self._method_task = asyncio.create_task(self._dispatch_methods())
 
     async def stop(self) -> None:
@@ -185,6 +190,7 @@ class DBusMonitor:
             def signal_handler(
                 sender: str, path: str, interface: str, signal_name: str, args: tuple[Any, ...]
             ) -> None:
+                """Schedule a selected service signal only while capture is active."""
                 if self._running:
                     self._schedule_event(
                         self._handle_signal(
@@ -226,6 +232,7 @@ class DBusMonitor:
                 _signal_name: str,
                 args: tuple[str, str, str],
             ) -> None:
+                """Queue service lifecycle changes without blocking the GLib callback."""
                 if self._running:
                     self._schedule_event(self._handle_name_owner_change(*args))
 

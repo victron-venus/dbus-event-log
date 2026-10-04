@@ -183,6 +183,7 @@ dbus:
   capture_methods: false  # or pass --capture-methods for this session
   method_members: [SetValue, SetText, Set]  # empty list captures every method in scope
   max_pending_events: 1024
+  max_pending_bytes: 8388608  # 8 MiB of queued method payloads; not a hard RSS limit
   services:
     - "com.victronenergy.*"
     - "org.freedesktop.Notifications"
@@ -258,9 +259,15 @@ A successful reply alone does not prove the physical inverter applied the
 requested state; check subsequent `ItemsChanged`/`PropertiesChanged` values.
 State transitions and cause/effect relationships are not inferred automatically.
 
-Queues are bounded by `max_pending_events`. Queue overflow, a method body larger
+Queues are bounded by `max_pending_events`; queued method payloads are also
+bounded by `max_pending_bytes` (8 MiB by default). Decoding creates Python
+objects, so this is not a hard process-memory quota. Pending replies retain
+correlation metadata rather than complete method arguments.
+Queue overflow, a method body larger
 than 1 MiB, loss of the monitor connection, or a recording failure stops the CLI
-with an error indicating incomplete capture. Narrow the scope and retry; this
+with an error indicating incomplete capture. Narrow the scope to reduce stored
+events; the method monitor still receives bus-wide traffic, so heavy unrelated
+traffic may require a shorter capture or a quieter reproduction. This
 is not a lossless or tamper-proof continuous audit service.
 
 ### Stop capture and verify
@@ -324,6 +331,38 @@ dbus-event-log --config config.yaml stats
 Export the evidence you need and remove unneeded captures deliberately. Stopping
 the recorder preserves existing databases, archives and exports; it does not
 free their disk space automatically.
+
+### Manual-only Cerbo installation
+
+An attended native installation can keep a private runtime under
+`/data/dbus-event-log/releases/<version>/.venv`, with `current` pointing to the
+chosen version. Keep configuration and captures in the parent directory, owned
+by root with mode `0700` for directories and `0600` for configuration/data.
+Use the verified release wheel in that isolated runtime; reuse firmware-managed
+GI/D-Bus bindings only after checking compatibility with the installed Venus OS.
+Do not replace system Python or another application's environment.
+
+Copy [the manual launcher](scripts/cerbo-manual.sh) to
+`/data/dbus-event-log/recorder`. It prints usage without starting anything when
+called without arguments. Capture additionally requires an interactive terminal,
+an explicit `capture` action and a duration from 1 to 900 seconds:
+
+```bash
+/data/dbus-event-log/recorder version
+/data/dbus-event-log/recorder capture 120 --capture-methods
+```
+
+Use a private `config.yaml` with MQTT disabled and small storage limits on GX
+flash. Select only the services involved in the incident. Ctrl+C stops a session;
+the specified duration also ends it automatically.
+
+**Installation must not register a service or startup action.** Do not create a
+`/service` entry, systemd unit, cron/timer job, SetupHelper enablement, container
+restart policy, or a call from `rc.local`/`rcS.local`. Merely installing or updating
+the runtime must not invoke `monitor`. Verify that no recorder process or startup
+registration exists afterward. With this layout the recorder remains stopped
+after reboot; the launcher also rejects noninteractive boot/cron/service calls.
+Recheck the firmware-provided Python and GI bindings after a Venus OS upgrade.
 
 ### Query Events
 
@@ -409,6 +448,11 @@ is running. TimescaleDB retention must be configured on the database server;
 these SQLite settings do not install a TimescaleDB retention policy.
 
 ## Event Structure
+
+The event contract is schema version **2**. This adds `ItemsChanged` and caller/
+reply-correlation metadata to the MQTT contract. Existing version 1 SQLite rows
+remain readable; opening the active database updates its schema marker without
+changing the event columns or rewriting previous event payloads.
 
 ```json
 {

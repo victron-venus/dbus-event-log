@@ -92,6 +92,9 @@ class SQLiteStorage:
                 "INSERT OR IGNORE INTO schema_version (version) VALUES (?)",
                 (SCHEMA_VERSION,),
             )
+            # Version 2 adds event values/metadata, without changing SQL columns.
+            # Keep a single current marker when reopening a version 1 database.
+            conn.execute("DELETE FROM schema_version WHERE version < ?", (SCHEMA_VERSION,))
             conn.commit()
 
     @contextmanager

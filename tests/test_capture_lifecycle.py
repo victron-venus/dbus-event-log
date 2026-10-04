@@ -28,15 +28,18 @@ async def test_deadline_and_signals_drain_before_disconnect(
     monkeypatch.setattr(loop, "remove_signal_handler", remove)
 
     async def start() -> None:
+        """Trigger an operating-system shutdown request after capture starts."""
         calls.append("start")
         if stop_signal is not None:
             loop.call_soon(handlers[stop_signal])
 
     async def drain() -> None:
+        """Represent accepted writes finishing during asynchronous shutdown."""
         await asyncio.sleep(0)
         calls.append("drained")
 
     async def disconnect() -> None:
+        """Record publisher teardown after the final accepted write."""
         calls.append("disconnected")
 
     monitor = SimpleNamespace(start=start, stop=drain, raise_if_failed=MagicMock())

@@ -9,7 +9,9 @@ services:
   dbus-event-log:
     build: .
     container_name: dbus-event-log
-    restart: unless-stopped
+    restart: "no"
+    command: ["monitor", "--duration", "900"]
+    stop_grace_period: 60s
     logging: *bounded-logging
     volumes:
       - dbus-event-log-data:/var/lib/dbus-event-log
@@ -27,7 +29,7 @@ services:
   timescaledb:
     image: timescale/timescaledb:latest-pg16
     container_name: dbus-event-log-timescaledb
-    restart: unless-stopped
+    restart: "no"
     logging: *bounded-logging
     environment:
       - POSTGRES_DB=dbus_events
@@ -44,7 +46,7 @@ services:
   mosquitto:
     image: eclipse-mosquitto:2
     container_name: dbus-event-log-mosquitto
-    restart: unless-stopped
+    restart: "no"
     logging: *bounded-logging
     ports:
       - "1883:1883"

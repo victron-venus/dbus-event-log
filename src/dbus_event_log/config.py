@@ -29,6 +29,7 @@ class MQTTConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="DBUS_EVENT_LOG_MQTT_")
 
     enabled: bool = True
+    publish_method_events: bool = False
     host: str = "localhost"
     port: int = 1883
     username: str | None = None
@@ -53,6 +54,10 @@ class DBusConfig(BaseSettings):
         ]
     )
     ignored_signals: list[str] = Field(default_factory=lambda: ["NameAcquired", "NameLost"])
+    capture_methods: bool = False
+    method_members: list[str] = Field(default_factory=list)
+    max_pending_events: int = Field(default=1024, ge=1, le=65536)
+    max_pending_bytes: int = Field(default=8 * 1024 * 1024, ge=1024, le=256 * 1024 * 1024)
 
 
 class LoggingConfig(BaseSettings):

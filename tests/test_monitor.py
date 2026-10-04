@@ -12,6 +12,7 @@ import pytest
 
 from dbus_event_log import monitor as monitor_module
 from dbus_event_log.config import Config, DBusConfig, StorageConfig
+from dbus_event_log.method_capture import MethodCapture
 from dbus_event_log.models import DBusEvent, EventType, SignalType
 from dbus_event_log.monitor import DBusMonitor
 from dbus_event_log.storage import SQLiteStorage
@@ -64,7 +65,7 @@ async def test_start_discovers_matching_services_and_stop_cancels(
     await monitor.start()
     assert monitor._running
     calls = bus.subscribe.call_args_list
-    assert len(calls) == 7
+    assert len(calls) == 9
     assert {call.kwargs["sender"] for call in calls} == {
         "com.victronenergy.battery",
         "org.example.Exact",
@@ -78,10 +79,73 @@ async def test_start_discovers_matching_services_and_stop_cancels(
         subscription.unsubscribe.assert_called_once()
 
 
+async def test_method_consumer_waits_for_transport_close(
+    monitor_environment: tuple[DBusMonitor, MagicMock, Config, SQLiteStorage],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Do not abandon messages arriving while stop awaits maintenance/transport closure."""
+    monitor, _, config, storage = monitor_environment
+    capture = MethodCapture(config.dbus, ":1.99")
+    capture.connection = MagicMock()
+    event = DBusEvent(
+        event_type=EventType.METHOD_CALL,
+        service_name="com.victronenergy.test",
+        object_path="/Settings/Limit",
+        member="SetValue",
+    )
+    buffered: list[DBusEvent] = []
+
+    def poll() -> list[DBusEvent]:
+        batch = buffered.copy()
+        buffered.clear()
+        return batch
+
+    monkeypatch.setattr(capture, "poll", poll)
+    monitor._method_capture = capture
+    consumer = asyncio.create_task(monitor._dispatch_methods())
+    try:
+        await asyncio.sleep(0.02)
+        assert not consumer.done(), "Consumer exited before its transport was closed"
+        buffered.append(event)
+        async with asyncio.timeout(1):
+            while not storage.query(event_type=EventType.METHOD_CALL):
+                await asyncio.sleep(0.01)
+        capture.connection = None
+        await asyncio.wait_for(consumer, timeout=1)
+        monitor.raise_if_failed()
+    finally:
+        capture.connection = None
+        await monitor.stop()
+
+
+async def test_failed_method_start_releases_library_resources(
+    monitor_environment: tuple[DBusMonitor, MagicMock, Config, SQLiteStorage],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A denied method monitor cannot leave an unexpected signal recorder running."""
+    monitor, bus, config, _ = monitor_environment
+    config.dbus.capture_methods = True
+    bus.con = SimpleNamespace(get_unique_name=lambda: ":1.99")
+    capture = MagicMock()
+    capture.start.side_effect = RuntimeError("BecomeMonitor denied")
+    monkeypatch.setattr(monitor_module, "MethodCapture", lambda *_args: capture)
+    with pytest.raises(RuntimeError, match="BecomeMonitor denied"):
+        await monitor.start()
+    assert not monitor._running
+    assert not monitor._subscriptions
+    assert monitor._dispatch_task is None
+    assert monitor._maintenance_task is None
+    assert monitor._storage_executor is None
+    assert monitor._method_capture is None
+    capture.stop_capture.assert_called_once()
+    capture.close.assert_called_once()
+
+
 @pytest.mark.parametrize(
     ("name", "kind"),
     [
         ("PropertiesChanged", SignalType.PROPERTIES_CHANGED),
+        ("ItemsChanged", SignalType.ITEMS_CHANGED),
         ("InterfacesAdded", SignalType.INTERFACES_ADDED),
         ("InterfacesRemoved", SignalType.INTERFACES_REMOVED),
     ],
@@ -186,7 +250,7 @@ async def test_late_matching_service_signals_are_captured(
             for call in bus.subscribe.call_args_list
             if call.kwargs["sender"] == "com.victronenergy.battery.late"
         ]
-        assert len(callbacks) == 3
+        assert len(callbacks) == 4
         callback = next(c["signal_fired"] for c in callbacks if c["signal"] == "PropertiesChanged")
         callback(
             ":1.42", "/Dc/0/Voltage", "com.victronenergy.BusItem", "PropertiesChanged", (52.4,)
@@ -238,7 +302,7 @@ async def test_late_subscription_does_not_wait_for_slow_storage(
     )
     try:
         await asyncio.wait_for(entered.wait(), timeout=2)
-        assert bus.subscribe.call_count == 3
+        assert bus.subscribe.call_count == 4
     finally:
         release.set()
         await task
@@ -248,15 +312,17 @@ async def test_late_subscription_does_not_wait_for_slow_storage(
 @pytest.mark.parametrize(
     ("name", "old", "new", "running", "expected"),
     [
-        ("com.victronenergy.battery", "", ":1.5", True, 3),
-        ("com.victronenergy.battery", ":1.5", ":1.6", True, 3),
-        ("org.example.Exact", "", ":1.5", True, 3),
+        ("com.victronenergy.battery", "", ":1.5", True, 4),
+        ("com.victronenergy.battery", ":1.5", ":1.6", True, 4),
+        ("org.example.Exact", "", ":1.5", True, 4),
         ("org.example.ExactExtra", "", ":1.5", True, 0),
         ("org.example.Unrelated", "", ":1.5", True, 0),
         ("com.victronenergy.battery", ":1.5", "", True, 0),
         ("com.victronenergy.battery", "", ":1.5", False, 0),
     ],
 )
+# Each argument is one independent dimension of the ownership transition matrix.
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
 async def test_owner_changes_only_subscribe_active_matching_services_once(
     monitor_environment: tuple[DBusMonitor, MagicMock, Config, SQLiteStorage],
     name: str,

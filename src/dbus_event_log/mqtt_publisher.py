@@ -13,7 +13,7 @@ from paho.mqtt.properties import Properties
 from paho.mqtt.reasoncodes import ReasonCode
 
 from dbus_event_log.config import MQTTConfig
-from dbus_event_log.models import DBusEvent
+from dbus_event_log.models import DBusEvent, EventType
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +113,12 @@ class MQTTPublisher:
     def publish(self, event: DBusEvent) -> None:
         """Publish event to MQTT topic."""
         if not self._client or not self._connected:
+            return
+        if not self.config.publish_method_events and event.event_type in (
+            EventType.METHOD_CALL,
+            EventType.METHOD_RETURN,
+            EventType.ERROR,
+        ):
             return
 
         service_path = event.service_name.replace(".", "/")

@@ -28,6 +28,7 @@ class TestSchemaVersion:
         assert SCHEMA_VERSION >= 1
 
     def test_schema_version_matches_mqtt_payload(self) -> None:
+        """Consumers receive the current contract version with every payload."""
         event = DBusEvent(
             event_type=EventType.SIGNAL,
             service_name="com.victronenergy.test",
@@ -37,6 +38,7 @@ class TestSchemaVersion:
         assert payload["schema_version"] == SCHEMA_VERSION
 
     def test_schema_version_matches_sqlite(self, tmp_path: Path) -> None:
+        """New databases contain the same version marker as the event contract."""
         db = tmp_path / "test.db"
         cfg = StorageConfig(sqlite_path=db, backend="sqlite")
         storage = SQLiteStorage(cfg)
@@ -44,6 +46,27 @@ class TestSchemaVersion:
             row = conn.execute("SELECT version FROM schema_version LIMIT 1").fetchone()
         assert row is not None
         assert row["version"] == SCHEMA_VERSION
+
+    def test_version_one_upgrade_preserves_events(self, tmp_path: Path) -> None:
+        """The additive event contract upgrades its marker without rewriting stored rows."""
+        cfg = StorageConfig(sqlite_path=tmp_path / "legacy.db")
+        storage = SQLiteStorage(cfg)
+        event = DBusEvent(
+            event_type=EventType.SIGNAL,
+            service_name="com.victronenergy.test",
+            object_path="/Test/Path",
+        )
+        storage.insert(event)
+        with storage._connection() as conn:
+            conn.execute("UPDATE schema_version SET version = 1")
+            conn.commit()
+        reopened = SQLiteStorage(cfg)
+        with reopened._connection() as conn:
+            versions = [
+                row["version"] for row in conn.execute("SELECT version FROM schema_version")
+            ]
+        assert versions == [SCHEMA_VERSION]
+        assert reopened.query()[0]["id"] == str(event.id)
 
 
 class TestDBusEventSchema:

@@ -659,15 +659,18 @@ async def test_monitor_cli_wires_events_and_always_drains_before_publisher(
         stop=operation("publisher.stop"),
         publish=AsyncMock(),
     )
-    monitor = SimpleNamespace(start=operation("monitor.start"), stop=operation("monitor.stop"))
+    monitor = SimpleNamespace(
+        start=operation("monitor.start"),
+        stop=operation("monitor.stop"),
+        raise_if_failed=MagicMock(side_effect=asyncio.CancelledError if not failure else None),
+    )
     publisher_factory = MagicMock(return_value=publisher)
     monitor_factory = MagicMock(return_value=monitor)
     monkeypatch.setattr(cli_module, "AsyncMQTTPublisher", publisher_factory)
     monkeypatch.setattr(cli_module, "DBusMonitor", monitor_factory)
-    monkeypatch.setattr(asyncio, "sleep", AsyncMock(side_effect=asyncio.CancelledError))
 
     with pytest.raises(RuntimeError if failure else asyncio.CancelledError):
-        await cli_module._run_monitor()
+        await cli_module._run_monitor(duration=0.001)
 
     publisher_factory.assert_called_once_with(cli_module.config.mqtt)
     monitor_factory.assert_called_once_with(event_handler=publisher.publish)

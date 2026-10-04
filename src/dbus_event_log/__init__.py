@@ -16,4 +16,4 @@ __all__ = [
     "TimescaleDBStorage",
 ]
 
-__version__ = "0.1.9"
+__version__ = "0.2.0"

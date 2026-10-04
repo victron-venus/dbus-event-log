@@ -1,5 +1,18 @@
 # D-Bus Event Log
 
+**A temporary troubleshooting recorder, not a continuously running monitoring service.**
+Start it for a specific incident, reproduce the problem, export the evidence,
+and **stop it when the investigation is finished**. The CLI stops capture after
+15 minutes by default (`--duration 900`); choose a shorter positive duration for
+busy buses. Do not configure automatic restart or boot-time startup.
+
+**Continuous recording can fill the storage device**, especially the persistent
+flash on a Cerbo GX. Every selected signal or method event can create a database
+write. Rotation and retention reduce growth, but do not impose a hard total disk
+quota: the active database, archives, SQLite sidecars, temporary maintenance space,
+exports and process logs all consume storage. Watch free space during capture and
+stop early if necessary. See [Stop capture and verify](#stop-capture-and-verify).
+
 ## Venus OS deployment status
 
 This repository is a library/CLI and companion-host container, not a validated
@@ -7,8 +20,8 @@ SetupHelper package. The 2026-09-12 Cerbo audit found no native `dbus-event-log`
 service. Do not add a continuous all-signal recorder to a constrained GX without
 measuring write volume and CPU use first.
 
-For a native deployment, use daemontools supervision and `/data/dbus-event-log`
-for persistent SQLite data (set `DBUS_EVENT_LOG_STORAGE_SQLITE_PATH`). The default
+For an attended native capture, use a foreground process and `/data/dbus-event-log`
+for SQLite data (set `DBUS_EVENT_LOG_STORAGE_SQLITE_PATH`). The default
 `/var/lib` path and container examples are for a Linux companion host. Venus OS
 rootfs changes do not survive firmware replacement. On the audited image,
 `/var/log` resolves to persistent `/data/log`; bound native output with
@@ -16,11 +29,10 @@ rootfs changes do not survive firmware replacement. On the audited image,
 
 SQLite retention and rotation run at monitor startup and periodically. The
 30-day age ceiling and four-archive limit prevent indefinite history growth
-with the default size limit enabled. Tune the limits below for available flash
-space, and measure write volume on the actual GX before deployment. The current
-monitor captures property/interface and service-lifecycle signals; validate the
-specific Victron services and signal types needed on the target before treating
-it as a complete BusItem event archive.
+with the default size limit enabled. The default 100 MiB rotation threshold and
+four archives can already require roughly 500 MiB before sidecars, temporary
+maintenance space and logs. Tune these values for available flash space; they
+are not permission to leave the recorder running unattended.
 
 
 [![CI](https://github.com/victron-venus/dbus-event-log/actions/workflows/ci.yml/badge.svg)](https://github.com/victron-venus/dbus-event-log/actions/workflows/ci.yml)
@@ -31,7 +43,7 @@ it as a complete BusItem event archive.
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/victron-venus/dbus-event-log/graphs/commit-activity)
 [![Made with Python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/)
 
-Audit log for D-Bus commands and inverter state transitions with chronology, filtering, and export.
+Temporary capture of D-Bus signals, method calls and replies for incident analysis.
 
 <!-- ci-release-process:start -->
 ## Release process
@@ -41,7 +53,15 @@ See the [release strategy](RELEASING.md) for validation, nightly, beta, RC and s
 
 ## Overview
 
-`dbus-event-log` records selected D-Bus signals and service lifecycle events on Victron Energy systems for incident analysis. It captures `PropertiesChanged`, `InterfacesAdded`, and `InterfacesRemoved` from configured services, plus `NameOwnerChanged` from the bus. It does not intercept method calls or derive state transitions automatically.
+`dbus-event-log` records `ItemsChanged` (including the Victron root-path batch
+payload), `PropertiesChanged`, `InterfacesAdded`, and `InterfacesRemoved` from
+configured services, plus service lifecycle signals. With `--capture-methods`,
+it also passively observes method calls to selected services and their matched
+replies/errors using D-Bus `BecomeMonitor`.
+
+It complements existing metrics and application logs; it does not replace
+`venus-os-observability` or `inverter-monitoring`. Use a narrowly scoped capture
+when those sources cannot explain an incident.
 
 ```mermaid
 flowchart TD
@@ -70,6 +90,8 @@ flowchart TD
 - **D-Bus Signal Subscription** - Monitor system/session bus for Victron services
 - **Event Capture** - Property and interface signals with their service, path, interface, and arguments
 - **Service Lifecycle** - Detect service added/removed via NameOwnerChanged
+- **Optional Method Audit** - Caller unique name, available UID/PID, destination,
+  method, arguments, and a correlated return or error
 - **SQLite Storage** - Local persistence with rotation and vacuum maintenance
 - **TimescaleDB Support** - Scalable time-series storage for HA deployments
 - **MQTT Publishing** - Forward persisted events to `victron/dbus/events` topics while connected
@@ -108,6 +130,11 @@ so `DBUS_EVENT_LOG_MQTT_HOST=mosquitto` resolves to that broker. The mounted
 GX; verify that host bus policy permits the image's non-root user to subscribe.
 Use this example only on a companion host with the intended local D-Bus access.
 It is not a native Venus OS installer or a remote GX telemetry tunnel.
+
+The example disables automatic restart and limits the recorder to 900 seconds.
+When the recorder exits, its supporting broker may still be running: finish the
+session with `docker compose down`. The non-root example does not grant the
+additional bus-monitor permissions required for method capture.
 
 All example containers use Docker output rotation (10 MiB per file, three files).
 Mosquitto logs to stdout so an additional persistent broker log cannot grow
@@ -153,6 +180,9 @@ mqtt:
 
 dbus:
   bus_type: system  # or "session"
+  capture_methods: false  # or pass --capture-methods for this session
+  method_members: [SetValue, SetText, Set]  # empty list captures every method in scope
+  max_pending_events: 1024
   services:
     - "com.victronenergy.*"
     - "org.freedesktop.Notifications"
@@ -177,13 +207,123 @@ export DBUS_EVENT_LOG_DBUS_SERVICES='["com.victronenergy.*"]'
 
 ## Usage
 
-### Start Monitoring
+### Start a bounded troubleshooting capture
 
 ```bash
-dbus-event-log monitor
+umask 077
+dbus-event-log --config config.yaml monitor --duration 300
 ```
 
 The monitor dispatches GLib callbacks alongside asyncio and waits for pending storage operations during shutdown. Both SQLite writes and asynchronous TimescaleDB writes complete before an event is queued for MQTT. MQTT is a live feed; events captured while disconnected remain in storage and are not replayed automatically.
+
+### Capture commands and identify their callers
+
+Run on the machine hosting the intended D-Bus, with an account authorized by its
+existing policy to use `org.freedesktop.DBus.Monitoring.BecomeMonitor`:
+
+```bash
+umask 077
+dbus-event-log --config config.yaml monitor --duration 300 --capture-methods
+```
+
+This is passive observation, not command interception or modification. A private
+monitor connection receives method traffic; a separate ordinary connection
+queries caller credentials. The recorder never grants itself permissions or
+relaxes bus policy. If monitoring is denied or unsupported, the command fails
+explicitly instead of silently producing a signal-only audit.
+
+Set `dbus.services` to the exact service or trailing-wildcard prefix involved in
+the incident. Set `dbus.method_members` to write methods such as `SetValue`,
+`SetText`, or `Set`; an empty list captures all method members. The monitor
+receives bus-wide method traffic to correlate unique-name destinations, but
+only selected service/method calls and their matching replies are stored.
+Bus-management calls are excluded. Signal selection remains independent of
+the method-member filter. Captured arguments may contain private values; keep
+the database and exports private and leave MQTT disabled if sharing is unwanted.
+
+For each `method_call`, `source_unique_name` and `kwargs.caller` identify the
+caller. `unix_user_id` and `process_id` are included when the bus can resolve
+them; short-lived callers or policy restrictions leave
+`credentials_status: unavailable` rather than an invented identity.
+The original destination, object path, interface, member and arguments are
+preserved. Replies use `kwargs.call_event_id` and `kwargs.reply_serial`; serials
+are correlated within the caller's unique connection, not globally. Calls
+marked `NO_REPLY_EXPECTED` are recorded without expecting a reply. Unanswered
+calls remain visible; reply tracking expires after 60 seconds.
+
+These records answer **which process sent which request and what reply was
+observed**. They cannot establish a human's identity or **why** an application
+made a decision. Correlate timestamps with that application's decision logs.
+A successful reply alone does not prove the physical inverter applied the
+requested state; check subsequent `ItemsChanged`/`PropertiesChanged` values.
+State transitions and cause/effect relationships are not inferred automatically.
+
+Queues are bounded by `max_pending_events`. Queue overflow, a method body larger
+than 1 MiB, loss of the monitor connection, or a recording failure stops the CLI
+with an error indicating incomplete capture. Narrow the scope and retry; this
+is not a lossless or tamper-proof continuous audit service.
+
+### Stop capture and verify
+
+**Foreground:** press **Ctrl+C** in the terminal running the recorder. The
+configured duration also stops it automatically. To stop that same process
+from another terminal, send **SIGTERM to its exact PID**:
+
+```bash
+kill -TERM <recorder-pid>
+```
+
+Both signals unsubscribe from the bus and drain accepted storage operations
+before disconnecting MQTT. Allow shutdown to finish; do not use `kill -9` for
+normal cleanup. The duration bounds admission of new events, not the time
+needed to finish pending writes. An unwritable or stalled backend can delay
+shutdown or prevent complete persistence.
+
+**Docker Compose:** stop the entire troubleshooting stack, retaining its named
+data volumes for analysis:
+
+```bash
+docker compose down --timeout 60
+docker compose ps --all
+```
+
+Do not add `--volumes` unless you intend to delete the captured database. Docker
+may forcibly terminate a container after its grace period if storage is stalled.
+
+**Existing daemontools installation on Cerbo:** if you previously created a
+service with this name, stop the supervised service instead of killing its child
+(which would restart). Preserve the down marker across supervisor restarts:
+
+```bash
+touch /service/dbus-event-log/down
+svc -d /service/dbus-event-log
+svstat /service/dbus-event-log
+```
+
+The status must report `down`. Also disable any installer or boot hook that
+recreates/enables this service. This repository does not provide a native
+SetupHelper installer and does not recommend adding a permanent one.
+
+**Existing systemd unit on a companion Linux host:** if you created
+`dbus-event-log.service`, stop and disable it:
+
+```bash
+sudo systemctl disable --now dbus-event-log.service
+systemctl is-active dbus-event-log.service
+systemctl is-enabled dbus-event-log.service
+```
+
+Expect `inactive` and `disabled`; stop any custom timer that starts it too.
+After any stop method, verify the recorder process is gone or its supervisor
+reports stopped, and that the event count no longer increases:
+
+```bash
+dbus-event-log --config config.yaml stats
+```
+
+Export the evidence you need and remove unneeded captures deliberately. Stopping
+the recorder preserves existing databases, archives and exports; it does not
+free their disk space automatically.
 
 ### Query Events
 
@@ -294,7 +434,11 @@ these SQLite settings do not install a TimescaleDB retention policy.
 
 ### Event Types
 
-The schema supports the types below. The built-in monitor emits `signal`, `service_added`, and `service_removed`; the other types are available for external producers.
+The built-in monitor emits `signal`, `service_added`, and `service_removed`.
+With method capture enabled, it also emits `method_call`, `method_return`, and
+`error`. `ItemsChanged` and `PropertiesChanged` use the `signal` event type and
+their corresponding `signal_type`; `property_changed` and `state_transition`
+remain available for external producers.
 
 | Type | Description |
 |------|-------------|
@@ -313,6 +457,7 @@ The schema supports the types below. The built-in monitor emits `signal`, `servi
 victron/dbus/events/
 ├── com/victronenergy/vebus/ttyO1/
 │   ├── PropertiesChanged
+│   ├── ItemsChanged
 │   ├── InterfacesAdded
 │   └── InterfacesRemoved
 ├── com/victronenergy/solarcharger/

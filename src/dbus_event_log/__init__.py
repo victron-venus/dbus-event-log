@@ -1,4 +1,4 @@
-"""dbus-event-log - Audit log for D-Bus commands and inverter state transitions."""
+"""Temporary D-Bus troubleshooting capture with optional method auditing."""
 
 from dbus_event_log.config import config
 from dbus_event_log.models import DBusEvent, EventType, SignalType

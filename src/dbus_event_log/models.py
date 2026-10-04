@@ -30,6 +30,7 @@ class SignalType(StrEnum):
 
     SIGNAL = "signal"
     PROPERTIES_CHANGED = "PropertiesChanged"
+    ITEMS_CHANGED = "ItemsChanged"
     INTERFACES_ADDED = "InterfacesAdded"
     INTERFACES_REMOVED = "InterfacesRemoved"
     NAME_OWNER_CHANGED = "NameOwnerChanged"

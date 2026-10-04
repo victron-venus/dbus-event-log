@@ -53,6 +53,9 @@ class DBusConfig(BaseSettings):
         ]
     )
     ignored_signals: list[str] = Field(default_factory=lambda: ["NameAcquired", "NameLost"])
+    capture_methods: bool = False
+    method_members: list[str] = Field(default_factory=list)
+    max_pending_events: int = Field(default=1024, ge=1, le=65536)
 
 
 class LoggingConfig(BaseSettings):

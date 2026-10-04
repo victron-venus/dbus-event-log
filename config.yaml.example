@@ -19,6 +19,11 @@ mqtt:
 
 dbus:
   bus_type: system
+  # Opt in only for an attended troubleshooting session with bus-monitor permission.
+  capture_methods: false
+  # Empty records all methods to selected services; narrow this for write investigations.
+  method_members: [SetValue, SetText, Set]
+  max_pending_events: 1024
   services:
     - "com.victronenergy.*"
     - "org.freedesktop.Notifications"

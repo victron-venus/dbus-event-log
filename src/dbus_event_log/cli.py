@@ -4,7 +4,9 @@ import asyncio
 import csv
 import json
 import logging
+import signal
 import sys
+from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -63,7 +65,7 @@ def setup_logging() -> None:
 )
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
 def cli(config_path: str | None, verbose: bool) -> None:
-    """D-Bus Event Log - Audit log for D-Bus commands and inverter state transitions."""
+    """Temporary D-Bus troubleshooting capture, query and export."""
     global config  # pylint: disable=global-statement
     # Keep the CLI configuration aligned with the shared factory configuration.
     if config_path:
@@ -75,28 +77,57 @@ def cli(config_path: str | None, verbose: bool) -> None:
 
 
 @cli.command()
-def monitor() -> None:
-    """Start monitoring D-Bus events."""
-    asyncio.run(_run_monitor())
+@click.option(
+    "--duration",
+    type=click.IntRange(min=1),
+    default=900,
+    show_default=True,
+    help="Stop capture after this many seconds; not a continuous service.",
+)
+@click.option(
+    "--capture-methods",
+    is_flag=True,
+    help="Also capture method calls/replies; requires BecomeMonitor permission.",
+)
+def monitor(duration: int, capture_methods: bool) -> None:
+    """Record a bounded troubleshooting session; stop early with Ctrl+C or SIGTERM."""
+    if capture_methods:
+        config.dbus.capture_methods = True
+    try:
+        asyncio.run(_run_monitor(duration))
+    except RuntimeError as error:
+        raise click.ClickException(str(error)) from error
 
 
-async def _run_monitor() -> None:
-    """Run the D-Bus monitor."""
+async def _run_monitor(duration: float = 900) -> None:
+    """Stop on deadline/SIGINT/SIGTERM, drain accepted writes, then disconnect MQTT."""
     publisher = AsyncMQTTPublisher(config.mqtt)
     dbus_monitor = DBusMonitor(event_handler=publisher.publish)
+    loop = asyncio.get_running_loop()
+    stopped = asyncio.Event()
+    deadline = loop.time() + duration
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(signum, stopped.set)
 
     try:
         await publisher.start()
         await dbus_monitor.start()
-        while True:
-            await asyncio.sleep(1)
-    except KeyboardInterrupt:
-        console.print("\nShutting down...")
+        logger = logging.getLogger(__name__)
+        logger.warning("Temporary capture: stop within %s seconds; monitor free storage", duration)
+        while not stopped.is_set() and loop.time() < deadline:
+            dbus_monitor.raise_if_failed()
+            with suppress(TimeoutError):
+                await asyncio.wait_for(stopped.wait(), timeout=min(0.2, deadline - loop.time()))
     finally:
         try:
             await dbus_monitor.stop()
         finally:
-            await publisher.stop()
+            try:
+                await publisher.stop()
+            finally:
+                for signum in (signal.SIGINT, signal.SIGTERM):
+                    loop.remove_signal_handler(signum)
+        dbus_monitor.raise_if_failed()
 
 
 @cli.command()

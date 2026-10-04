@@ -20,6 +20,7 @@ except ImportError:
     GLib = None
 
 from dbus_event_log.config import Config, get_config
+from dbus_event_log.method_capture import MethodCapture
 from dbus_event_log.models import DBusEvent, EventType, SignalType
 from dbus_event_log.storage import SQLiteStorage, get_storage
 
@@ -55,6 +56,9 @@ class DBusMonitor:
         self._storage_executor: ThreadPoolExecutor | None = None
         self._maintenance_task: asyncio.Task[None] | None = None
         self._maintenance_stop = asyncio.Event()
+        self._method_capture: MethodCapture | None = None
+        self._method_task: asyncio.Task[None] | None = None
+        self._failure: RuntimeError | None = None
 
     async def start(self) -> None:
         """Start monitoring D-Bus."""
@@ -77,6 +81,10 @@ class DBusMonitor:
             await self._subscribe_to_service(service_pattern)
         self._context = GLib.MainContext.default()
         self._dispatch_task = asyncio.create_task(self._dispatch_bus())
+        if cfg.dbus.capture_methods:
+            self._method_capture = MethodCapture(cfg.dbus, self.bus.con.get_unique_name())
+            await asyncio.to_thread(self._method_capture.start)
+            self._method_task = asyncio.create_task(self._dispatch_methods())
 
     async def stop(self) -> None:
         """Stop monitoring D-Bus."""
@@ -89,6 +97,15 @@ class DBusMonitor:
         for sub in self._subscriptions.values():
             sub.unsubscribe()
         self._subscriptions.clear()
+        if self._method_capture is not None:
+            await asyncio.to_thread(self._method_capture.stop_capture)
+        try:
+            if self._method_task is not None:
+                await self._method_task
+        finally:
+            if self._method_capture is not None:
+                await asyncio.to_thread(self._method_capture.close)
+                self._method_capture = None
         if self._dispatch_task is not None:
             await self._dispatch_task
             self._dispatch_task = None
@@ -110,9 +127,32 @@ class DBusMonitor:
 
     def _schedule_event(self, event: Coroutine[Any, Any, None]) -> None:
         """Track event processing so shutdown waits for pending writes."""
+        if len(self._event_tasks) >= _config().dbus.max_pending_events:
+            event.close()
+            self._failure = RuntimeError("Event queue overflow: recording is incomplete")
+            return
         task = asyncio.create_task(event)
         self._event_tasks.add(task)
         task.add_done_callback(self._event_tasks.discard)
+
+    async def _dispatch_methods(self) -> None:
+        """Persist methods in observed order without blocking GLib signal dispatch."""
+        capture = self._method_capture
+        assert capture is not None
+        try:
+            # The bus may still accept messages while stop() awaits maintenance
+            # and closes the transport. Drain only after that producer is closed.
+            while self._running or capture.connection is not None or capture.pending:
+                for event in await asyncio.to_thread(capture.poll):
+                    await self._store_event(event)
+                await asyncio.sleep(0.01)
+        except Exception as error:  # pylint: disable=broad-exception-caught
+            self._failure = RuntimeError(f"Method capture failed: {error}")
+
+    def raise_if_failed(self) -> None:
+        """Expose asynchronous capture failures to the supervising CLI."""
+        if self._failure is not None:
+            raise self._failure
 
     async def _subscribe_to_service(self, service_pattern: str) -> None:
         """Subscribe to signals from a service pattern."""
@@ -159,7 +199,12 @@ class DBusMonitor:
                         )
                     )
 
-            for signal_name in ("PropertiesChanged", "InterfacesAdded", "InterfacesRemoved"):
+            for signal_name in (
+                "PropertiesChanged",
+                "ItemsChanged",
+                "InterfacesAdded",
+                "InterfacesRemoved",
+            ):
                 key = f"{service}:{signal_name}"
                 if key not in self._subscriptions:
                     self._subscriptions[key] = self.bus.subscribe(
@@ -220,6 +265,7 @@ class DBusMonitor:
                 signal_type=self._map_signal_type(signal_name),
                 arguments=list(args) if args else [],
                 kwargs=kwargs,
+                source_unique_name=kwargs.get("sender"),
             )
 
             await self._store_event(event)
@@ -227,6 +273,7 @@ class DBusMonitor:
         except Exception as e:  # pylint: disable=broad-exception-caught
             # Keep one external bus/storage failure from stopping independent event processing.
             logger.error("Error handling signal: %s", e)
+            self._failure = RuntimeError("Signal recording failed; check storage and capture logs")
 
     async def _handle_name_owner_change(self, name: str, old_owner: str, new_owner: str) -> None:
         """Process name owner change signal."""
@@ -270,6 +317,9 @@ class DBusMonitor:
         except Exception as e:  # pylint: disable=broad-exception-caught
             # Keep one external bus/storage failure from stopping independent event processing.
             logger.error("Error handling name owner change: %s", e)
+            self._failure = RuntimeError(
+                "Lifecycle recording failed; check storage and capture logs"
+            )
 
     async def _store_event(self, event: DBusEvent) -> None:
         """Persist an event with either the synchronous or asynchronous backend."""

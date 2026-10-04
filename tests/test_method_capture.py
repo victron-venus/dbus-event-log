@@ -242,3 +242,33 @@ def test_failed_monitor_permission_closes_private_connections(
     lookup.close_sync.assert_called_once()
     observer.close_sync.assert_called_once()
     assert recorder.connection is None and recorder.lookup is None
+
+
+def test_service_appearing_during_startup_is_routable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A name acquired during BecomeMonitor must be resolved for subsequent unique calls."""
+    recorder = MethodCapture(DBusConfig(), ":1.99")
+    names: list[str] = []
+    lookup, observer = MagicMock(), MagicMock()
+    observer.call_sync.side_effect = lambda *_args: names.append("com.victronenergy.test")
+
+    def bus_call(method: str, _parameters: Any = None) -> Any:
+        if method == "ListNames":
+            return names.copy()
+        if method == "GetNameOwner":
+            return ":1.20"
+        return {}
+
+    monkeypatch.setattr(recorder, "_new_connection", MagicMock(side_effect=[lookup, observer]))
+    monkeypatch.setattr(recorder, "_bus_call", bus_call)
+    monkeypatch.setattr(module, "Gio", SimpleNamespace(DBusCallFlags=SimpleNamespace(NONE=0)))
+    monkeypatch.setattr(
+        module,
+        "GLib",
+        SimpleNamespace(Variant=lambda _signature, value: value, Error=RuntimeError),
+    )
+    recorder.start()
+    event = recorder._decode(datetime.now(UTC), message(destination=":1.20"))
+    assert event is not None and event.service_name == "com.victronenergy.test"
+    recorder.close()

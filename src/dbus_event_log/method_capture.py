@@ -73,13 +73,6 @@ class MethodCapture:
             raise RuntimeError("Method capture requires the [monitor] extra and Gio")
         try:
             self.lookup = self._new_connection()
-            for name in self._bus_call("ListNames"):
-                if not name.startswith(":") and self._matches(name):
-                    # A service may disappear between discovery and lookup.
-                    with suppress(GLib.Error):
-                        self._owners[name] = self._bus_call(
-                            "GetNameOwner", GLib.Variant("(s)", (name,))
-                        )
             self.connection = self._new_connection()
             self._filter_id = self.connection.add_filter(self._filter, None)
             rules = [
@@ -101,6 +94,15 @@ class MethodCapture:
                 None,
             )
             self._ready = True
+            # Observe ownership changes before discovery: a service appearing
+            # during BecomeMonitor must not be absent from unique-name routing.
+            # Queued owner changes subsequently reconcile this initial snapshot.
+            for name in self._bus_call("ListNames"):
+                if not name.startswith(":") and self._matches(name):
+                    with suppress(GLib.Error):
+                        self._owners[name] = self._bus_call(
+                            "GetNameOwner", GLib.Variant("(s)", (name,))
+                        )
         except Exception as error:
             self.close()
             raise RuntimeError(

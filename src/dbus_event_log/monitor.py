@@ -70,10 +70,11 @@ class DBusMonitor:
         if isinstance(storage, SQLiteStorage):
             self._maintenance_task = asyncio.create_task(self._maintain_storage(storage))
 
+        # Watch before discovery so services appearing during ListNames are
+        # still discovered through their queued owner-change notification.
+        await self._subscribe_to_name_changes()
         for service_pattern in cfg.dbus.services:
             await self._subscribe_to_service(service_pattern)
-
-        await self._subscribe_to_name_changes()
         self._context = GLib.MainContext.default()
         self._dispatch_task = asyncio.create_task(self._dispatch_bus())
 
@@ -230,6 +231,18 @@ class DBusMonitor:
     async def _handle_name_owner_change(self, name: str, old_owner: str, new_owner: str) -> None:
         """Process name owner change signal."""
         try:
+            # Wildcard discovery is only a startup snapshot. Subscribe before
+            # waiting for storage so a newly available service remains visible.
+            # Queued events drained by stop() must not recreate subscriptions.
+            if (
+                self._running
+                and new_owner
+                and any(
+                    name == pattern or (pattern.endswith("*") and name.startswith(pattern[:-1]))
+                    for pattern in _config().dbus.services
+                )
+            ):
+                await self._setup_signal_handlers(name)
             timestamp = datetime.now(UTC)
 
             if old_owner and not new_owner:

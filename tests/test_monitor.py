@@ -160,6 +160,124 @@ async def test_name_owner_callback_records_transition(
     assert json.loads(event["arguments"]) == ["com.victronenergy.battery", old, new]
 
 
+async def test_late_matching_service_signals_are_captured(
+    monitor_environment: tuple[DBusMonitor, MagicMock, Config, SQLiteStorage],
+) -> None:
+    """A service appearing after discovery must contribute its later signals."""
+    monitor, bus, _, storage = monitor_environment
+    bus.dbus.ListNames.return_value = []
+    await monitor.start()
+    try:
+        owner_callback = next(
+            call.kwargs["signal_fired"]
+            for call in bus.subscribe.call_args_list
+            if call.kwargs["signal"] == "NameOwnerChanged"
+        )
+        owner_callback(
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "NameOwnerChanged",
+            ("com.victronenergy.battery.late", "", ":1.42"),
+        )
+        await asyncio.gather(*monitor._event_tasks)
+        callbacks = [
+            call.kwargs
+            for call in bus.subscribe.call_args_list
+            if call.kwargs["sender"] == "com.victronenergy.battery.late"
+        ]
+        assert len(callbacks) == 3
+        callback = next(c["signal_fired"] for c in callbacks if c["signal"] == "PropertiesChanged")
+        callback(
+            ":1.42", "/Dc/0/Voltage", "com.victronenergy.BusItem", "PropertiesChanged", (52.4,)
+        )
+        await asyncio.gather(*monitor._event_tasks)
+        events = storage.query()
+        assert {event["member"] for event in events} == {"NameOwnerChanged", "PropertiesChanged"}
+        assert all(event["service_name"] == "com.victronenergy.battery.late" for event in events)
+    finally:
+        await monitor.stop()
+
+
+async def test_owner_watch_precedes_discovery(
+    monitor_environment: tuple[DBusMonitor, MagicMock, Config, SQLiteStorage],
+) -> None:
+    """An appearance racing with startup discovery has an installed owner watch."""
+    monitor, bus, _, _ = monitor_environment
+    watched_at_discovery: list[bool] = []
+
+    def discover() -> list[str]:
+        watched_at_discovery.append(
+            bool(bus.subscribe.call_args_list)
+            and bus.subscribe.call_args_list[0].kwargs["signal"] == "NameOwnerChanged"
+        )
+        return []
+
+    bus.dbus.ListNames.side_effect = discover
+    await monitor.start()
+    await monitor.stop()
+    assert watched_at_discovery == [True]
+
+
+async def test_late_subscription_does_not_wait_for_slow_storage(
+    monitor_environment: tuple[DBusMonitor, MagicMock, Config, SQLiteStorage],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A slow event sink cannot delay the new service's signal subscription."""
+    monitor, bus, _, _ = monitor_environment
+    monitor._running = True
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def insert(_event: DBusEvent) -> None:
+        entered.set()
+        await release.wait()
+
+    monkeypatch.setattr(monitor, "storage", SimpleNamespace(insert=insert))
+    task = asyncio.create_task(
+        monitor._handle_name_owner_change("com.victronenergy.battery", "", ":1.5")
+    )
+    try:
+        await asyncio.wait_for(entered.wait(), timeout=2)
+        assert bus.subscribe.call_count == 3
+    finally:
+        release.set()
+        await task
+        await monitor.stop()
+
+
+@pytest.mark.parametrize(
+    ("name", "old", "new", "running", "expected"),
+    [
+        ("com.victronenergy.battery", "", ":1.5", True, 3),
+        ("com.victronenergy.battery", ":1.5", ":1.6", True, 3),
+        ("org.example.Exact", "", ":1.5", True, 3),
+        ("org.example.ExactExtra", "", ":1.5", True, 0),
+        ("org.example.Unrelated", "", ":1.5", True, 0),
+        ("com.victronenergy.battery", ":1.5", "", True, 0),
+        ("com.victronenergy.battery", "", ":1.5", False, 0),
+    ],
+)
+async def test_owner_changes_only_subscribe_active_matching_services_once(
+    monitor_environment: tuple[DBusMonitor, MagicMock, Config, SQLiteStorage],
+    name: str,
+    old: str,
+    new: str,
+    running: bool,
+    expected: int,
+) -> None:
+    """Exact/prefix matching, replacement and shutdown preserve subscription ownership."""
+    monitor, bus, config, _ = monitor_environment
+    config.dbus.services.extend(["org.example.Exact", "com.victronenergy.battery*"])
+    monitor._running = running
+    for _ in range(2):
+        await monitor._handle_name_owner_change(name, old, new)
+    assert bus.subscribe.call_count == expected
+    subscriptions = list(monitor._subscriptions.values())
+    await monitor.stop()
+    for subscription in subscriptions:
+        subscription.unsubscribe.assert_called_once()
+
+
 async def test_async_storage_is_awaited_for_both_event_paths(
     monitor_environment: tuple[DBusMonitor, MagicMock, Config, SQLiteStorage],
     monkeypatch: pytest.MonkeyPatch,

@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 from selectors import EVENT_READ, DefaultSelector
 from tempfile import TemporaryDirectory
+from typing import Any
 
 # This smoke entry point runs inside the native image with the optional Gio runtime.
 # pylint: disable-next=import-error
@@ -20,7 +21,7 @@ from dbus_event_log.monitor import DBusMonitor
 from dbus_event_log.storage import SQLiteStorage
 
 
-def register_test_service(connection):
+def register_test_service(connection: Any) -> int:
     """Expose a synthetic setter and error without any hardware access."""
     interface = Gio.DBusNodeInfo.new_for_xml("""
       <node><interface name="com.victronenergy.BusItem">
@@ -30,7 +31,15 @@ def register_test_service(connection):
       </interface></node>
     """).interfaces[0]
 
-    def handle(_connection, _sender, _path, _interface, member, parameters, invocation):
+    def handle(
+        _connection: Any,
+        _sender: str,
+        _path: str,
+        _interface: str,
+        member: str,
+        parameters: Any,
+        invocation: Any,
+    ) -> None:
         if member == "Fail":
             invocation.return_dbus_error("org.example.Refused", "Synthetic refusal")
             return
@@ -54,7 +63,7 @@ def register_test_service(connection):
         )
         invocation.return_value(GLib.Variant("(i)", (0,)))
 
-    return connection.register_object("/Settings/Limit", interface, handle, None, None)
+    return int(connection.register_object("/Settings/Limit", interface, handle, None, None))
 
 
 def verify_capture(events: list[DBusEvent], caller_name: str, database: Path) -> None:
@@ -124,7 +133,7 @@ async def smoke_monitor(database: Path) -> None:
         )
         caller.set_exit_on_close(False)
 
-        async def invoke(destination: str, method: str, parameters=None):
+        async def invoke(destination: str, method: str, parameters: Any = None) -> Any:
             return await asyncio.to_thread(
                 caller.call_sync,
                 destination,
@@ -202,15 +211,17 @@ def smoke_cli_stop(directory: Path) -> None:
         assert process.stdout is not None
         try:
             deadline = time.monotonic() + 10
+            startup_output = bytearray()
             with DefaultSelector() as selector:
                 selector.register(process.stdout, EVENT_READ)
                 while time.monotonic() < deadline:
                     if selector.select(timeout=0.1):
                         line = os.read(process.stdout.fileno(), 8192)
-                        if b"Temporary capture:" in line:
+                        startup_output.extend(line)
+                        if b"Temporary capture:" in startup_output:
                             break
                         if not line:
-                            raise AssertionError("CLI exited before capture readiness")
+                            raise AssertionError(startup_output.decode())
                 else:
                     raise AssertionError("CLI failed to start within 10 seconds")
             process.terminate()

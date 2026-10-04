@@ -93,9 +93,9 @@ async def test_method_consumer_waits_for_transport_close(
         object_path="/Settings/Limit",
         member="SetValue",
     )
-    buffered = []
+    buffered: list[DBusEvent] = []
 
-    def poll():
+    def poll() -> list[DBusEvent]:
         batch = buffered.copy()
         buffered.clear()
         return batch

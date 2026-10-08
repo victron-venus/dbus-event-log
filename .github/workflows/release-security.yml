@@ -23,6 +23,8 @@ jobs:
       - name: Install Bandit
         run: >-
           python3 -m pip install --require-hashes --only-binary=:all: -r .github/requirements-bandit-1.9.2.txt
+      - name: Verify Bandit directory discovery
+        run: python -m unittest discover -s .github/security-tests -p test_bandit_discovery.py -v
       - name: Block high severity Python findings
         run: python -m bandit -r . -lll -x ./.git/,./.venv/,./.venv-ci/,./tests/,./release-dist/,./dist/,./build/ -f json -o bandit-results.json
       - name: Block high and critical dependency and secret findings

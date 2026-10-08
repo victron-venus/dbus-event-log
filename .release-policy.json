@@ -77,5 +77,6 @@
     "toolkit_revision": "68c5a5654d87041faddba4eb80cd92d818aad275"
   },
   "single_entry_ci": true,
-  "release_notes": "CHANGELOG.md"
+  "release_notes": "CHANGELOG.md",
+  "toolkit_revision": "4895f852f87ca1f27e2bc75e24c5c792e4f95aa6"
 }

@@ -83,3 +83,5 @@ Toolkit revision `3533a43322cb351433ca8e90b786f14edcea7725` validates staging in
 Toolkit revision `4895f852f87ca1f27e2bc75e24c5c792e4f95aa6` includes verified staging cleanup and rejects release guidance made only of headings or separators. Regression tests cover retry, preservation of existing operator files, and visible guidance requirements.
 
 Toolkit revision `d8089003f43637ee420fa4cbcccdf11f5d21e469` also rejects empty Markdown lists, task items and quotations as release guidance, while preserving literal examples and lists with substantive text.
+
+The CodeQL configuration also analyzes GitHub Actions in its own analysis category; existing application-language analyses remain enabled.

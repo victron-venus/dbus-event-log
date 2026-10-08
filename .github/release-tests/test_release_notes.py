@@ -15,6 +15,32 @@ _SPEC.loader.exec_module(release)
 SOURCE = "a" * 40
 
 
+class StrictGitHub:
+    """Permit only the expected source read and reject all remote mutation."""
+
+    def __init__(self, response: dict | None = None):
+        """Queue the only permitted source-content response."""
+        self.responses = [] if response is None else [response]
+        self.calls = []
+        self.writes = []
+
+    def api(self, path: str, method: str = "GET", body: dict | None = None):
+        self.calls.append((method, path, body))
+        if method != "GET":
+            self.writes.append((method, path, body))
+            message = f"Unexpected remote write: {method} {path}"
+            raise AssertionError(message)
+        if path != f"contents/CHANGELOG.md?ref={SOURCE}" or not self.responses:
+            message = f"Unexpected remote read: {path}"
+            raise AssertionError(message)
+        return self.responses.pop(0)
+
+    def upload(self, tag: str, path: Path):
+        self.writes.append(("upload", tag, path))
+        message = f"Unexpected remote upload: {tag} {path}"
+        raise AssertionError(message)
+
+
 def contents(text):
     """Model a GitHub file response with its original blob identity."""
     raw = text.encode()
@@ -47,22 +73,23 @@ Do not copy older notes either.
 
 def render(text=NOTES, tag="v1.2.3-beta.8", response_change=None):
     """Render a candidate body using an isolated API fixture."""
-    github = Mock()
     response = contents(text)
     response.update(response_change or {})
-    github.api.return_value = response
+    github = StrictGitHub(response)
     with patch.object(
         release,
         "source_policy_snapshot",
         return_value={"data": {"release_notes": "CHANGELOG.md"}},
     ):
         body = release.release_notes(github, tag, SOURCE, "Original source and validation links.")
-    github.api.assert_called_once_with(f"contents/CHANGELOG.md?ref={SOURCE}")
+    assert github.calls == [("GET", f"contents/CHANGELOG.md?ref={SOURCE}", None)]
+    assert not github.responses
+    assert not github.writes
     return body
 
 
 class ReleaseNotesTests(unittest.TestCase):
-    """Reject missing or altered source notes before publication."""
+    """Verify source-bound notes before publication."""
 
     def test_exact_base_and_provenance(self):
         for tag in ("v1.2.3", "v1.2.3-rc.1", "v1.2.3-beta.8"):
@@ -77,10 +104,11 @@ class ReleaseNotesTests(unittest.TestCase):
     def test_crlf_notes_preserve_source_byte_verification(self):
         crlf = NOTES.replace("\n", "\r\n")
         self.assertEqual(render(crlf), render(NOTES))
+        lf_contents = contents(NOTES)
         with self.assertRaisesRegex(release.ReleaseError, "size mismatch"):
-            render(crlf, response_change={"size": len(NOTES.encode())})
+            render(crlf, response_change={"size": lf_contents["size"]})
         with self.assertRaisesRegex(release.ReleaseError, "blob identity"):
-            render(crlf, response_change={"sha": contents(NOTES)["sha"]})
+            render(crlf, response_change={"sha": lf_contents["sha"]})
 
     def test_missing_or_incomplete_sections(self):
         for text in (
@@ -109,16 +137,17 @@ class ReleaseNotesTests(unittest.TestCase):
                 render(response_change=changes)
 
     def test_policy_is_opt_in(self):
-        github = Mock()
+        github = StrictGitHub()
         with patch.object(release, "source_policy_snapshot", return_value={"data": {}}):
             self.assertEqual(
                 release.release_notes(github, "v1.2.3", SOURCE, "provenance"),
                 "provenance",
             )
-        github.api.assert_not_called()
+        self.assertEqual(github.calls, [])
+        self.assertEqual(github.writes, [])
 
     def test_missing_notes_abort_before_mutation(self):
-        github = Mock()
+        github = StrictGitHub()
         with (
             tempfile.TemporaryDirectory() as directory,
             patch.object(
@@ -129,7 +158,20 @@ class ReleaseNotesTests(unittest.TestCase):
             self.assertRaisesRegex(release.ReleaseError, "missing notes"),
         ):
             release.publish(github, "v1.2.3", SOURCE, Path(directory), False, "provenance")
-        github.api.assert_not_called()
+        self.assertEqual(github.calls, [])
+        self.assertEqual(github.writes, [])
+
+    def test_api_requires_commit_pinned_source(self):
+        import re
+
+        allowed = release.API_PATHS["GET"]
+        self.assertTrue(
+            any(re.fullmatch(p, f"contents/CHANGELOG.md?ref={SOURCE}") for p in allowed)
+        )
+        for ref in ("main", "v1.2.3", "a" * 39, "../main"):
+            self.assertFalse(
+                any(re.fullmatch(p, f"contents/CHANGELOG.md?ref={ref}") for p in allowed)
+            )
 
     def test_unsupported_policy_and_invalid_tag_abort_before_content_request(self):
         for policy, tag, message in (
@@ -183,15 +225,3 @@ class ReleaseNotesTests(unittest.TestCase):
         self.assertNotIn("Do not publish", payload["body"])
         self.assertTrue(payload["body"].endswith("Original provenance."))
         self.assertTrue(payload["draft"])
-
-    def test_api_requires_commit_pinned_source(self):
-        import re
-
-        allowed = release.API_PATHS["GET"]
-        self.assertTrue(
-            any(re.fullmatch(p, f"contents/CHANGELOG.md?ref={SOURCE}") for p in allowed)
-        )
-        for ref in ("main", "v1.2.3", "a" * 39, "../main"):
-            self.assertFalse(
-                any(re.fullmatch(p, f"contents/CHANGELOG.md?ref={ref}") for p in allowed)
-            )

@@ -24,7 +24,7 @@ jobs:
         run: >-
           python3 -m pip install --require-hashes --only-binary=:all: -r .github/requirements-bandit-1.9.2.txt
       - name: Block high severity Python findings
-        run: python -m bandit -r . -lll -x .git,.venv,.venv-ci,tests,release-dist,dist,build -f json -o bandit-results.json
+        run: python -m bandit -r . -lll -x ./.git/,./.venv/,./.venv-ci/,./tests/,./release-dist/,./dist/,./build/ -f json -o bandit-results.json
       - name: Block high and critical dependency and secret findings
         uses: aquasecurity/trivy-action@c03d123cb480c08c69b054af418ea5e69fe6e57e # master
         with:

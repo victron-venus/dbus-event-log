@@ -27,3 +27,5 @@ changes are backported from [toolkit ba1e3e7](https://github.com/victron-venus/v
 
 The repository-specific imports, type annotations, policy and workflow inputs
 remain authoritative; this is not a full generator upgrade.
+
+Shared CI is pinned to [toolkit b8154df](https://github.com/victron-venus/venus-os-ci-toolkit/commit/b8154dfcf2d4cf829cb41514ef3cbf82c68a418f). The shared Python CI workflow installs the committed `uv.lock` with `dev` extras. The `build` group bootstraps wheel-only build backends before the local project is installed without build isolation. Existing test, type-check, and coverage settings are retained.

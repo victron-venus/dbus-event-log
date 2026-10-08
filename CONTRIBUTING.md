@@ -36,6 +36,11 @@ The `build` group installs wheel-only build tools before the local package is bu
 
 These checks select the `dev` extra. The optional native `monitor` and database extras remain separate deployment choices.
 
+Install the OpenSSL command-line tool (`openssl`) before running the tests.
+The TimescaleDB transport regressions generate temporary certificates and use
+the real asyncpg client against a loopback protocol fixture. They do not require
+a running PostgreSQL server, operator credentials or production certificates.
+
 Automated tests use mocks or controlled fixtures where available. A passing unit test does not establish hardware safety. Describe any physical-device test separately, including firmware, configuration and expected rollback. Never run installation, deployment, Terraform apply or actuator commands merely to validate a documentation change.
 
 ## Source and interfaces

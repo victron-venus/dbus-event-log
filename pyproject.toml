@@ -36,6 +36,7 @@ monitor = [
     "PyGObject>=3.54.0",
 ]
 dev = [
+    "asyncpg>=0.29.0",
     "pytest>=8.2.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=5.0.0",

@@ -14,6 +14,13 @@ Security fixes are developed on the current default branch and released through 
 
 A D-Bus capture can contain identifiers, commands and confidential values. Limit collection duration, restrict access to capture files and database endpoints, and redact exports before sharing. Capture privileges and retention are operator responsibilities.
 
+TimescaleDB uses verified TLS by default, with no plaintext fallback. Follow the
+[database transport instructions](README.md#timescaledb-transport) for CA trust,
+client certificates and the explicit trusted-local opt-out. This opt-out removes
+transport protection and must not be used on an untrusted network. Configure
+server-side password authentication to use SCRAM-SHA-256; transport verification
+does not change the PostgreSQL account authentication policy.
+
 ## Secure development and delivery
 
 Validate external values at trust boundaries, reject unsupported or malformed commands, avoid shell interpolation, preserve certificate verification, and use maintained cryptographic libraries rather than custom cryptography. Apply least privilege to service accounts, repository tokens and filesystem permissions. Follow [CONTRIBUTING.md](CONTRIBUTING.md) for validation and review.

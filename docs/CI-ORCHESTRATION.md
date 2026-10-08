@@ -16,3 +16,16 @@ External check contexts retain their required status and are bound to their sour
 or converting a PR to draft disables an existing request. The metadata-only workflow
 runs from the trusted base without executing PR code. BOT_PAT remains the merger token;
 Dependabot approval uses GITHUB_TOKEN and human PR approval uses the bot's BOT_PAT.
+
+## Selective toolkit maintenance
+
+The existing vendored baseline is retained. The following behavior-preserving
+changes are backported from [toolkit ba1e3e7](https://github.com/victron-venus/venus-os-ci-toolkit/commit/ba1e3e7810783dca5ba6dec85274e2df60bdeef1):
+
+- ASCII-only NIGHTLY identity pattern.
+- Prepare exception-test fixtures before entering the expected-error assertion.
+
+The repository-specific imports, type annotations, policy and workflow inputs
+remain authoritative; this is not a full generator upgrade.
+
+Shared CI is pinned to [toolkit b8154df](https://github.com/victron-venus/venus-os-ci-toolkit/commit/b8154dfcf2d4cf829cb41514ef3cbf82c68a418f). The shared Python CI workflow installs the committed `uv.lock` with `dev` extras. The `build` group bootstraps wheel-only build backends before the local project is installed without build isolation. Existing test, type-check, and coverage settings are retained.

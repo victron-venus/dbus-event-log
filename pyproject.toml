@@ -113,3 +113,7 @@ omit = ["*/tests/*"]
 
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "def __repr__", "raise AssertionError", "raise NotImplementedError"]
+
+# Install wheel-only build tools before building the local package without build isolation.
+[dependency-groups]
+build = ["build==1.6.1", "setuptools==84.0.0", "wheel==0.48.0"]

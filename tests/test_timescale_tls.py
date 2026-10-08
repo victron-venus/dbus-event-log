@@ -380,7 +380,21 @@ def unix_socket_path() -> Iterator[Path]:
         yield Path(directory) / ".s.PGSQL.5432"
 
 
-@pytest.mark.parametrize("source", ["authority", "query", "environment", "service"])
+@pytest.mark.parametrize(
+    "source",
+    [
+        "authority",
+        "query",
+        "environment",
+        pytest.param(
+            "service",
+            marks=pytest.mark.skipif(
+                "service" not in inspect.signature(asyncpg.connect).parameters,
+                reason="Service files require asyncpg 0.31 or newer",
+            ),
+        ),
+    ],
+)
 async def test_unix_authentication_requires_explicit_trusted_local(
     source: str,
     tmp_path: Path,

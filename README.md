@@ -224,8 +224,12 @@ parameter. Hostless DSNs that rely on `PGHOST`, a service file or asyncpg's defa
 socket search must be migrated by adding their TCP host to the DSN. This is an
 intentional compatibility change: asyncpg does not apply TLS to Unix sockets.
 Unix sockets and mixed TCP/socket host lists require the explicit `trusted-local`
-choice below. With an explicit TCP host, other native service-file settings such
-as credentials, CA paths and ports retain their usual meaning.
+choice below. With asyncpg 0.31 or newer and an explicit TCP host, other native
+service-file settings such as credentials, CA paths and ports retain their usual
+meaning. Supported asyncpg 0.29 and 0.30 do not read service files: supply the
+explicit TCP host and connection options in the DSN (for example,
+`postgresql://user:pass@db.example:5432/events?sslrootcert=/path/to/ca.pem`), or use
+supported environment variables for options other than the required DSN host.
 
 The application transport setting takes precedence over `PGSSLMODE`. An explicit
 DSN `sslmode` must agree with it: `verify-full` is accepted normally; weaker or

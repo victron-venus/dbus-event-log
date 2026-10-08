@@ -76,5 +76,7 @@
     ],
     "toolkit_revision": "68c5a5654d87041faddba4eb80cd92d818aad275"
   },
-  "single_entry_ci": true
+  "single_entry_ci": true,
+  "release_notes": "CHANGELOG.md",
+  "toolkit_revision": "ab9f337e5fa49c263c873d65c9e50dde7249af56"
 }

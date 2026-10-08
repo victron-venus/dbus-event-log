@@ -1,14 +1,23 @@
-# Security Policy
+# Security policy
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-Private vulnerability reporting is enabled for this repository. Use
-[Report a vulnerability](https://github.com/victron-venus/dbus-event-log/security/advisories/new)
-to send a confidential report to the maintainers. Follow
-[GitHub's private reporting instructions](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing/privately-reporting-a-security-vulnerability)
-if you need help submitting the report.
+Send vulnerability details privately using [GitHub's Report a vulnerability form](https://github.com/victron-venus/dbus-event-log/security/advisories/new). Include the affected commit or release, reproduction steps, impact and a suggested mitigation if known. Remove live secrets and personal information. Do not open a public issue with exploit details. If private reporting is temporarily unavailable, open a public issue requesting a confidential contact without disclosing the vulnerability.
 
-Include the affected version or commit, steps to reproduce, expected and actual
-behavior, and potential impact. Remove access tokens, credentials and personal
-data from examples. Do not disclose exploit details in public issues before
-coordinating with the maintainers.
+Maintainers aim to acknowledge reports within 14 days, investigate promptly and coordinate disclosure with the reporter. Critical confirmed vulnerabilities receive priority. Confirmed exploitable medium-or-higher issues should be corrected within 60 days of confirmation. Coordinate normal public disclosure with a fix or effective mitigation. If active exploitation or another urgent risk requires earlier warning, promptly publish the affected scope and available protective steps while remediation continues. Release notes should identify any assigned CVE or equivalent advisory identifier for fixes. These are maintenance policies, not claims about historical response times.
+
+## Supported code
+
+Security fixes are developed on the current default branch and released through the repository's normal delivery process. Older releases are not guaranteed backports; reproduce against the current code where practical and include the original affected version in the report. A prerelease or development build is not a promise of production or hardware acceptance.
+
+## Trust boundaries
+
+A D-Bus capture can contain identifiers, commands and confidential values. Limit collection duration, restrict access to capture files and database endpoints, and redact exports before sharing. Capture privileges and retention are operator responsibilities.
+
+## Secure development and delivery
+
+Validate external values at trust boundaries, reject unsupported or malformed commands, avoid shell interpolation, preserve certificate verification, and use maintained cryptographic libraries rather than custom cryptography. Apply least privilege to service accounts, repository tokens and filesystem permissions. Follow [CONTRIBUTING.md](CONTRIBUTING.md) for validation and review.
+
+Obtain source and published artifacts through the repository's HTTPS URLs. Verify published checksums or provenance when provided, over an authenticated channel. Keep local configuration, credentials and private keys out of source control and logs. Report suspected exposure through the private channel so credentials can be revoked and replaced; deleting a file alone does not revoke it.
+
+[OpenSSF evidence and remaining verification](docs/openssf-evidence.md) is maintained separately from this policy.

@@ -578,13 +578,15 @@ class ReceiptTests(unittest.TestCase):
 
     def test_changed_or_extra_payload_is_rejected(self):
         self.create()
+        original = (self.assets / "app.bin").read_bytes()
         (self.assets / "app.bin").write_bytes(b"different binary")
         staged = self.staged()
         with self.assertRaisesRegex(ValueError, "does not match"):
             receipt.verify_receipts(self.assets, self.plan, staged)
+        (self.assets / "app.bin").write_bytes(original)
         (self.assets / "uncovered.bin").write_bytes(b"missing evidence")
         staged = self.staged()
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "payloads lack version input evidence"):
             receipt.verify_receipts(self.assets, self.plan, staged)
 
     def test_other_plan_or_partial_input_inventory_is_rejected(self):

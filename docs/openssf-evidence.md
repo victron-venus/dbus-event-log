@@ -69,3 +69,7 @@ Release guidance parsing also imports toolkit revision `ec99f37`: Markdown code
 fences cannot provide or split the required version, Upgrade or Security headings.
 The release contract suite tests matching fence markers and lengths, unclosed
 examples, CRLF input and rejection before any remote publication writes.
+
+Release guidance and validation helpers also import reviewed toolkit revision `cab6d07`: comments and empty code fences cannot satisfy upgrade/security guidance, while visible literal examples remain valid. Receipt size limits are enforced before parsing. The existing consumer workflow policy is retained.
+
+The immutable-action fallback follows reviewed `inverter-control` revision `3830602`: even without a generator manifest, remote job/step references require a full commit SHA (or a Docker content digest), and generated workflows retain their generator marker. Tests exercise copies of the actual repository workflows.

@@ -123,6 +123,59 @@ class ReleaseNotesTests(unittest.TestCase):
             release.publish(github, "v1.2.3", SOURCE, Path(directory), False, "provenance")
         github.api.assert_not_called()
 
+    def test_unsupported_policy_and_invalid_tag_abort_before_content_request(self):
+        for policy, tag, message in (
+            ({"release_notes": "OTHER.md"}, "v1.2.3", "Unsupported release notes source"),
+            ({"release_notes": "CHANGELOG.md"}, "v1.2.3/bad", "Invalid release notes tag"),
+        ):
+            github = Mock()
+            with (
+                self.subTest(policy=policy, tag=tag),
+                patch.object(release, "source_policy_snapshot", return_value={"data": policy}),
+                self.assertRaisesRegex(release.ReleaseError, message),
+            ):
+                release.release_notes(github, tag, SOURCE, "provenance")
+            github.api.assert_not_called()
+
+    def test_publish_sends_rendered_notes_with_original_provenance(self):
+        github = Mock()
+        tag = "v1.2.3"
+
+        def api(path, method="GET", data=None):
+            if path == f"contents/CHANGELOG.md?ref={SOURCE}" and method == "GET":
+                return contents(NOTES)
+            if path == "git/refs" and method == "POST":
+                return {}
+            if path == "releases" and method == "POST":
+                return {"id": 17, "tag_name": tag, "draft": True}
+            if path == "releases/17" and method == "PATCH":
+                return {"id": 17, "tag_name": tag, "draft": False, "prerelease": False}
+            raise AssertionError(f"Unexpected request: {method} {path}")
+
+        github.api.side_effect = api
+        github.pages.return_value = []
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(
+                release,
+                "source_policy_snapshot",
+                return_value={"data": {"release_notes": "CHANGELOG.md"}},
+            ),
+            patch.object(release, "ensure_absent"),
+            patch.object(release, "check_workflow_publication"),
+        ):
+            result = release.publish(
+                github, tag, SOURCE, Path(directory), False, "Original provenance."
+            )
+        self.assertFalse(result["draft"])
+        requests = [call.args for call in github.api.call_args_list]
+        self.assertEqual(requests[0], (f"contents/CHANGELOG.md?ref={SOURCE}",))
+        payload = next(args[2] for args in requests if args[:2] == ("releases", "POST"))
+        self.assertIn("Preserve unavailable telemetry", payload["body"])
+        self.assertNotIn("Do not publish", payload["body"])
+        self.assertTrue(payload["body"].endswith("Original provenance."))
+        self.assertTrue(payload["draft"])
+
     def test_api_requires_commit_pinned_source(self):
         import re
 

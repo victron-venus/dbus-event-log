@@ -329,7 +329,7 @@ async def test_timescale_pool_schema_insert_and_close(
     item = event(1, "battery")
     await storage.insert(item)
     await storage.insert_batch([event(2, "solar"), event(3, "battery")])
-    create_pool.assert_awaited_once_with("postgresql://unused/test")
+    create_pool.assert_awaited_once_with("postgresql://unused/test", ssl="verify-full")
     schema = connection.execute.await_args_list[0].args[0]
     assert "create_hypertable('events', 'timestamp'" in schema
     first_insert = connection.execute.await_args_list[1].args
@@ -358,7 +358,7 @@ async def test_timescale_concurrent_start_creates_one_ready_pool(
     initializing, ready = asyncio.Event(), asyncio.Event()
     pools: list[MagicMock] = []
 
-    async def create(_dsn: str) -> MagicMock:
+    async def create(_dsn: str, **_kwargs: object) -> MagicMock:
         candidate = MagicMock()
         candidate.acquire.return_value.__aenter__.return_value = connection
         candidate.close = AsyncMock()

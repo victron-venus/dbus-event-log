@@ -160,7 +160,8 @@ Create `config.yaml`:
 storage:
   backend: sqlite  # or "timescaledb"
   sqlite_path: /var/lib/dbus-event-log/events.db
-  timescaledb_dsn: "postgresql://user:pass@host/db"
+  timescaledb_dsn: "postgresql://user:pass@host/db?sslrootcert=/path/to/database-ca.pem"
+  timescaledb_tls: verify-full
   retention_days: 30
   rotation_size_mb: 100
   rotation_max_archives: 4
@@ -205,6 +206,40 @@ export DBUS_EVENT_LOG_STORAGE_SQLITE_PATH=/data/events.db
 export DBUS_EVENT_LOG_MQTT_HOST=mosquitto
 export DBUS_EVENT_LOG_DBUS_SERVICES='["com.victronenergy.*"]'
 ```
+
+### TimescaleDB transport
+
+SQLite remains the default backend. When selecting TimescaleDB, TCP connections
+require certificate and hostname verification (`timescaledb_tls: verify-full`).
+They do not fall back to plaintext if TLS is refused. Supply the database CA with
+the DSN's `sslrootcert=/path/to/database-ca.pem`, or use asyncpg's standard
+`~/.postgresql/root.crt` location. Existing `sslcert`, `sslkey`, `sslpassword` and
+other asyncpg DSN options retain their native meaning; private client keys remain
+operator-owned files. This native `verify-full` path does not automatically use
+the operating system CA bundle. The DSN hostname must match the server certificate.
+Configure PostgreSQL to use SCRAM-SHA-256 for password authentication.
+
+The application transport setting takes precedence over `PGSSLMODE`. An explicit
+DSN `sslmode` must agree with it: `verify-full` is accepted normally; weaker or
+contradictory modes fail with a configuration error rather than being ignored.
+
+For a deliberately trusted local connection, such as the optional Compose
+database without TLS or a Unix socket, explicitly select:
+
+```yaml
+storage:
+  backend: timescaledb
+  timescaledb_tls: trusted-local
+  timescaledb_dsn: "postgresql://user:pass@timescaledb/dbus_events?sslmode=disable"
+```
+
+The environment equivalent is
+`DBUS_EVENT_LOG_STORAGE_TIMESCALEDB_TLS=trusted-local`. This selection disables TLS
+and its server authentication; it is an operator assertion about the connection's
+trust boundary, not an automatic check that a host or private IP is safe. Use it
+only for an isolated trusted transport. A DSN `sslmode` may be omitted in this
+mode, but if supplied it must be `disable`. Keep credentials outside version
+control. No connection automatically switches between the two modes.
 
 ## Usage
 

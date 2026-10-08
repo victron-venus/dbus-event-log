@@ -16,6 +16,7 @@ class StorageConfig(BaseSettings):
     backend: Literal["sqlite", "timescaledb"] = "sqlite"
     sqlite_path: Path = Field(default=Path("/var/lib/dbus-event-log/events.db"))
     timescaledb_dsn: str | None = None
+    timescaledb_tls: Literal["verify-full", "trusted-local"] = "verify-full"
     retention_days: int = Field(default=30, ge=0)
     rotation_size_mb: int = Field(default=100, ge=0)
     rotation_max_archives: int = Field(default=4, ge=1)

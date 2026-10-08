@@ -16,9 +16,21 @@ Captures D-Bus signals, method calls and replies for temporary troubleshooting. 
 
 ### Upgrade
 
-These maintenance changes do not introduce a configuration or data migration. Retain local configuration and credentials when using the documented update procedure. Validate the candidate on an isolated system before production use; automated checks do not establish hardware acceptance.
+TimescaleDB connections now require verified TLS by default. Configure the
+database CA and a matching hostname, or explicitly select `timescaledb_tls:
+trusted-local` for a deliberately trusted local transport without TLS. Existing
+weak DSN `sslmode` values now fail instead of silently permitting fallback.
+See the README transport instructions before upgrading a TimescaleDB deployment.
+SQLite configuration and stored event data do not change. Retain local
+configuration and credentials and validate the candidate on an isolated system.
 
 ### Security
+
+Prevent an unauthenticated TimescaleDB endpoint from refusing TLS and then
+requesting plaintext credentials or an MD5 authentication response. Verified TLS
+preserves custom CA and client-certificate options. PostgreSQL authentication
+method policy remains server-owned; use SCRAM-SHA-256 for password authentication.
+No CVE identifier has been assigned to this fix.
 
 Private vulnerability reporting and response policy are documented in SECURITY.md. This maintenance update strengthens release evidence and review instructions; it does not replace deployment authentication, network isolation or independent equipment safeguards. No new project CVE is announced by these changes.
 

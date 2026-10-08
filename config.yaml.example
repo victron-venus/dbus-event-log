@@ -2,6 +2,7 @@ storage:
   backend: sqlite
   sqlite_path: /var/lib/dbus-event-log/events.db
   timescaledb_dsn: null
+  timescaledb_tls: verify-full
   retention_days: 30
   rotation_size_mb: 100
   vacuum_on_startup: true

@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Any
+from urllib.parse import parse_qs, urlsplit
 
 if TYPE_CHECKING:
     import asyncpg
@@ -417,6 +418,16 @@ class TimescaleDBStorage:
         self.dsn = storage_config.timescaledb_dsn
         if not self.dsn:
             raise ValueError("TimescaleDB DSN not configured")
+        expected_mode = (
+            "disable" if storage_config.timescaledb_tls == "trusted-local" else "verify-full"
+        )
+        modes = parse_qs(urlsplit(self.dsn).query, keep_blank_values=True).get("sslmode", [])
+        if any(mode != expected_mode for mode in modes):
+            raise ValueError(
+                "TimescaleDB DSN sslmode conflicts with timescaledb_tls: use verify-full, "
+                "or explicitly select trusted-local with sslmode=disable"
+            )
+        self._ssl: str | bool = False if expected_mode == "disable" else "verify-full"
         self._pool: Any = None
         self._pool_lock = asyncio.Lock()
 
@@ -425,7 +436,9 @@ class TimescaleDBStorage:
         if self._pool is None:
             async with self._pool_lock:
                 if self._pool is None:
-                    pool = await asyncpg.create_pool(self.dsn)
+                    # Keep asyncpg's CA/client-certificate DSN processing while
+                    # preventing its default unauthenticated TLS/plaintext fallback.
+                    pool = await asyncpg.create_pool(self.dsn, ssl=self._ssl)
                     try:
                         await self._init_schema(pool)
                     except (Exception, asyncio.CancelledError):  # pylint: disable=broad-exception-caught

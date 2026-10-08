@@ -20,6 +20,9 @@ TimescaleDB connections now require verified TLS by default. Configure the
 database CA and a matching hostname, or explicitly select `timescaledb_tls:
 trusted-local` for a deliberately trusted local transport without TLS. Existing
 weak DSN `sslmode` values now fail instead of silently permitting fallback.
+Verified connections also require an explicit TCP host in the DSN; migrate
+hostless `PGHOST`/service-only settings by adding that host. Unix sockets require
+the explicit trusted-local mode because asyncpg does not apply TLS to them.
 See the README transport instructions before upgrading a TimescaleDB deployment.
 SQLite configuration and stored event data do not change. Retain local
 configuration and credentials and validate the candidate on an isolated system.

@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Any
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 if TYPE_CHECKING:
     import asyncpg
@@ -409,6 +409,36 @@ class SQLiteStorage:
             return archive
 
 
+def _require_explicit_tcp_host(dsn: str) -> None:
+    """Keep verified connections off asyncpg's implicit Unix-socket paths."""
+    message = (
+        "TimescaleDB verify-full requires an explicit TCP host in the DSN; "
+        "use trusted-local only for deliberately trusted local connections"
+    )
+    try:
+        parsed = urlsplit(dsn)
+    except ValueError:
+        raise ValueError(message) from None
+    # Match asyncpg's precedence and decoding boundary. Authority wins over
+    # query host, whose last nonblank value wins. Split before unquoting so an
+    # encoded comma does not accidentally become another destination.
+    authority = parsed.netloc.partition("@")[2] if "@" in parsed.netloc else parsed.netloc
+    hosts = authority or parse_qs(parsed.query).get("host", [""])[-1]
+    for host in hosts.split(","):
+        if host.startswith("["):
+            address, closing, _port = host[1:].partition("]")
+            if not closing:
+                raise ValueError(message)
+        elif host.startswith("/"):
+            address = host
+        else:
+            address = host.partition(":")[0]
+        if authority:
+            address = unquote(address)
+        if not address or address.startswith("/"):
+            raise ValueError(message)
+
+
 class TimescaleDBStorage:
     """TimescaleDB storage backend for D-Bus events."""
 
@@ -421,6 +451,8 @@ class TimescaleDBStorage:
         expected_mode = (
             "disable" if storage_config.timescaledb_tls == "trusted-local" else "verify-full"
         )
+        if expected_mode == "verify-full":
+            _require_explicit_tcp_host(self.dsn)
         modes = parse_qs(urlsplit(self.dsn).query, keep_blank_values=True).get("sslmode", [])
         if any(mode != expected_mode for mode in modes):
             raise ValueError(

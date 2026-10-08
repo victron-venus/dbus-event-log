@@ -219,6 +219,14 @@ operator-owned files. This native `verify-full` path does not automatically use
 the operating system CA bundle. The DSN hostname must match the server certificate.
 Configure PostgreSQL to use SCRAM-SHA-256 for password authentication.
 
+Verified mode requires an explicit TCP host in the DSN authority or `host` query
+parameter. Hostless DSNs that rely on `PGHOST`, a service file or asyncpg's default
+socket search must be migrated by adding their TCP host to the DSN. This is an
+intentional compatibility change: asyncpg does not apply TLS to Unix sockets.
+Unix sockets and mixed TCP/socket host lists require the explicit `trusted-local`
+choice below. With an explicit TCP host, other native service-file settings such
+as credentials, CA paths and ports retain their usual meaning.
+
 The application transport setting takes precedence over `PGSSLMODE`. An explicit
 DSN `sslmode` must agree with it: `verify-full` is accepted normally; weaker or
 contradictory modes fail with a configuration error rather than being ignored.

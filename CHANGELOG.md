@@ -2,13 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.2.0] - Development line
+## [0.2.1] - Development line
 
 ### Release overview
 
 Captures D-Bus signals, method calls and replies for temporary troubleshooting. The existing README documents configuration and external interfaces for this development line.
 
 ### Maintenance
+
+- Refresh shared CI workflow pins and align the Scorecard output contract with the updated action.
 
 - Record test and build dependencies in `uv.lock` for reproducible Python checks, preserving the existing locked runtime versions.
 - Publish reviewed release notes from the exact source commit used to build each candidate, preserving build provenance.

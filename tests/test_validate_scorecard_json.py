@@ -23,13 +23,35 @@ SHA = "a" * 40
 
 
 def complete() -> dict[str, Any]:
-    """Build a complete result, including upstream disabled checks."""
+    """Build v5.6.0 output independently of the validator's contract constants."""
     return {
         "repo": {"name": f"github.com/{REPO}", "commit": SHA},
-        "scorecard": guard.VERSION.copy(),
+        "scorecard": {
+            "version": "v5.6.0",
+            "commit": "61e84743356275f6ffca23b1b2f2cb945e19eb96",
+        },
         "checks": [
-            {"name": name, "score": -1 if name in guard.DISABLED else 10}
-            for name in sorted(guard.CHECKS)
+            {"name": name, "score": -1 if name in {"Contributors", "Signed-Releases"} else 10}
+            for name in (
+                "Binary-Artifacts",
+                "Branch-Protection",
+                "CII-Best-Practices",
+                "CI-Tests",
+                "Code-Review",
+                "Contributors",
+                "Dangerous-Workflow",
+                "Dependency-Update-Tool",
+                "Fuzzing",
+                "License",
+                "Maintained",
+                "Packaging",
+                "Pinned-Dependencies",
+                "SAST",
+                "Security-Policy",
+                "Signed-Releases",
+                "Token-Permissions",
+                "Vulnerabilities",
+            )
         ],
     }
 
@@ -102,11 +124,30 @@ class ScorecardJSONTests(unittest.TestCase):
             ("repo", {"name": "github.com/other/repo", "commit": SHA}),
             ("repo", {"name": f"github.com/{REPO}", "commit": "b" * 40}),
             ("scorecard", {"version": "v9.0.0", "commit": "b" * 40}),
+            (
+                "scorecard",
+                {"version": "v5.5.0", "commit": "c395761df6afe1a69e476bc60a013a94bcbc153f"},
+            ),
+            ("scorecard", {"version": "v5.6.0", "commit": "b" * 40}),
         ):
             with self.subTest(field=field, value=value):
                 result = complete()
                 result[field] = value
                 with self.assertRaises((TypeError, ValueError)):
+                    guard.validate(result, REPO, SHA)
+
+    def test_every_default_check_is_required_and_experimental_checks_fail(self) -> None:
+        for check in complete()["checks"]:
+            with self.subTest(missing=check["name"]):
+                result = complete()
+                result["checks"].remove(check)
+                with self.assertRaises(ValueError):
+                    guard.validate(result, REPO, SHA)
+        for name in ("SBOM", "Webhooks"):
+            with self.subTest(extra=name):
+                result = complete()
+                result["checks"].append({"name": name, "score": 10})
+                with self.assertRaises(ValueError):
                     guard.validate(result, REPO, SHA)
 
     def test_missing_run_identity_and_invalid_root_fail(self) -> None:

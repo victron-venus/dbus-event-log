@@ -68,7 +68,8 @@ when those sources cannot explain an incident.
 
 The monitor filters D-Bus messages into structured events and stores them in
 SQLite or TimescaleDB. After storage succeeds, the optional publisher forwards
-events to MQTT. The command-line query and export commands read stored SQLite events
+events to MQTT. The command-line query reads stored SQLite or TimescaleDB events;
+the separate export command reads SQLite events
 and produce tables, JSON or CSV; downstream tools can use the storage or MQTT
 feed for their own dashboards.
 
@@ -505,7 +506,7 @@ dbus-event-log query --type service_added --limit 50
 dbus-event-log export --format csv --output audit.csv --since 7d
 ```
 
-Relative filters such as `30m`, `24h`, and `7d` span hour, day, and month boundaries correctly. CLI query, export, statistics, and maintenance commands currently target SQLite; TimescaleDB is supported for event capture.
+Relative filters such as `30m`, `24h`, and `7d` span hour, day, and month boundaries correctly. Query supports both storage backends; the separate export, statistics, and maintenance commands target SQLite.
 
 ### Statistics
 

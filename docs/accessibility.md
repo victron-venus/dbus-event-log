@@ -8,7 +8,7 @@ with a keyboard. Monitoring is a bounded session that also accepts Ctrl+C.
 
 The table view labels columns and values in text; colour is supplementary.
 For a linear representation of recorded events, select JSON or CSV with the
-query command's `--format` option with SQLite storage. `--output` writes the
+query command's `--format` option with SQLite or TimescaleDB storage. `--output` writes the
 result to a file for the reader's preferred tools. The SQLite-only `export`
 command also supports JSON and CSV.
 Use `dbus-event-log query --help` or `dbus-event-log export --help` to inspect the

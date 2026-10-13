@@ -1,0 +1,175 @@
+{
+  "repository": "victron-venus/dbus-event-log",
+  "tag": "v0.2.1",
+  "source_sha": "a02ec28b1b406a760bf9a61032e90df277589c6f",
+  "observed_at": "2026-10-13T11:45:48.424521+00:00",
+  "release_url": "https://github.com/victron-venus/dbus-event-log/releases/tag/v0.2.1",
+  "cosign_sha256": "5cf948c2f4dfe59687bdd0b8523709067383e03982cc543475c8a7dc70e92a76",
+  "verifier_source": "a02ec28b1b406a760bf9a61032e90df277589c6f",
+  "verifier_sha256": "b2b042fada135eb31afe3e8fff6e0b702fb836a6357b8dea1bd3f712a060ea26",
+  "expected_identity": "https://github.com/victron-venus/dbus-event-log/.github/workflows/release-pipeline.yml@refs/heads/main",
+  "expected_issuer": "https://token.actions.githubusercontent.com",
+  "signed_inventory": {
+    "artifacts": [
+      {
+        "name": "SHA256SUMS",
+        "sha256": "3f0acbf344fe53b694d6d2b4a8ec5d16e29479456faf30e1b64faef6926ba450",
+        "size": 500
+      },
+      {
+        "name": "container-build-evidence.json",
+        "sha256": "116e31b7c1bfee08eda225ea185fc0cb02a0c7fc0c5cfff8b18d729f7639be64",
+        "size": 10559
+      },
+      {
+        "name": "dbus-event-log-container.oci.tar",
+        "sha256": "d2dfe61f00677359727b3261fa1b0fd6c23a6cd45fd809fc12320474ad768e39",
+        "size": 335206400
+      },
+      {
+        "name": "dbus-event-log-container.provenance.json",
+        "sha256": "21674383f611b2b1b8e9f244a07b10200bab35521c228c11fb870cea449c258f",
+        "size": 72836
+      },
+      {
+        "name": "dbus_event_log-0.2.1-py3-none-any.whl",
+        "sha256": "b6784fba62d357f7fa99c7705cb5d2529c4e5501053e894951a63aa27e724d1d",
+        "size": 42522
+      },
+      {
+        "name": "dbus_event_log-0.2.1.tar.gz",
+        "sha256": "e57fdc71de80f2550d0cd510a3b58a6796673984bbcd0faa50f580a6acd9bc7b",
+        "size": 277336
+      },
+      {
+        "name": "release-inputs-package.json",
+        "sha256": "9f549da37424992ee8f74ebcdbf4db585571db8e0682e85535eac6f2ee5ebd7e",
+        "size": 4704
+      },
+      {
+        "name": "source-a02ec28b1b406a760bf9a61032e90df277589c6f.tar.gz",
+        "sha256": "4cfc59d4ef274ef74963ee3c4541d29d13cd618afb8ee203b42800a6239996c1",
+        "size": 543258
+      }
+    ],
+    "plan": {
+      "base_version": "0.2.1",
+      "build_number": 92,
+      "channel": "rc",
+      "policy_sha256": "a8da260cd7d4e9a28d10e2f714af7db80e500a0633a1a835cc5fc23f1eae61f5",
+      "promotion": "promote-bytes",
+      "schema_version": 1,
+      "sequence": 3,
+      "source_sha": "a02ec28b1b406a760bf9a61032e90df277589c6f",
+      "tag": "v0.2.1-rc.3",
+      "version": "0.2.1-rc.3"
+    },
+    "ref": "refs/heads/main",
+    "repository": "victron-venus/dbus-event-log",
+    "schema": 1,
+    "source_sha": "a02ec28b1b406a760bf9a61032e90df277589c6f"
+  },
+  "detached_provenance_verified": true,
+  "limitations": [
+    "Authenticates payload bytes and original build provenance; target acceptance is recorded separately.",
+    "release-manifest.json and release-inputs-signature.json are unsigned publisher metadata."
+  ],
+  "original_rc": {
+    "tag": "v0.2.1-rc.3",
+    "run_url": "https://github.com/victron-venus/dbus-event-log/actions/runs/38344408225",
+    "run_conclusion": "success"
+  },
+  "cases": [
+    {
+      "case": "positive",
+      "returncode": 0,
+      "log_sha256": "80a53f76c7ed6969dade3b6ee47cdb753162db7c00be625448999d08bae77ed8"
+    },
+    {
+      "case": "wrong-source",
+      "returncode": 1,
+      "log_sha256": "fbabb4a9ba3a6bc96ce54aee20a13c9145c9c1e88b8e92d48cf98db803cc82c4"
+    }
+  ],
+  "stable_promotion": {
+    "verified_at": "2026-10-13T11:46:12.723819+00:00",
+    "repository": "victron-venus/dbus-event-log",
+    "source_sha": "a02ec28b1b406a760bf9a61032e90df277589c6f",
+    "rc": "v0.2.1-rc.3",
+    "stable": "v0.2.1",
+    "stable_url": "https://github.com/victron-venus/dbus-event-log/releases/tag/v0.2.1",
+    "stable_run_url": "https://github.com/victron-venus/dbus-event-log/actions/runs/38392023294",
+    "stable_run_id": 38392023294,
+    "stable_run_conclusion": "success",
+    "latest_stable": true,
+    "all_12_assets_byte_identical": true,
+    "comparison": "Every file compared byte for byte in 1MiB chunks; identical names, sizes and SHA256 inventory as independently verified public RC3.",
+    "assets": [
+      {
+        "name": "SHA256SUMS",
+        "size": 500,
+        "sha256": "3f0acbf344fe53b694d6d2b4a8ec5d16e29479456faf30e1b64faef6926ba450"
+      },
+      {
+        "name": "container-build-evidence.json",
+        "size": 10559,
+        "sha256": "116e31b7c1bfee08eda225ea185fc0cb02a0c7fc0c5cfff8b18d729f7639be64"
+      },
+      {
+        "name": "dbus-event-log-container.oci.tar",
+        "size": 335206400,
+        "sha256": "d2dfe61f00677359727b3261fa1b0fd6c23a6cd45fd809fc12320474ad768e39"
+      },
+      {
+        "name": "dbus-event-log-container.provenance.json",
+        "size": 72836,
+        "sha256": "21674383f611b2b1b8e9f244a07b10200bab35521c228c11fb870cea449c258f"
+      },
+      {
+        "name": "dbus_event_log-0.2.1-py3-none-any.whl",
+        "size": 42522,
+        "sha256": "b6784fba62d357f7fa99c7705cb5d2529c4e5501053e894951a63aa27e724d1d"
+      },
+      {
+        "name": "dbus_event_log-0.2.1.tar.gz",
+        "size": 277336,
+        "sha256": "e57fdc71de80f2550d0cd510a3b58a6796673984bbcd0faa50f580a6acd9bc7b"
+      },
+      {
+        "name": "release-inputs-package.json",
+        "size": 4704,
+        "sha256": "9f549da37424992ee8f74ebcdbf4db585571db8e0682e85535eac6f2ee5ebd7e"
+      },
+      {
+        "name": "release-inputs-signature.json",
+        "size": 2734,
+        "sha256": "a2929dce3cd5b3a0e2a615d852496f113fe6905a9f31823f607ebdc2a2b02f57"
+      },
+      {
+        "name": "release-manifest.json",
+        "size": 7791,
+        "sha256": "9d73d401b37f3259596f7d2425cbfcc6c2205624c5f83bfa75f073b733539474"
+      },
+      {
+        "name": "release-signatures.json",
+        "size": 1888,
+        "sha256": "dc170d263f1fed24b83038bf05ccb93bb72072056f8fcf2574028154d0e5608b"
+      },
+      {
+        "name": "release-signatures.sigstore.json",
+        "size": 10707,
+        "sha256": "0d119c586bcde0c2d7d00952b2a6cf48af9fe2ac59de8e89097f591a6d8d7486"
+      },
+      {
+        "name": "source-a02ec28b1b406a760bf9a61032e90df277589c6f.tar.gz",
+        "size": 543258,
+        "sha256": "4cfc59d4ef274ef74963ee3c4541d29d13cd618afb8ee203b42800a6239996c1"
+      }
+    ],
+    "acceptance_url": "https://github.com/victron-venus/dbus-event-log/pull/145#issuecomment-6144748340"
+  },
+  "source_receipt_sha256": {
+    "verification.json": "9ec500e56efcc88b1b99013324d95b07c3c96f976a65a887bf877df0345a110f",
+    "byte-identity.json": "7819055a50427ea7af16f239481656275efd00217ec128f6b80e1b83dbc1d85a"
+  }
+}

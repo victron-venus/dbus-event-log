@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "source_sha": "95bbb71a5821394217966599eee5300d70b5e298",
+  "plan_sha256": "55d9c287f93d9e5509cc8d667fd3c66722f4161e3966841dafd4e872bfac384b",
+  "full_runnable_archive_equal": true,
+  "builds": [
+    {
+      "directory": "cold-1",
+      "size": 335206400,
+      "sha256": "56c38f4551031291f07504dfcd313876530f40e59e53d05be7a870e9c7956ce0"
+    },
+    {
+      "directory": "cold-2",
+      "size": 335206400,
+      "sha256": "56c38f4551031291f07504dfcd313876530f40e59e53d05be7a870e9c7956ce0"
+    }
+  ],
+  "scope": "Complete runnable OCI tar; truthful per-build provenance is verified separately, not expected to repeat."
+}

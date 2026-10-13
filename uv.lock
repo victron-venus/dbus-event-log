@@ -382,6 +382,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "pytest-mock" },
     { name = "ruff" },
+    { name = "types-atheris" },
     { name = "types-python-dateutil" },
     { name = "types-pyyaml" },
 ]
@@ -424,6 +425,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13.7.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5.0" },
     { name = "sqlite-utils", specifier = ">=3.37.0" },
+    { name = "types-atheris", marker = "extra == 'dev'", specifier = ">=3.1.0.20260630" },
     { name = "types-python-dateutil", marker = "extra == 'dev'", specifier = ">=2.9.0" },
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
 ]
@@ -1470,6 +1472,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/94/96/e07752635b98536177fa1f37671c8f3cdde2e724c6bcf6034b2cfb571565/tomlkit-0.15.1.tar.gz", hash = "sha256:e25bbf38843005246210a12982776f27f99cb9be67160e14434d0c0d21ee1e97", size = 180129, upload-time = "2026-07-17T01:48:04.562Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/13/bc/8c13eb66537dce1d2bd3a57132902f38d0e7f5bb46fa9f4daed9fe9d76ee/tomlkit-0.15.1-py3-none-any.whl", hash = "sha256:177a05aece5a8ca5266fd3c448abb47b8d352f09d477d3ca8332db4d89b24304", size = 49449, upload-time = "2026-07-17T01:48:05.728Z" },
+]
+
+[[package]]
+name = "types-atheris"
+version = "3.1.0.20260630"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/43/c7/cc43b4593b4d501bdb59bf0da105f71b13cba1d474b8994b205704aefdcd/types_atheris-3.1.0.20260630.tar.gz", hash = "sha256:51b1cb0699718105e383437e29f99fef9fbbf734ac32d14266bd8ad46a358493", size = 8709, upload-time = "2026-06-30T05:59:56.884Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/da/00/871bc99b270bca148ceed5ce9ab5112c0c2244d590cc755e51bdb79ddae6/types_atheris-3.1.0.20260630-py3-none-any.whl", hash = "sha256:f4313997e5bbffb099c14b4d45bf8ca838311297b3a59921bada6fe9cba4ff62", size = 9933, upload-time = "2026-06-30T05:59:55.856Z" },
 ]
 
 [[package]]

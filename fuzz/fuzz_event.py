@@ -4,15 +4,24 @@ import json
 import sys
 import types
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import atheris
+
+# Typeshed exposes the instrumentation APIs through their implementation modules.
+if TYPE_CHECKING:
+    from atheris.import_hook import instrument_imports
+    from atheris.instrument_bytecode import instrument_func
+else:
+    instrument_imports = atheris.instrument_imports
+    instrument_func = atheris.instrument_func
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 # Avoid the package initializer's configuration-file/environment loading.
 package = types.ModuleType("dbus_event_log")
 package.__path__ = [str(Path(__file__).resolve().parents[1] / "src/dbus_event_log")]
 sys.modules[package.__name__] = package
-with atheris.instrument_imports():
+with instrument_imports():
     from pydantic import ValidationError
 
     from dbus_event_log.models import SCHEMA_VERSION, DBusEvent
@@ -41,5 +50,5 @@ def test_one_input(data: bytes) -> None:
 
 
 if __name__ == "__main__":
-    atheris.Setup(sys.argv, atheris.instrument_func(test_one_input))
+    atheris.Setup(sys.argv, instrument_func(test_one_input))
     atheris.Fuzz()

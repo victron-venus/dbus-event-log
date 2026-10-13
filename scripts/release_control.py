@@ -63,7 +63,10 @@ def verify_required_signatures(directory: Path, repo: str, sha: str) -> None:
     if not RELEASE_SIGNATURES_REQUIRED:
         return
     # Only signed consumers vendor this optional verifier, from the same checkout.
-    from release_signing import read_json, verify  # pylint: disable=import-outside-toplevel
+    if __package__:
+        from .release_signing import read_json, verify  # pylint: disable=import-outside-toplevel
+    else:
+        from release_signing import read_json, verify  # pylint: disable=import-outside-toplevel
 
     policy = read_json(Path(POLICY))
     if policy.get("repository") != repo or policy.get("sign_releases") is not True:
@@ -598,8 +601,21 @@ def require_release_policy(policy: object, repo: str, qualified: bool) -> None:
         "Source policy repository mismatch",
     )
     require(policy.get("mode") == "release", "Source policy mode must be release")
+    if "fuzzing" in policy:
+        if __package__:
+            from .release_fuzz import configuration
+        else:
+            from release_fuzz import configuration
+
+        try:
+            configuration(policy)
+        except ValueError as error:
+            raise ReleaseError(str(error)) from error
     if "channel_validation_workflows" in policy:
-        from release_validation import channel_workflows
+        if __package__:
+            from .release_validation import channel_workflows
+        else:
+            from release_validation import channel_workflows
 
         try:
             channel_workflows(policy)
@@ -623,7 +639,10 @@ def validation_profile(policy: JSONObject, channel: str) -> JSONObject | None:
     """Keep legacy policies self-contained and require explicit new profiles."""
     if "channel_validation_workflows" not in policy:
         return None
-    from release_validation import profile
+    if __package__:
+        from .release_validation import profile
+    else:
+        from release_validation import profile
 
     try:
         return profile(policy, channel)
@@ -639,22 +658,65 @@ def validate_validation_manifest(manifest: JSONObject) -> None:
         json_bytes(manifest.get("validation_profile")) == json_bytes(expected),
         "Manifest validation profile differs from its source policy/channel",
     )
+    if "fuzzing" in policy:
+        if __package__:
+            from .release_fuzz import profile
+        else:
+            from release_fuzz import profile
+
+        require(
+            json_bytes(manifest.get("fuzzing_profile")) == json_bytes(profile(policy, cast(str, manifest["channel"]))),
+            "Manifest fuzzing profile differs from its source policy/channel",
+        )
+        if manifest["channel"] == "rc":
+            assets = {item["name"]: item for item in cast(list[JSONObject], manifest["assets"])}
+            receipt = assets.get("release-inputs-fuzz.json", {})
+            require(
+                "fuzz-report.json" in assets and bool(receipt)
+                and manifest.get("validation_receipts") == [{"name": "release-inputs-fuzz.json", "sha256": receipt.get("sha256")}],
+                "RC fuzz validation evidence is absent from the immutable asset inventory",
+            )
+
+
+def require_current_fuzzing(gh: GitHub, candidate_policy: JSONObject, current_sha: str) -> None:
+    """An adopted project cannot qualify an older RC that predates fuzzing."""
+    current = cast(JSONObject, source_policy_snapshot(gh, current_sha)["data"])
+    if "fuzzing" in current:
+        if __package__:
+            from .release_fuzz import configuration
+        else:
+            from release_fuzz import configuration
+
+        require(configuration(candidate_policy) is not None,
+                "Current release policy requires fuzzing; create a new RC after adoption")
 
 
 def validate_validation_run(
     gh: GitHub, run: JSONObject, policy: JSONObject, channel: str
 ) -> None:
     """Require the selected profile and CI gate in the exact run attempt."""
-    if validation_profile(policy, channel) is None:
+    has_profile = validation_profile(policy, channel) is not None
+    if not has_profile and "fuzzing" not in policy:
         return
-    from release_validation import check_run_jobs
+    if __package__:
+        from .release_validation import check_run_jobs
+    else:
+        from release_validation import check_run_jobs
 
     jobs = gh.pages(
         f"actions/runs/{positive(run.get('id'), 'run ID')}/attempts/{positive(run.get('run_attempt'), 'run attempt')}/jobs",
         "jobs",
     )
     try:
-        check_run_jobs(jobs, channel, cast(str, run["head_sha"]))
+        if has_profile:
+            check_run_jobs(jobs, channel, cast(str, run["head_sha"]))
+        if "fuzzing" in policy:
+            if __package__:
+                from .release_fuzz import check_run_jobs as check_fuzz_jobs
+            else:
+                from release_fuzz import check_run_jobs as check_fuzz_jobs
+
+            check_fuzz_jobs(jobs, channel, cast(str, run["head_sha"]))
     except ValueError as error:
         raise ReleaseError(str(error)) from error
 
@@ -1698,7 +1760,10 @@ def _validate_manifest_assets(manifest: JSONObject) -> None:
 def _validate_manifest_plan(manifest: JSONObject, base_version: str) -> None:
     # Optional imports preserve the standalone legacy engine contract.
     # pylint: disable-next=import-outside-toplevel
-    from version_plan import plan_digest, validate_plan
+    if __package__:
+        from .version_plan import plan_digest, validate_plan
+    else:
+        from version_plan import plan_digest, validate_plan
 
     plan = validate_plan(
         manifest.get("version_plan"),
@@ -1968,6 +2033,7 @@ def promote(args: argparse.Namespace) -> JSONObject:
     require_release_policy(
         cast(JSONObject, policy_snapshot["data"]), gh.repo, qualified=True
     )
+    require_current_fuzzing(gh, cast(JSONObject, policy_snapshot["data"]), checked_out_sha())
     require(
         cast(
             JSONObject, cast(JSONObject, policy_snapshot["data"]).get("versioning", {})
@@ -1977,7 +2043,10 @@ def promote(args: argparse.Namespace) -> JSONObject:
     )
     if manifest.get("version_plan"):
         # pylint: disable-next=import-outside-toplevel
-        from release_state import verify_promotion_order
+        if __package__:
+            from .release_state import verify_promotion_order
+        else:
+            from release_state import verify_promotion_order
 
         verify_promotion_order(gh, cast(JSONObject, manifest["version_plan"]))
     require(
@@ -2072,7 +2141,10 @@ def promote(args: argparse.Namespace) -> JSONObject:
         if manifest.get("version_plan"):
             verify_promotion_order(gh, cast(JSONObject, manifest["version_plan"]))
             # pylint: disable-next=import-outside-toplevel
-            from release_state import begin_publication
+            if __package__:
+                from .release_state import begin_publication
+            else:
+                from release_state import begin_publication
 
             begin_publication(
                 gh,

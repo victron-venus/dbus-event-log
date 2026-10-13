@@ -25,9 +25,14 @@ import time
 from pathlib import Path
 from urllib.parse import quote, unquote
 
-import release_control as rc
-import release_state as state
-import version_plan
+if __package__:
+    from . import release_control as rc
+    from . import release_state as state
+    from . import version_plan
+else:
+    import release_control as rc
+    import release_state as state
+    import version_plan
 
 MAX_METADATA = 2_000_000
 MAX_BINARY = 4_000_000

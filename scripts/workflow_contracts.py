@@ -18,6 +18,7 @@ import yaml
 
 COMMIT_SHA_PATTERN = r"[0-9a-f]{40}"
 QUALITY_GATE = "quality-gate.yml"
+LOCAL_WORKFLOW_PREFIX = "./.github/workflows/"
 
 
 class UniqueKeyLoader(yaml.BaseLoader):
@@ -73,35 +74,45 @@ def yaml_member(node, name):
     return None
 
 
+def yaml_step_references(source):
+    """Yield action reference nodes while retaining their source locations."""
+    root = yaml.compose(source, Loader=yaml.BaseLoader)
+    jobs = yaml_member(root, "jobs")
+    if not isinstance(jobs, yaml.MappingNode):
+        return
+    for _, job in jobs.value:
+        steps = yaml_member(job, "steps")
+        if not isinstance(steps, yaml.SequenceNode):
+            continue
+        for step in steps.value:
+            yield yaml_member(step, "uses")
+
+
+def codeql_release_comment(filename, reference, lines):
+    """Read the ASCII release comment adjacent to an immutable CodeQL reference."""
+    mark = reference.end_mark
+    tail = lines[mark.line][mark.column:] if mark.line < len(lines) else ""
+    comment = re.match(r"[ \t]*#[ \t]*(v\d+\.\d+\.\d+)(?:[ \t]|$)", tail, flags=re.ASCII)
+    if comment is None:
+        raise ValueError(
+            f"{filename}:{reference.start_mark.line + 1}: "
+            "CodeQL SHA needs an inline full release comment for Renovate"
+        )
+    return comment[1]
+
+
 def validate_codeql_update_metadata(sources):
     """Keep every CodeQL SHA discoverable by Renovate, including SARIF uploads."""
     versions = set()
     for filename, source in sources.items():
-        root = yaml.compose(source, Loader=yaml.BaseLoader)
-        jobs = yaml_member(root, "jobs")
-        if not isinstance(jobs, yaml.MappingNode):
-            continue
         lines = source.splitlines()
-        for _, job in jobs.value:
-            steps = yaml_member(job, "steps")
-            if not isinstance(steps, yaml.SequenceNode):
+        for reference in yaml_step_references(source):
+            if not isinstance(reference, yaml.ScalarNode) or not re.fullmatch(
+                r"github/codeql-action/(init|autobuild|analyze|upload-sarif)@"
+                + COMMIT_SHA_PATTERN, reference.value
+            ):
                 continue
-            for step in steps.value:
-                reference = yaml_member(step, "uses")
-                if not isinstance(reference, yaml.ScalarNode) or not re.fullmatch(
-                    r"github/codeql-action/(init|autobuild|analyze|upload-sarif)@"
-                    + COMMIT_SHA_PATTERN, reference.value
-                ):
-                    continue
-                mark = reference.end_mark
-                tail = lines[mark.line][mark.column:] if mark.line < len(lines) else ""
-                comment = re.match(r"[ \t]*#[ \t]*(v[0-9]+\.[0-9]+\.[0-9]+)(?:[ \t]|$)", tail)
-                if comment is None:
-                    raise ValueError(
-                        f"{filename}:{reference.start_mark.line + 1}: "
-                        "CodeQL SHA needs an inline full release comment for Renovate"
-                    )
-                versions.add(comment[1])
+            versions.add(codeql_release_comment(filename, reference, lines))
     if len(versions) > 1:
         raise ValueError("CodeQL version comments must name the same release")
 
@@ -194,7 +205,7 @@ def _callable_workflow(workflows, visited, filename, chain=()):
     visited.add(filename)
     for name, job in workflow.get("jobs", {}).items():
         reference = job.get("uses", "")
-        if reference.startswith("./.github/workflows/"):
+        if reference.startswith(LOCAL_WORKFLOW_PREFIX):
             _callable_workflow(workflows, visited, reference.rsplit("/", 1)[-1], (*chain, filename))
         elif "runs-on" in job and "timeout-minutes" not in job:
             raise ValueError(f"{filename}/{name}: an explicit timeout is required")
@@ -273,6 +284,77 @@ def validate_coverage_callers(policy, workflows, gate):
     return {reference}
 
 
+def validate_release_baseline(jobs, baseline):
+    """Retain each default check and its original condition outside beta releases."""
+    for job_name, original in baseline.items():
+        if job_name in {"scope", "gate"}:
+            continue
+        actual = jobs[job_name]
+        wanted = dict(original)
+        if job_name.startswith(("check-", "coverage-")):
+            condition = original.get("if", "${{ success() }}")[3:-3].strip()
+            wanted["if"] = "${{ inputs.channel != 'beta' && (" + condition + ") }}"
+        if actual != wanted:
+            raise ValueError(
+                "Release validation must retain the complete default checks"
+            )
+
+
+def validate_beta_callers(jobs, beta):
+    """Require the policy-selected beta workflows and their dependencies."""
+    for index, filename in enumerate(beta):
+        job = jobs[f"beta-check-{index}"]
+        if (
+            job.get("uses") != LOCAL_WORKFLOW_PREFIX + filename
+            or job.get("needs") != ["scope", "workflow-contracts"]
+            or job.get("if")
+            != "${{ inputs.channel == 'beta' && needs.scope.outputs.run == 'true' }}"
+        ):
+            raise ValueError("Beta validation caller differs from channel policy")
+
+
+def validate_release_scope(scope):
+    """Require explicit channel selection and full validation in the release scope."""
+    selector = [
+        step
+        for step in scope.get("steps", [])
+        if step.get("name") == "Validate release channel"
+    ]
+    if (
+        scope.get("name") != "Validation profile (${{ inputs.channel }})"
+        or "if" in scope
+        or len(selector) != 1
+        or selector[0].get("run")
+        != 'python3 scripts/release_validation.py select --channel "$RELEASE_CHANNEL"'
+        or selector[0].get("env") != {"RELEASE_CHANNEL": "${{ inputs.channel }}"}
+        or not any(
+            step.get("env", {}).get("FORCE_FULL") == "true"
+            for step in scope.get("steps", [])
+        )
+    ):
+        raise ValueError(
+            "Release validation must prove its channel and force real checks"
+        )
+
+
+def validate_release_gate(gate):
+    """Require the shared fail-closed gate with all dependency results."""
+    commands = [step for step in gate.get("steps", []) if "run" in step]
+    if (
+        gate.get("name") != "CI gate"
+        or gate.get("if") != "${{ always() }}"
+        or len(commands) != 1
+        or commands[0].get("run")
+        != 'python3 scripts/release_validation.py gate --channel "$RELEASE_CHANNEL"'
+        or commands[0].get("env")
+        != {
+            "RESULTS": "${{ toJSON(needs) }}",
+            "RELEASE_CHANNEL": "${{ inputs.channel }}",
+        }
+    ):
+        raise ValueError("Release validation must use the fail-closed profile gate")
+
+
 def validate_release_channels(policy, workflows):
     """A channel-specific release gate cannot alter or bypass the required PR gate."""
     name = "release-quality-gate.yml"
@@ -302,67 +384,13 @@ def validate_release_channels(policy, workflows):
         raise ValueError(
             "Release validation gate inventory differs from channel policy"
         )
-    baseline = workflows[QUALITY_GATE]["jobs"]
-    for job_name, original in baseline.items():
-        if job_name in {"scope", "gate"}:
-            continue
-        actual = jobs[job_name]
-        wanted = dict(original)
-        if job_name.startswith(("check-", "coverage-")):
-            condition = original.get("if", "${{ success() }}")[3:-3].strip()
-            wanted["if"] = "${{ inputs.channel != 'beta' && (" + condition + ") }}"
-        if actual != wanted:
-            raise ValueError(
-                "Release validation must retain the complete default checks"
-            )
-    for index, filename in enumerate(beta):
-        job = jobs[f"beta-check-{index}"]
-        if (
-            job.get("uses") != "./.github/workflows/" + filename
-            or job.get("needs") != ["scope", "workflow-contracts"]
-            or job.get("if")
-            != "${{ inputs.channel == 'beta' && needs.scope.outputs.run == 'true' }}"
-        ):
-            raise ValueError("Beta validation caller differs from channel policy")
-    scope = jobs["scope"]
-    selector = [
-        step
-        for step in scope.get("steps", [])
-        if step.get("name") == "Validate release channel"
-    ]
-    if (
-        scope.get("name") != "Validation profile (${{ inputs.channel }})"
-        or "if" in scope
-        or len(selector) != 1
-        or selector[0].get("run")
-        != 'python3 scripts/release_validation.py select --channel "$RELEASE_CHANNEL"'
-        or selector[0].get("env") != {"RELEASE_CHANNEL": "${{ inputs.channel }}"}
-        or not any(
-            step.get("env", {}).get("FORCE_FULL") == "true"
-            for step in scope.get("steps", [])
-        )
-    ):
-        raise ValueError(
-            "Release validation must prove its channel and force real checks"
-        )
-    gate = jobs["gate"]
-    commands = [step for step in gate.get("steps", []) if "run" in step]
-    if (
-        gate.get("name") != "CI gate"
-        or gate.get("if") != "${{ always() }}"
-        or len(commands) != 1
-        or commands[0].get("run")
-        != 'python3 scripts/release_validation.py gate --channel "$RELEASE_CHANNEL"'
-        or commands[0].get("env")
-        != {
-            "RESULTS": "${{ toJSON(needs) }}",
-            "RELEASE_CHANNEL": "${{ inputs.channel }}",
-        }
-    ):
-        raise ValueError("Release validation must use the fail-closed profile gate")
+    validate_release_baseline(jobs, workflows[QUALITY_GATE]["jobs"])
+    validate_beta_callers(jobs, beta)
+    validate_release_scope(jobs["scope"])
+    validate_release_gate(jobs["gate"])
     caller = workflows.get("release-pipeline.yml", {}).get("jobs", {}).get("checks", {})
     if (
-        caller.get("uses") != "./.github/workflows/" + name
+        caller.get("uses") != LOCAL_WORKFLOW_PREFIX + name
         or caller.get("needs") != "prepare"
         or caller.get("with") != {"channel": "${{ needs.prepare.outputs.channel }}"}
     ):

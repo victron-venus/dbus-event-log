@@ -75,11 +75,11 @@
         "value": "package"
       }
     ],
-    "toolkit_revision": "68c5a5654d87041faddba4eb80cd92d818aad275"
+    "toolkit_revision": "d1c3848e874d06a44681e1fbdd58b75c85443df0"
   },
   "single_entry_ci": true,
   "release_notes": "CHANGELOG.md",
-  "toolkit_revision": "57b2dabd92f2e2a66b8b6b6879491d5cdb32fc00",
+  "toolkit_revision": "d1c3848e874d06a44681e1fbdd58b75c85443df0",
   "sign_releases": true,
   "detached_provenance": [
     {
@@ -90,5 +90,8 @@
         "linux/arm64"
       ]
     }
-  ]
+  ],
+  "fuzzing": {
+    "toolkit_ref": "d1c3848e874d06a44681e1fbdd58b75c85443df0"
+  }
 }

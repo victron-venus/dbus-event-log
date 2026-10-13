@@ -665,7 +665,7 @@ version = "2.5.42"
         for name in (
             "../escape",
             # Malicious absolute-path fixture verifies rejection; no file is created.
-            "/tmp/escape",  # nosec B108
+            "/outside-checkout/escape",
             "sub/../original.json",
             "alias.json",
             "linked/original.json",

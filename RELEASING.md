@@ -149,10 +149,6 @@ review together with the corresponding workflow changes. Update the toolkit
 template and `.release-policy.json`, then regenerate and review this document and
 the runbook. The README links here rather than duplicating the release procedure.
 
-## Release-candidate fuzz gate
+## Release-candidate fuzzing
 
-Public RCs run the shared, bounded fuzz gate declared in `.github/fuzz.json`.
-A failing campaign blocks that RC; fix and reissue an RC rather than bypassing it.
-Beta, pull-request, push and scheduled workflows do not start fuzz campaigns.
-Stable promotion uses the accepted RC source and evidence. See
-[the full fuzzing guide](docs/fuzzing.md) for target scope, isolation, receipts and reproduction.
+Every RC must pass bounded, network-isolated fuzz campaigns against the exact candidate source. The release inventory includes the report and its version-plan receipt. PRs, betas, nightlies and stable builds do not run these campaigns; stable qualification verifies the accepted RC evidence. See [the shared fuzzing contract](docs/rc-fuzzing.md) and this project's `.github/fuzz.json` for targets and budgets.

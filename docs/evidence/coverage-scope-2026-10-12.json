@@ -6,11 +6,11 @@
     "binary_sha256": "b7c872db63553ccffc7253aba3ed7d4885a27d83f1ba567b1138c6315a5847e5",
     "source_url": "https://github.com/mvdan/sh/releases/tag/v3.14.1"
   },
-  "method": "Count every Bash AST Stmt node, including compound statements and nested command substitutions, across all tracked shell files (including extensionless shebang scripts) and every GitHub Actions run step. Replace Actions expressions with a non-executable placeholder before parsing. Recursively count heredoc shell, SSH/trap command strings, and count embedded Python heredoc/-c AST statements separately at zero coverage. Add conservative sed/awk expression units and all Docker instructions plus RUN shell. Each declarative Compose command/entrypoint receives another zero-coverage unit. No non-Python execution credit is used.",
+  "method": "Count every Bash AST Stmt node, including compound statements and nested command substitutions, across all tracked shell files (including extensionless shebang scripts) and every GitHub Actions run step. Replace Actions expressions with a non-executable placeholder before parsing. Recursively count heredoc shell, SSH/trap command strings, and count embedded Python heredoc/-c AST statements separately at zero coverage. Add conservative sed/awk expression units and all Docker instructions plus RUN shell. Each declarative Compose command/entrypoint receives another zero-coverage unit. Local release-policy shell command strings and the CLI fallback command are also counted, including wrappers around already-counted scripts. No non-Python execution credit is used.",
   "python_covered_statements": 5282,
   "python_statements": 5954,
-  "additional_zero_coverage_units": 412,
-  "aggregate_conservative_lower_bound_percent": 82.972,
+  "additional_zero_coverage_units": 415,
+  "aggregate_conservative_lower_bound_percent": 82.933,
   "records": [
     {
       "path": ".github/workflows/ci.yml:jobs.build.steps[4].run",
@@ -395,12 +395,30 @@
       "language": "Shell AST statements (including compound statements)",
       "zero_coverage_statements": 5,
       "sha256": "602f3edc2f807a9884aaf062b551fcaf323743875314a51e1cf6da724a8a322a"
+    },
+    {
+      "path": ".release-policy.json:local_checks[0]",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "12208895bfe2b54edff1d36a14e49d1b70a3971c43aa7bb0cb527659eabe3ec3"
+    },
+    {
+      "path": ".release-policy.json:local_checks[1]",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "ac8483c1e0a84852aa754f1beab396ad2f464d8a6e816bc123d76159a6d75cb9"
+    },
+    {
+      "path": "scripts/release.py:315:local_checks-fallback",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "12208895bfe2b54edff1d36a14e49d1b70a3971c43aa7bb0cb527659eabe3ec3"
     }
   ],
   "limitations": [
     "Coverage.py executable source statements and shell AST statements use different language-appropriate units; this is an explicitly conservative portfolio scope calculation, not a shell-coverage measurement.",
     "External interpreters, installed libraries, tools and remote reusable workflows/actions are dependencies rather than project-maintained source. Test/fixture source and documentation examples are not production source.",
-    "YAML/TOML/JSON configuration is data; executable workflow run steps and Docker RUN bodies are included. Docker instructions receive an extra zero-coverage allowance.",
+    "Most YAML/TOML/JSON configuration is data; executable workflow run steps, release-policy command strings and Docker RUN bodies are included. Docker instructions receive an extra zero-coverage allowance.",
     "Do not apply this bound to native dependency memory safety or branch coverage."
   ],
   "reproduction": "coverage-scope-method.md"

@@ -8,6 +8,15 @@ SHFMT=/absolute/path/to/shfmt .venv-ci/bin/python /tmp/audit-scope.py "$PWD" > /
 
 The script reads tracked source and the existing measured Python coverage JSON. It parses source without running project scripts and writes only its report to stdout. The recorded totals are reproducible from the reviewed commit. Embedded command forms, language classification and the exclusions were also reviewed manually; this recipe is tailored to these projects, not a universal static-analysis parser. Reassess it when adding languages or other ways to execute embedded code. The Python and shell statement units differ: no shell execution is credited, compound shell statements are included, and extra Docker/Compose/text-tool allowances make the bound conservative.
 
+
+The inventory also counts the two `local_checks` command strings in
+`.release-policy.json` as separate shell statements: invoking an already-counted
+script still executes a wrapper. It conservatively counts the unused
+`bash scripts/ci.sh` fallback in `scripts/release.py` too, for three additional
+zero-credit statements. Inspection of maintained Python found no other
+`shell=True` or `bash`/`sh -c` command strings. Ordinary argument-vector calls to
+already-counted scripts do not embed another shell program.
+
 ```python
 from pathlib import Path
 import ast, hashlib, json, re, shlex, subprocess, sys, os, shutil
@@ -159,6 +168,28 @@ for root_arg in sys.argv[1:]:
             for i, line in enumerate(lines):
                 if line.startswith("RUN "):
                     scan_shell(line[4:], f"{f}:RUN[{i}]", records)
+    # Local release policy commands are shell programs even when they only
+    # invoke a script whose body was already inventoried above.
+    policy = json.loads((root / ".release-policy.json").read_text())
+    for i, command in enumerate(policy["local_checks"]):
+        scan_shell(command, f".release-policy.json:local_checks[{i}]", records)
+    # Count the unused default too: maintained source includes fallback paths.
+    cli_tree = ast.parse((root / "scripts/release.py").read_text())
+    for call in ast.walk(cli_tree):
+        if (
+            isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Attribute)
+            and call.func.attr == "get"
+            and len(call.args) > 1
+            and isinstance(call.args[0], ast.Constant)
+            and call.args[0].value == "local_checks"
+        ):
+            for command in ast.literal_eval(call.args[1]):
+                scan_shell(
+                    command,
+                    f"scripts/release.py:{call.lineno}:local_checks-fallback",
+                    records,
+                )
     cov = json.loads((root / "docs/evidence/coverage-2026-10-12.json").read_text())
     extra = sum(x["zero_coverage_statements"] for x in records)
     lower = cov["covered_statements"] / (cov["statements"] + extra) * 100
@@ -170,7 +201,7 @@ for root_arg in sys.argv[1:]:
             "binary_sha256": hashlib.sha256(SH.resolve().read_bytes()).hexdigest(),
             "source_url": "https://github.com/mvdan/sh/releases/tag/v3.14.1",
         },
-        "method": "Count every Bash AST Stmt node, including compound statements and nested command substitutions, across all tracked shell files (including extensionless shebang scripts) and every GitHub Actions run step. Replace Actions expressions with a non-executable placeholder before parsing. Recursively count heredoc shell, SSH/trap command strings, and count embedded Python heredoc/-c AST statements separately at zero coverage. Add conservative sed/awk expression units and all Docker instructions plus RUN shell. Each declarative Compose command/entrypoint receives another zero-coverage unit. No non-Python execution credit is used.",
+        "method": "Count every Bash AST Stmt node, including compound statements and nested command substitutions, across all tracked shell files (including extensionless shebang scripts) and every GitHub Actions run step. Replace Actions expressions with a non-executable placeholder before parsing. Recursively count heredoc shell, SSH/trap command strings, and count embedded Python heredoc/-c AST statements separately at zero coverage. Add conservative sed/awk expression units and all Docker instructions plus RUN shell. Each declarative Compose command/entrypoint receives another zero-coverage unit. Local release-policy shell command strings and the CLI fallback command are also counted, including wrappers around already-counted scripts. No non-Python execution credit is used.",
         "python_covered_statements": cov["covered_statements"],
         "python_statements": cov["statements"],
         "additional_zero_coverage_units": extra,
@@ -179,7 +210,7 @@ for root_arg in sys.argv[1:]:
         "limitations": [
             "Coverage.py executable source statements and shell AST statements use different language-appropriate units; this is an explicitly conservative portfolio scope calculation, not a shell-coverage measurement.",
             "External interpreters, installed libraries, tools and remote reusable workflows/actions are dependencies rather than project-maintained source. Test/fixture source and documentation examples are not production source.",
-            "YAML/TOML/JSON configuration is data; executable workflow run steps and Docker RUN bodies are included. Docker instructions receive an extra zero-coverage allowance.",
+            "Most YAML/TOML/JSON configuration is data; executable workflow run steps, release-policy command strings and Docker RUN bodies are included. Docker instructions receive an extra zero-coverage allowance.",
             "Do not apply this bound to native dependency memory safety or branch coverage.",
         ],
     }

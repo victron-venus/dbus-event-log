@@ -1,97 +1,88 @@
 # OpenSSF Best Practices evidence: dbus-event-log
 
-This index supports review against the [OpenSSF Passing criteria](https://www.bestpractices.dev/en/criteria/0). It is not an awarded badge, a security guarantee or a completed self-attestation. Initial source inventory: `fd580379a8fc0719aea144bb1959ac20e8e7dde2`. Re-check the final merged commit and its CI before submitting an assessment.
+The project achieved [Passing](https://www.bestpractices.dev/en/projects/15436/passing)
+following the October 2026 review. Its [Silver assessment](https://www.bestpractices.dev/en/projects/15436/silver)
+is published with outstanding requirements. The live assessment is authoritative
+for the current badge level; this evidence index is not a security guarantee.
+
+The initial completed implementation review is [PR #140](https://github.com/victron-venus/dbus-event-log/pull/140),
+merged as `55bb1468a2239c9d99998a5c7113060aa678a2a7`. Later changes must be checked against their own source revision
+and CI results rather than inheriting a claim from that review.
 
 ## Project and contribution process
 
-Captures D-Bus signals, method calls and replies for temporary troubleshooting.
+- [README](../README.md): purpose, supported environment, configuration and usage.
+- [CONTRIBUTING](../CONTRIBUTING.md): reporting, coding standards, local checks,
+  review and regression-test requirements.
+- [SECURITY](../SECURITY.md): private vulnerability reporting, response goals and
+  deployment trust boundaries.
+- [Governance](../GOVERNANCE.md), [code of conduct](../CODE_OF_CONDUCT.md) and
+  [roadmap](../ROADMAP.md): roles, decisions, expected conduct and unfinished work.
+- [License](../LICENSE): redistribution terms; retain third-party notices.
+- [Accessibility](accessibility.md): text interfaces, documentation alternatives
+  and the limits of the interface review.
+- [Issues](https://github.com/victron-venus/dbus-event-log/issues) and
+  [pull requests](https://github.com/victron-venus/dbus-event-log/pulls): public reports,
+  change discussion and review history.
 
-- [Public repository and history](https://github.com/victron-venus/dbus-event-log) provide source, commits and interim changes.
-- [README](../README.md) describes installation, configuration and usage.
-- [Contribution process](../CONTRIBUTING.md) documents reports, review, style and the policy to add automated tests for major changes.
-- [Issues](https://github.com/victron-venus/dbus-event-log/issues) and [pull requests](https://github.com/victron-venus/dbus-event-log/pulls) provide searchable public discussion and change review.
-- [Security policy](../SECURITY.md) documents confidential reporting, response goals, trust boundaries and delivery practices.
+The primary maintainer confirmed knowledge of secure design and common
+Python/network vulnerabilities, and reported no bug, enhancement or vulnerability
+reports outside GitHub during the preceding twelve months, on 2026-10-12.
+Those statements describe that review period; update them when the facts change.
 
-The root [LICENSE](../LICENSE) records the project license. Third-party components retain their own notices.
+## Build, tests and security analysis
 
-## Implementation and interfaces
+[Quality and build evidence](quality-and-build.md) describes the actual local
+commands, environments, measurements and limitations. The local entry point is
+[scripts/ci.sh](../scripts/ci.sh); the combined suite covers application,
+workflow and release tooling. Python warnings fail the test suite.
 
-- [src](../src)
-- [config.yaml.example](../config.yaml.example)
+- [Measured Python coverage](evidence/coverage-2026-10-12.json) includes source
+  hashes and unexecuted maintained Python modules.
+- [Coverage scope](evidence/coverage-scope-2026-10-12.json) and its
+  [reproduction method](evidence/coverage-scope-method.md) include conservative
+  zero-credit allowances for maintained non-Python executable source. The
+  resulting bound is not a measured shell, branch or native-library coverage rate.
+- [Regression ledger](evidence/regressions-2026-10-12.json) links reviewed fixes
+  to regression evidence for the six-month assessment period. Refresh it as
+  that period moves; a test count alone does not establish regression coverage.
+- [Security assurance case](security-assurance.md) identifies assets, trust
+  boundaries, attacks, implementation defences and the evidence for each claim.
+- [GitHub Actions](https://github.com/victron-venus/dbus-event-log/actions) records hosted
+  checks. Review actual logs and open findings, including dependency and code
+  scanning results; a successful workflow name alone is insufficient evidence.
 
-Interface documentation must explain accepted configuration and inputs, outputs, failure handling and relevant permission boundaries. Verify it against the implementation when changing behavior; source links alone do not establish that every interface is documented.
+## Release integrity
 
-## Build, test and analysis evidence
+[Release strategy](../RELEASING.md), [the operator runbook](release-workflow.md)
+and [signature verification](release-signatures.md) define publication and
+recipient checks. Release notes in [CHANGELOG](../CHANGELOG.md) describe upgrade
+impact and security changes and are bound to the selected source revision.
 
-The local validation entry point is [scripts/ci.sh](../scripts/ci.sh). Its actual test and compiler/linter commands, not the presence of a workflow name, define the available coverage.
+The release workflow uses isolated signing with pinned Cosign and verifies the
+expected repository, workflow, ref and source commit before trusting the signed
+payload inventory. Its contract tests cover malformed identities, incomplete
+payloads and publication rejection paths. Consult the checked-in release policy
+and generated workflow metadata for the current toolkit revision.
 
-[GitHub Actions](https://github.com/victron-venus/dbus-event-log/actions) provides run logs and results. The checked-in workflow definitions are:
+Preview signatures prove the published preview's integrity. Stable promotion
+also requires acceptance of the exact RC assets on the intended targets, as
+specified in `RELEASING.md`; local tests and hosted CI do not establish hardware
+or deployment acceptance.
 
-- [auto-approve.yml](../.github/workflows/auto-approve.yml)
-- [auto-merge.yml](../.github/workflows/auto-merge.yml)
-- [ci.yml](../.github/workflows/ci.yml)
-- [codeql.yml](../.github/workflows/codeql.yml)
-- [coderabbit-autofix.yml](../.github/workflows/coderabbit-autofix.yml)
-- [coderabbit-review.yml](../.github/workflows/coderabbit-review.yml)
-- [dependency-review.yml](../.github/workflows/dependency-review.yml)
-- [native-container-check.yml](../.github/workflows/native-container-check.yml)
-- [quality-gate.yml](../.github/workflows/quality-gate.yml)
-- [release-build.yml](../.github/workflows/release-build.yml)
-- [release-pipeline.yml](../.github/workflows/release-pipeline.yml)
-- [release-security.yml](../.github/workflows/release-security.yml)
-- [scorecards.yml](../.github/workflows/scorecards.yml)
+## Remaining Silver requirements
 
-Do not equate a green metadata or release job with successful application tests. Record actual test results, coverage limitations and security-analysis results for the submitted revision. Test execution does not establish physical-device behavior.
+At this update:
 
-## Items requiring explicit verification before submission
+- No verified succession or emergency-access arrangement exists. A real mechanism
+  must allow issues, changes and releases to continue within one week if the
+  primary maintainer becomes unavailable.
+- The currently advertised stable release is unsigned. Publishing and verifying
+  signed preview candidates does not retroactively sign that distribution.
+- Native dependency builds still need verified compiler/linker flag forwarding.
+- Repeatability of the complete distributed OCI image remains unproven; identical Python wheels alone do not establish it.
 
-- Confirm the private reporting channel works and examine issue/advisory history. Historical response-time claims require actual reports and responses, including any reports outside GitHub.
-- Obtain primary-developer attestations about secure-design and vulnerability-prevention knowledge; repository text cannot establish a person's knowledge.
-- Verify every user-facing release has useful release notes and upgrade impact, and includes any assigned vulnerability identifiers for fixes.
-- Review dependency, code-scanning and secret-scanning findings and their age. A workflow success result is not proof that all findings are resolved.
-- Review the actual cryptographic libraries, protocols, key lengths, randomness, certificate checks and password storage applicable to this project. Do not copy another project's answers.
-- Verify build reproducibility from source, test policy adherence in recent substantive changes, dynamic analysis and any manual-memory-code checks.
-- Link only this project's real awarded badge once the assessment is accepted.
-
-The live assessment, when created, is the source of truth for the badge level. Unverified criteria remain open.
-
-## Release-note source
-
-[CHANGELOG.md](../CHANGELOG.md) contains the current development line's change summary, upgrade impact and security notes. The release policy opts into commit-pinned notes; publication rejects missing or incomplete current-version sections. Historical release bodies still require a separate audit before claiming complete coverage.
-
-The October 2026 maintenance imports the release identity and metadata parser
-from `venus-os-ci-toolkit` revision `9dd211a`, including bounded TOML parsing and
-source-bound release-note validation. Consumer release-contract suites verify
-the imported engine. Workflow-validator refactoring preserves this repository's
-existing policy; it does not imply all newer toolkit workflow guarantees are enabled.
-
-Release guidance parsing also imports toolkit revision `ec99f37`: Markdown code
-fences cannot provide or split the required version, Upgrade or Security headings.
-The release contract suite tests matching fence markers and lengths, unclosed
-examples, CRLF input and rejection before any remote publication writes.
-
-Release guidance and validation helpers also import reviewed toolkit revision `cab6d07`: comments and empty code fences cannot satisfy upgrade/security guidance, while visible literal examples remain valid. Receipt size limits are enforced before parsing. The existing consumer workflow policy is retained.
-
-The immutable-action fallback follows reviewed `inverter-control` revision `3830602`: even without a generator manifest, remote job/step references require a full commit SHA (or a Docker content digest), and generated workflows retain their generator marker. Tests exercise copies of the actual repository workflows.
-
-[Toolkit revision `6f3bac8`](https://github.com/victron-venus/venus-os-ci-toolkit/commit/6f3bac867a101441e029ee7c20c5aa92541eb308) also makes same-level and higher-level ATX headings end release sections, including empty headings, while headings inside code or comments remain inert.
-
-Release structure uses ATX headings (`#`, `##`, `###`), with up to three leading spaces. Setext-style or ambiguous text/comment/underline structures in the selected version are rejected; use ATX headings or a blank line before a thematic `---` separator. Literal fenced/indented examples and comments do not define sections.
-
-Toolkit revision `3533a43322cb351433ca8e90b786f14edcea7725` validates staging inputs before creating output and removes only a newly created target after a failed copy, artifact check or receipt write. Regression tests cover retry and preservation of existing operator files.
-
-Toolkit revision `4895f852f87ca1f27e2bc75e24c5c792e4f95aa6` includes verified staging cleanup and rejects release guidance made only of headings or separators. Regression tests cover retry, preservation of existing operator files, and visible guidance requirements.
-
-Toolkit revision `d8089003f43637ee420fa4cbcccdf11f5d21e469` also rejects empty Markdown lists, task items and quotations as release guidance, while preserving literal examples and lists with substantive text.
-
-The CodeQL configuration also analyzes GitHub Actions in its own analysis category; existing application-language analyses remain enabled.
-
-## Silver preparation, October 2026
-
-The [Silver criteria](https://www.bestpractices.dev/en/criteria/1) require Passing first. [Governance](../GOVERNANCE.md), [conduct](../CODE_OF_CONDUCT.md), [roadmap](../ROADMAP.md), [security assurance](security-assurance.md), [quality/build evidence](quality-and-build.md), and the [six-month regression ledger](evidence/regressions-2026-10-12.json) provide project-specific evidence for review.
-
-The combined coverage measurement includes maintained Python release/build tools, including unexecuted files. Configuring a threshold is not evidence of a measured result. The quality document describes exclusions and records the exact local measurement separately from hosted CI.
-
-**Open requirements:** no verified continuity arrangement is in place; inspect an actual signed release before claiming release signatures; resolve and refresh regression-history evidence; confirm all human and response-history answers with the responsible maintainer. This change does not claim a Silver award. The live badge assessment, once submitted, is authoritative.
-
-The root `.bestpractices.json` contains the reviewed Passing answers for import after merge. Unverified answers remain `?`, optional practices without sufficient evidence remain `Unmet`, and these declarations do not claim an awarded badge. Release signing is now opted in from toolkit `8d9a8326eaaa9eccf4de38043134212b3c2fac8e`; [verification instructions](release-signatures.md) describe its trust boundary. Confirm an actual signed release before claiming the Silver signing criterion.
+The live Silver form also records suggested practices that remain incomplete,
+including accessibility review, internationalization and signed version tags.
+The repository's `.bestpractices.json` is an importable Passing evidence snapshot;
+it neither updates the website automatically nor establishes future compliance.

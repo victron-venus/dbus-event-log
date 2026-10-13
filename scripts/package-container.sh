@@ -5,6 +5,7 @@ cd "$(dirname "$0")/.."
 [[ -f release-dist/SHA256SUMS ]] || { echo 'Build package assets first.' >&2; exit 1; }
 asset="dbus-event-log-container.oci.tar"
 [[ ! -e "release-dist/$asset" ]] || { echo 'Container output already exists.' >&2; exit 1; }
+sidecar="dbus-event-log-container.provenance.json"
 evidence="container-build-evidence.json"
 [[ ! -e "release-dist/$evidence" ]] || { echo 'Container evidence already exists.' >&2; exit 1; }
 python3 scripts/assemble_native_container.py \
@@ -12,7 +13,7 @@ python3 scripts/assemble_native_container.py \
   --input linux/arm64=native-inputs/arm64 \
   --output "release-dist/$asset" \
   --evidence "release-dist/$evidence"
-python3 - "$asset" "$evidence" <<'CHECKSUM'
+python3 - "$asset" "$evidence" "$sidecar" <<'CHECKSUM'
 import hashlib
 import sys
 from pathlib import Path

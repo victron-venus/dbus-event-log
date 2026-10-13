@@ -1,0 +1,117 @@
+name: Container repeatability
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  cold:
+    name: Cold native ${{ matrix.arch }} build ${{ matrix.repeat }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        repeat: [1, 2]
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+        with:
+          version: v0.37.2
+          driver-opts: image=moby/buildkit@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea
+      - name: Prepare identical nonpublished diagnostic plan
+        run: |
+          python3 scripts/check_container_repeatability.py prepare
+          python3 scripts/version_plan.py sync --plan .release-plan.json
+      - name: Build the shipping image with a fresh native builder and run offline smoke
+        env:
+          NATIVE_PLATFORM: ${{ matrix.platform }}
+          NATIVE_ARCH: ${{ matrix.arch }}
+        run: bash scripts/build-native-container.sh "$NATIVE_PLATFORM" "native-container-$NATIVE_ARCH"
+      - name: Retain exact native archive and receipts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: cold-native-${{ matrix.repeat }}-${{ matrix.arch }}
+          path: native-container-${{ matrix.arch }}/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+  assemble:
+    name: Assemble cold pair ${{ matrix.repeat }}
+    needs: cold
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        repeat: [1, 2]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: cold-native-${{ matrix.repeat }}-amd64
+          path: native-inputs/amd64
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: cold-native-${{ matrix.repeat }}-arm64
+          path: native-inputs/arm64
+      - name: Verify the exact native inputs and preserve original provenance
+        run: |
+          python3 scripts/check_container_repeatability.py prepare
+          python3 scripts/version_plan.py sync --plan .release-plan.json
+          mkdir release-dist
+          touch release-dist/SHA256SUMS
+          bash scripts/package-container.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: cold-${{ matrix.repeat }}
+          path: release-dist/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+  compare:
+    name: Compare full runnable OCI archives
+    needs: assemble
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: cold-1
+          path: cold-1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: cold-2
+          path: cold-2
+      - name: Verify original provenance graphs and compare every runnable byte
+        run: python3 scripts/check_container_repeatability.py compare
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: container-repeatability-result
+          path: container-repeatability.json
+          if-no-files-found: error
+          retention-days: 30

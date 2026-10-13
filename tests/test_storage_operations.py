@@ -215,6 +215,22 @@ def test_query_formats_and_empty_results(
         assert "No events" in empty.output
 
 
+def test_query_json_stdout_preserves_arbitrary_event_text(
+    event_store: SQLiteStorage,
+    storage_cli: CliRunner,
+) -> None:
+    """Long values, terminal markup and Unicode remain valid, unchanged JSON."""
+    values = ["[red]literal[/red]", "a" * 180, "Привет", "line one\nline two"]
+    selected = event(2, "battery")
+    selected.arguments = values
+    event_store.insert(selected)
+    result = storage_cli.invoke(cli_module.cli, ["query", "--format", "json"])
+    assert result.exit_code == 0, result.output
+    rows = json.loads(result.output)
+    assert len(rows) == 1
+    assert json.loads(rows[0]["arguments"]) == values
+
+
 @pytest.mark.parametrize("output_format", ["json", "csv"])
 def test_query_output_file_and_export_empty_json(
     event_store: SQLiteStorage,

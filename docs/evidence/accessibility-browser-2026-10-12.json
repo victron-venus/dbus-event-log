@@ -1,0 +1,165 @@
+{
+  "observed_at": "2026-10-13T03:38:12.653Z",
+  "source": "2c83bc2ec719c1ac3e74bde33c5e111f483258ac",
+  "readme": {
+    "headings": [
+      {
+        "level": "H1",
+        "text": "D-Bus Event Log"
+      },
+      {
+        "level": "H2",
+        "text": "Venus OS deployment status"
+      },
+      {
+        "level": "H2",
+        "text": "Release process"
+      },
+      {
+        "level": "H2",
+        "text": "Overview"
+      },
+      {
+        "level": "H2",
+        "text": "Features"
+      },
+      {
+        "level": "H2",
+        "text": "Installation"
+      },
+      {
+        "level": "H3",
+        "text": "Companion-host Compose example"
+      },
+      {
+        "level": "H2",
+        "text": "Configuration"
+      },
+      {
+        "level": "H3",
+        "text": "Password files and rotation"
+      },
+      {
+        "level": "H3",
+        "text": "TimescaleDB transport"
+      },
+      {
+        "level": "H2",
+        "text": "Usage"
+      },
+      {
+        "level": "H3",
+        "text": "Start a bounded troubleshooting capture"
+      },
+      {
+        "level": "H3",
+        "text": "Capture commands and identify their callers"
+      },
+      {
+        "level": "H3",
+        "text": "Stop capture and verify"
+      },
+      {
+        "level": "H3",
+        "text": "Manual-only Cerbo installation"
+      },
+      {
+        "level": "H3",
+        "text": "Query Events"
+      },
+      {
+        "level": "H3",
+        "text": "Statistics"
+      },
+      {
+        "level": "H3",
+        "text": "Database Maintenance"
+      },
+      {
+        "level": "H2",
+        "text": "Event Structure"
+      },
+      {
+        "level": "H3",
+        "text": "Event Types"
+      },
+      {
+        "level": "H2",
+        "text": "MQTT Topic Structure"
+      },
+      {
+        "level": "H2",
+        "text": "Grafana Integration"
+      },
+      {
+        "level": "H3",
+        "text": "Key Panels"
+      },
+      {
+        "level": "H2",
+        "text": "Architecture"
+      },
+      {
+        "level": "H2",
+        "text": "Testing"
+      },
+      {
+        "level": "H2",
+        "text": "License"
+      },
+      {
+        "level": "H2",
+        "text": "Contributing and security"
+      },
+      {
+        "level": "H2",
+        "text": "Project maintenance and assurance"
+      }
+    ],
+    "images": [
+      {
+        "alt": "OpenSSF Best Practices"
+      },
+      {
+        "alt": "CI"
+      },
+      {
+        "alt": "License: MIT"
+      },
+      {
+        "alt": "Python 3.11+"
+      },
+      {
+        "alt": "Development Status"
+      },
+      {
+        "alt": "GitHub last commit"
+      },
+      {
+        "alt": "Maintenance"
+      },
+      {
+        "alt": "Made with Python"
+      }
+    ],
+    "links": [
+      {
+        "href": "/victron-venus/dbus-event-log/blob/main/docs/accessibility.md",
+        "text": "accessibility"
+      }
+    ],
+    "tables": [
+      {
+        "headers": [
+          "Type",
+          "Description"
+        ]
+      }
+    ]
+  },
+  "keyboard_navigation": {
+    "action": "Enter on README accessibility link",
+    "url": "https://github.com/victron-venus/dbus-event-log/blob/main/docs/accessibility.md"
+  },
+  "scope": "DOM and keyboard smoke test; not a screen-reader or WCAG certification"
+}

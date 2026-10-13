@@ -1,0 +1,16 @@
+.git
+.venv*
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage*
+coverage.xml
+dist
+build
+release-dist
+release-assets
+native-container-*
+native-inputs
+cold-*

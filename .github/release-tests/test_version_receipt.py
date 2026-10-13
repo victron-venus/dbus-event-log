@@ -26,6 +26,9 @@ import version_receipt
 # pylint: disable-next=too-many-instance-attributes
 class CurrentBuildInputsTests(unittest.TestCase):
     def setUp(self):
+        # This synthetic fixture intentionally has no detached OCI contract.
+        import release_provenance
+        self.enterContext(patch.object(release_provenance, "REQUIRED_PAIRS", ()))
         # unittest owns cleanup across setup, the test body and assertion failures.
         # pylint: disable-next=consider-using-with
         self.temporary = tempfile.TemporaryDirectory()

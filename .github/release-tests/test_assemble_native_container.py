@@ -31,6 +31,10 @@ class NativeReceiptTests(unittest.TestCase):
     """Use real plans, overlays, receipts and archive bytes at the assembly boundary."""
 
     def setUp(self):
+        # This synthetic fixture intentionally has no detached OCI contract.
+        import release_provenance
+
+        self.enterContext(patch.object(release_provenance, "REQUIRED_PAIRS", ()))
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name).resolve()
@@ -44,6 +48,28 @@ class NativeReceiptTests(unittest.TestCase):
                 "files": [{"path": "VERSION", "format": "text", "value": "package"}],
             },
         }
+        if self._testMethodName.startswith("test_detached_"):
+            import release_provenance
+
+            requirements = patch.object(release_provenance, "REQUIRED_PAIRS", ())
+            requirements.start()
+            self.addCleanup(requirements.stop)
+            self.policy["sign_releases"] = True
+            self.policy["detached_provenance"] = [
+                {
+                    "image": "container.oci.tar",
+                    "sidecar": "container.provenance.json",
+                    "platforms": list(native.PLATFORMS),
+                }
+            ]
+            self.policy["versioning"]["artifacts"] = [
+                {
+                    "path": "container.oci.tar",
+                    "format": "oci",
+                    "field": ["config", "Labels", "org.opencontainers.image.version"],
+                    "value": "package",
+                }
+            ]
         self.write(".release-policy.json", self.policy)
         (self.root / "VERSION").write_text("1.2.3\n")
         self.command("git", "init", "-q")
@@ -237,6 +263,142 @@ class NativeReceiptTests(unittest.TestCase):
                 result["assembly"]["images"][platform]["config_digest"],
                 native_build["build"]["image_config_digest"],
             )
+
+    def test_detached_preserves_native_smoke_and_authenticated_original_graphs(self):
+        import release_provenance
+
+        result = self.assemble()
+        release_provenance.verify_all(self.output.parent, self.policy, self.plan)
+        self.assertEqual(result, json.loads(self.evidence.read_text()))
+        self.assertEqual(
+            result["assembly"]["sha256"],
+            hashlib.sha256(self.output.read_bytes()).hexdigest(),
+        )
+        for platform, build in result["native_builds"].items():
+            self.assertEqual(
+                result["assembly"]["images"][platform]["config_digest"],
+                build["build"]["image_config_digest"],
+            )
+            self.assertTrue(
+                result["assembly"]["images"][platform]["provenance_digests"]
+            )
+
+    def test_detached_rejects_input_changed_after_receipt_verification(self):
+        import release_provenance
+
+        original = release_provenance.detach
+
+        def changed(inputs, *args):
+            with inputs["linux/arm64"].open("ab") as stream:
+                stream.write(b"changed after verification")
+            return original(inputs, *args)
+
+        with (
+            patch.object(release_provenance, "detach", side_effect=changed),
+            self.assertRaisesRegex(ValueError, "differs from verified receipt"),
+        ):
+            self.assemble()
+        self.assertFalse(self.output.exists())
+        self.assertFalse(self.evidence.exists())
+        self.assertFalse((self.output.parent / "container.provenance.json").exists())
+
+    def test_detached_evidence_failure_removes_only_owned_pair(self):
+        with (
+            patch.object(native, "publish_evidence", side_effect=OSError("disk full")),
+            self.assertRaisesRegex(OSError, "disk full"),
+        ):
+            self.assemble()
+        self.assertFalse(self.output.exists())
+        self.assertFalse((self.output.parent / "container.provenance.json").exists())
+
+    def test_detached_publication_race_preserves_foreign_files(self):
+        original = os.link
+
+        def competing_writer(source, destination, *args, **kwargs):
+            if Path(destination) == self.evidence:
+                self.output.unlink()
+                self.output.write_bytes(b"foreign output")
+                self.evidence.write_bytes(b"foreign evidence")
+            return original(source, destination, *args, **kwargs)
+
+        with (
+            patch.object(native.os, "link", side_effect=competing_writer),
+            self.assertRaises(FileExistsError),
+        ):
+            self.assemble()
+        self.assertEqual(self.output.read_bytes(), b"foreign output")
+        self.assertEqual(self.evidence.read_bytes(), b"foreign evidence")
+        self.assertFalse((self.output.parent / "container.provenance.json").exists())
+
+    def test_detached_mismatched_smoke_config_is_rejected(self):
+        path = self.directories["linux/arm64"] / "native-build.json"
+        value = json.loads(path.read_text())
+        value["image_config_digest"] = "sha256:" + "f" * 64
+        path.write_text(json.dumps(value))
+        self.receipt("linux/arm64")
+        with self.assertRaisesRegex(
+            ValueError, "differs from verified receipt or smoke image"
+        ):
+            self.assemble()
+        self.assertFalse(self.output.exists())
+        self.assertFalse(self.evidence.exists())
+
+    def test_detached_staging_cleanup_failure_preserves_success(self):
+        import release_provenance
+
+        original = tempfile.TemporaryDirectory.cleanup
+        held = []
+
+        def interrupted_cleanup(directory):
+            if Path(directory.name).name.startswith(".native-assembly-"):
+                held.append(directory)
+                raise OSError("staging cleanup unavailable")
+            original(directory)
+
+        try:
+            with patch.object(
+                tempfile.TemporaryDirectory, "cleanup", interrupted_cleanup
+            ):
+                result = self.assemble()
+            self.assertEqual(result, json.loads(self.evidence.read_text()))
+            for path in (
+                self.output,
+                self.evidence,
+                self.output.parent / "container.provenance.json",
+            ):
+                self.assertEqual(path.stat().st_nlink, 1)
+            release_provenance.verify_all(self.output.parent, self.policy, self.plan)
+        finally:
+            for directory in held:
+                original(directory)
+
+    def test_detached_staging_link_removal_failure_rolls_back(self):
+        original = Path.unlink
+
+        def denied(path, *args, **kwargs):
+            if (
+                path.parent.name.startswith(".native-assembly-")
+                and path.name == self.output.name
+            ):
+                raise PermissionError("cannot remove staging alias")
+            return original(path, *args, **kwargs)
+
+        with (
+            patch.object(Path, "unlink", denied),
+            self.assertRaisesRegex(PermissionError, "staging alias"),
+        ):
+            self.assemble()
+        self.assertFalse(self.output.exists())
+        self.assertFalse(self.evidence.exists())
+        self.assertFalse((self.output.parent / "container.provenance.json").exists())
+
+    def test_detached_existing_sidecar_is_not_replaced(self):
+        path = self.output.parent / "container.provenance.json"
+        path.write_bytes(b"existing sidecar")
+        with self.assertRaises(ValueError):
+            self.assemble()
+        self.assertEqual(path.read_bytes(), b"existing sidecar")
+        self.assertFalse(self.output.exists())
 
     def test_altered_payload_is_rejected_by_receipt(self):
         path = self.directories["linux/arm64"] / "container-arm64.oci.tar"

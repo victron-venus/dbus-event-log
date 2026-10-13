@@ -1,0 +1,202 @@
+{
+  "measured_on": "2026-10-12",
+  "source_ref": "893979e13a6785d29694a7e18bb9c52d288e2af5",
+  "source_binding": "production_files SHA-256 values are authoritative for this measurement",
+  "command": "CI_PYTHON=/path/to/prepared/python bash scripts/ci.sh",
+  "test_results": {
+    "passed": 909,
+    "skipped": 1
+  },
+  "environment": {
+    "platform": "macOS-26.7-arm64-arm-64bit",
+    "python": "3.11.16"
+  },
+  "coverage": {
+    "python_statements": 6436,
+    "python_covered_statements": 5679,
+    "excluded_statements": 2,
+    "python_percent": 88.2380360472343
+  },
+  "production_files": {
+    "docker/install-native.py": {
+      "sha256": "68074214ed01fe71be8f2cae59f4b21507eb6eafa907497168b60378230c3127",
+      "executable_statements": 38,
+      "covered_statements": 0
+    },
+    "scripts/assemble_native_container.py": {
+      "sha256": "0481eb8b5cc4486567d3047bb3f38384688405bb36775f58cd7f5afc9a008420",
+      "executable_statements": 170,
+      "covered_statements": 157
+    },
+    "scripts/change_scope.py": {
+      "sha256": "174e460603f2efe87cf6e5cde1b8682f0a0f2d35c4c129aafe3cde8801299be8",
+      "executable_statements": 160,
+      "covered_statements": 118
+    },
+    "scripts/check_container_repeatability.py": {
+      "sha256": "e947bfa94e768fee4343d651ff0b815b604596c655bbb688f6ae78a0e2030388",
+      "executable_statements": 45,
+      "covered_statements": 29
+    },
+    "scripts/merge_oci_archives.py": {
+      "sha256": "c5f011e7b52a2776e4885570b98e22b69db36426dd4436d67aee316607ab8a57",
+      "executable_statements": 334,
+      "covered_statements": 301
+    },
+    "scripts/package_release.py": {
+      "sha256": "dc1aac185f6292a712f37a9e41c90f03a90ea14fe5b93f5ace25ee2bc30ce005",
+      "executable_statements": 117,
+      "covered_statements": 0
+    },
+    "scripts/prepare_version.py": {
+      "sha256": "6e9c4a9c2fe4e3c7e4954d9725ed02fb2f179c5771ef843a653ef4f065fae0e2",
+      "executable_statements": 213,
+      "covered_statements": 182
+    },
+    "scripts/publish_verified.py": {
+      "sha256": "764d512dd78a26a348eedfd50e37fa4ffddb31c5010f1c8d634e930dce070f8d",
+      "executable_statements": 109,
+      "covered_statements": 102
+    },
+    "scripts/release.py": {
+      "sha256": "2584b05d01ef82b48f2ef75dc5d8e649de09df591fc6121097b2388f65a7b4eb",
+      "executable_statements": 187,
+      "covered_statements": 138
+    },
+    "scripts/release_container_labels.py": {
+      "sha256": "8030cb28474e577a97ff9f406acfe75bf6b1d423dc144173667becc0605bec9f",
+      "executable_statements": 35,
+      "covered_statements": 17
+    },
+    "scripts/release_control.py": {
+      "sha256": "1700427ea38864763ca223bca4f3074456ad80d52cc1bf3e63ed6929ff29a7ff",
+      "executable_statements": 922,
+      "covered_statements": 859
+    },
+    "scripts/release_provenance.py": {
+      "sha256": "141adaf053ba9e3cb531513961997c2797363cf720d0a8d4ce40139fe24b44c2",
+      "executable_statements": 314,
+      "covered_statements": 286
+    },
+    "scripts/release_signing.py": {
+      "sha256": "b2b042fada135eb31afe3e8fff6e0b702fb836a6357b8dea1bd3f712a060ea26",
+      "executable_statements": 127,
+      "covered_statements": 111
+    },
+    "scripts/release_state.py": {
+      "sha256": "7c9717ce50dd10695dbc74f4fa876a5143c83f49e4f9a6bca77190916fef3641",
+      "executable_statements": 120,
+      "covered_statements": 120
+    },
+    "scripts/release_validation.py": {
+      "sha256": "d87f110445cd6618aff991ff126218de47154afc7a878aa9ba37621b800ece42",
+      "executable_statements": 75,
+      "covered_statements": 53
+    },
+    "scripts/release_version_adapter.py": {
+      "sha256": "2a520b4333d681cfda32437c8f5f00050839dabdcdd29527d1b1346f43fd5792",
+      "executable_statements": 48,
+      "covered_statements": 36
+    },
+    "scripts/release_versioned.py": {
+      "sha256": "9461377600faf2010804eaa943b6283674457b0d5c9a55db6b2f11d0156acb75",
+      "executable_statements": 295,
+      "covered_statements": 273
+    },
+    "scripts/runner_preflight.py": {
+      "sha256": "c0460d162e83d2fa515615452c59567186d05f3ef26dddaa68735352bbcedf80",
+      "executable_statements": 197,
+      "covered_statements": 195
+    },
+    "scripts/stage_release_assets.py": {
+      "sha256": "a639a10cc44097f250e9190efcadd09dfbe26c7abd7ee9acfd7cb84c8af482e0",
+      "executable_statements": 110,
+      "covered_statements": 99
+    },
+    "scripts/validate_scorecard_json.py": {
+      "sha256": "c16cc6d3e21e253de6ea690795253d14ef1882f0c761f832a1a093d63e772b03",
+      "executable_statements": 48,
+      "covered_statements": 47
+    },
+    "scripts/verified_images.py": {
+      "sha256": "16e66685364277555dd246b072c679546c361929be3efe45f5b6ff47b92f77b0",
+      "executable_statements": 97,
+      "covered_statements": 95
+    },
+    "scripts/version_plan.py": {
+      "sha256": "5ab44b0750a135f291417825b18536e0256938d8b36f87918ab5e35ce1b49a39",
+      "executable_statements": 954,
+      "covered_statements": 930
+    },
+    "scripts/version_receipt.py": {
+      "sha256": "bbe24c7d99a8a2fc225e094cbefa30f2f5a089e868286c98d9e1b84a2e3f425c",
+      "executable_statements": 196,
+      "covered_statements": 179
+    },
+    "scripts/workflow_contracts.py": {
+      "sha256": "5332b472b01df64077e7a474b7e5171ba48d8cfa2ae1b0b4d7572024effd248d",
+      "executable_statements": 216,
+      "covered_statements": 134
+    },
+    "scripts/write_binary_build_metadata.py": {
+      "sha256": "d09d1642bb675b585ab3a69384efb87ff48dc3a37b2c04cadedb693cf5113c41",
+      "executable_statements": 18,
+      "covered_statements": 16
+    },
+    "scripts/write_web_build_metadata.py": {
+      "sha256": "1d962dfedb82feada5a062f2e075e895deb687d79ad982596d915ad6bef668f0",
+      "executable_statements": 24,
+      "covered_statements": 0
+    },
+    "src/dbus_event_log/__init__.py": {
+      "sha256": "b0257fa49c49882409c31f784b79bd22a8d87cb6231d0d055f938656f2d4e246",
+      "executable_statements": 6,
+      "covered_statements": 6
+    },
+    "src/dbus_event_log/cli.py": {
+      "sha256": "db2a84c45ec38459e3bfc32794579f028e8ff926d44d35749e335d95b52b1644",
+      "executable_statements": 233,
+      "covered_statements": 217
+    },
+    "src/dbus_event_log/config.py": {
+      "sha256": "780e5564e84219b2f4a587646b9394d490d7da119e1a9af9707b1f305b60ba72",
+      "executable_statements": 60,
+      "covered_statements": 60
+    },
+    "src/dbus_event_log/credentials.py": {
+      "sha256": "e1ceda220b03b33865c3e2f18f266d4e49c6ca083f822fc9b785b5ad10b22b0c",
+      "executable_statements": 24,
+      "covered_statements": 23
+    },
+    "src/dbus_event_log/method_capture.py": {
+      "sha256": "b9723202c7e99d32e4e02b2784a1ce502c2d6fabea3dde7f220604d47c7325fa",
+      "executable_statements": 225,
+      "covered_statements": 207
+    },
+    "src/dbus_event_log/models.py": {
+      "sha256": "6816341fe94fa7e74b252c28cad85843420930036aa72523ac796bbaab2a96f5",
+      "executable_statements": 51,
+      "covered_statements": 51
+    },
+    "src/dbus_event_log/monitor.py": {
+      "sha256": "1741dc59fad30b3be6df9c1726983846919279bf827e7beb4b90b2016b03da01",
+      "executable_statements": 217,
+      "covered_statements": 201
+    },
+    "src/dbus_event_log/mqtt_publisher.py": {
+      "sha256": "af154a910483539e551f7e4852e64c5da75bf3cf886c724efce1ad7b67f295b3",
+      "executable_statements": 117,
+      "covered_statements": 111
+    },
+    "src/dbus_event_log/storage.py": {
+      "sha256": "619e998812fa97aa2b1c9c812d5629bebdb36e2df653763cb78ec23c7bc95242",
+      "executable_statements": 334,
+      "covered_statements": 326
+    }
+  },
+  "limitations": [
+    "Python statement coverage only; no branch or native dependency memory-safety claim.",
+    "The Docker installer is included at zero coverage here; separate native builds execute it, but their execution is not credited in this Python measurement.",
+    "A separate conservative scope inventory gives all non-Python maintained statements zero coverage."
+  ]
+}

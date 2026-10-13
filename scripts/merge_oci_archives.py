@@ -137,6 +137,7 @@ class Archive:
         self.attestations = []
         self.visited = 0
         self.metadata_bytes = 0
+        self.metadata_names = set()
         self.layer_identities = {}
         self.rootfs_bytes = 0
         require(not self.path.is_symlink(), "Input archive must not be a symlink")
@@ -159,13 +160,17 @@ class Archive:
         require(layout.get("imageLayoutVersion") == "1.0.0", "Invalid OCI layout")
         root = self.read_json("index.json")
         self.walk_index(root, 0)
+        self.validate_complete_graph()
+        self.unchanged()
+
+    def validate_complete_graph(self):
+        """Keep the native-input contract overridable only by explicit validators."""
         require(len(self.images) == 1, "Expected exactly one runnable image per input")
         for attestation in self.attestations:
             require(
                 attestation["subject"] == self.images[0]["descriptor"],
                 "OCI attestation subject differs from runnable image",
             )
-        self.unchanged()
 
     def inventory(self):
         """Check every outer member and every blob, including unreferenced blobs."""
@@ -200,6 +205,7 @@ class Archive:
             # Safe regular extension files are ignored, never copied or executed.
 
     def read_json(self, name):
+        self.metadata_names.add(name)
         entry = self.members.get(name)
         require(
             entry is not None and 0 < entry.size <= MAX_JSON,

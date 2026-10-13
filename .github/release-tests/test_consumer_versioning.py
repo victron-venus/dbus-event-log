@@ -37,6 +37,9 @@ class ConsumerVersioningTests(unittest.TestCase):
     """Require a source-bound overlay before producing publishable platform assets."""
 
     def setUp(self):
+        # This synthetic fixture intentionally has no detached OCI contract.
+        import release_provenance
+        self.enterContext(patch.object(release_provenance, "REQUIRED_PAIRS", ()))
         self.environment = patch.dict(os.environ)
         self.environment.start()
         self.addCleanup(self.environment.stop)

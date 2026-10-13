@@ -86,3 +86,43 @@ jobs:
     # Release runs exercise this exact adapter after validation with the allocated plan.
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
     uses: ./.github/workflows/native-container-check.yml
+
+  build-flags:
+    name: Native compiler flags (${{ matrix.arch }})
+    needs: ci
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Audit outbound calls on the supported community runner
+        if: ${{ matrix.arch == 'amd64' }}
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up native container builder
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Verify real compiler and linker inputs
+        env:
+          NATIVE_PLATFORM: ${{ matrix.platform }}
+        run: python3 tests/native_build_flags.py --platform "$NATIVE_PLATFORM" --output build-flag-evidence
+      - name: Upload native flag proof and failure logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-build-flags-${{ matrix.arch }}
+          path: build-flag-evidence/
+          if-no-files-found: error
+          retention-days: 30

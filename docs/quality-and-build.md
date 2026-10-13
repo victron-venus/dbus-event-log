@@ -30,6 +30,8 @@ Choose a fresh repeat-build output directory. CI runs the equivalent commands an
 
 The wheel supports standard Python installation destinations. For example, stage with a prepared pip environment using `python -m pip install --no-deps --root "$DESTDIR" --prefix /usr dist/*.whl`, or install into a disposable virtual environment. This does not configure or start a capture service. Standard pip uninstall tracks package-owned installed files; protect operator configuration and captured data separately.
 
+Native container builders can set standard compiler and linker inputs as described in [Native build flags](native-build-flags.md). The dedicated native CI proof inspects the resulting extension binaries and checks that invalid flags fail the build; it does not establish bit-identical container builds.
+
 ## Review policy and limits
 
 Contributions must resolve new warnings, preserve enforced checks, test important success and failure paths, and explain untested behavior. Keep bug-regression evidence current for the preceding six months. No local result here is a physical-device acceptance test or a security certification. See [CONTRIBUTING.md](../CONTRIBUTING.md) for review requirements and [the assurance case](security-assurance.md) for security-specific evidence.

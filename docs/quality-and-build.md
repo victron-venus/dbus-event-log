@@ -10,7 +10,7 @@ The combined pytest invocation includes `tests/`, `.github/workflow-tests/` and 
 
 ## Coverage across maintained source languages
 
-The [source-scope inventory](evidence/coverage-scope-2026-10-12.json), with its [public reproduction recipe](evidence/coverage-scope-method.md), counts tracked shell scripts, workflow `run` steps, embedded Python and shell programs, release-policy command strings and the unused CLI fallback, and Docker build instructions where present. It uses language-appropriate AST statement units and conservative allowances for text-tool expressions and Docker instructions. All 426 additional units receive **zero execution credit**. Combined with measured Python coverage, the conservative bound is 5282 / (5954 + 415) = **82.9330%**. This is not a measurement of shell or native-library coverage. Dependencies, declarative configuration, tests and documentation examples are distinguished explicitly in the inventory. Repeat this review when maintained source languages or embedded scripts change.
+The [source-scope inventory](evidence/coverage-scope-2026-10-12.json), with its [public reproduction recipe](evidence/coverage-scope-method.md), counts tracked shell scripts, workflow `run` steps, embedded Python and shell programs, release-policy command strings and the unused CLI fallback, and Docker build instructions where present. It uses language-appropriate AST statement units and conservative allowances for text-tool expressions and Docker instructions. All 426 additional units receive **zero execution credit**. Combined with the source-bound [CLI follow-up measurement](evidence/timescale-cli-2026-10-12.json), the conservative bound is 5292 / (5964 + 426) = **82.8169%**. This is not a measurement of shell or native-library coverage. Dependencies, declarative configuration, tests and documentation examples are distinguished explicitly in the inventory. Repeat this review when maintained source languages or embedded scripts change.
 
 ## Repeating the build
 
@@ -45,6 +45,7 @@ Python warnings are errors during the entire pytest suite (`filterwarnings = ["e
 The [query regression record](evidence/timescale-cli-2026-10-12.json) binds the
 follow-up source to 871 passing tests and one optional-environment skip. Four
 new CLI regression cases fail before the fix. The full suite covers 5292 of
-5964 Python statements; including the corrected 415 zero-credit non-Python
-units gives a conservative 82.9597% bound. The tests use a controlled asyncpg
+5964 Python statements. At that reviewed revision, the corrected 415 zero-credit
+non-Python units gave a conservative 82.9597% bound; the current inventory above
+also includes the later native build-flag support. The tests use a controlled asyncpg
 boundary and do not establish live database or device acceptance.

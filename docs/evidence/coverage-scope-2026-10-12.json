@@ -7,10 +7,14 @@
     "source_url": "https://github.com/mvdan/sh/releases/tag/v3.14.1"
   },
   "method": "Count every Bash AST Stmt node, including compound statements and nested command substitutions, across all tracked shell files (including extensionless shebang scripts) and every GitHub Actions run step. Replace Actions expressions with a non-executable placeholder before parsing. Recursively count heredoc shell, SSH/trap command strings, and count embedded Python heredoc/-c AST statements separately at zero coverage. Add conservative sed/awk expression units and all Docker instructions plus RUN shell. Each declarative Compose command/entrypoint receives another zero-coverage unit. Local release-policy shell command strings and the CLI fallback command are also counted, including wrappers around already-counted scripts. No non-Python execution credit is used.",
-  "python_covered_statements": 5282,
-  "python_statements": 5954,
+  "python_measurement": {
+    "path": "docs/evidence/timescale-cli-2026-10-12.json",
+    "sha256": "09fdb546caaef26ac5c8957acf9e71fe8bf857b5b44b9cc871612a4e1c55c6e5"
+  },
+  "python_covered_statements": 5292,
+  "python_statements": 5964,
   "additional_zero_coverage_units": 426,
-  "aggregate_conservative_lower_bound_percent": 82.79,
+  "aggregate_conservative_lower_bound_percent": 82.8169,
   "records": [
     {
       "path": ".github/workflows/ci.yml:jobs.build.steps[4].run",

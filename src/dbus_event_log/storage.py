@@ -24,6 +24,7 @@ else:
         asyncpg = None  # type: ignore[assignment]
 
 from dbus_event_log.config import StorageConfig, get_config
+from dbus_event_log.credentials import read_password_file
 from dbus_event_log.models import SCHEMA_VERSION, DBusEvent, EventType
 
 
@@ -462,6 +463,17 @@ class TimescaleDBStorage:
         self._ssl: str | bool = False if expected_mode == "disable" else "verify-full"
         self._pool: Any = None
         self._pool_lock = asyncio.Lock()
+        self._validate_password_source()
+
+    def _validate_password_source(self) -> None:
+        """Fail closed instead of silently choosing between explicit credentials."""
+        if self.config.timescaledb_password_file is not None:
+            parsed = urlsplit(self.dsn or "")
+            query = parse_qs(parsed.query, keep_blank_values=True)
+            if parsed.password is not None or "password" in query or "passfile" in query:
+                raise ValueError(
+                    "timescaledb_password_file conflicts with DSN password or passfile"
+                )
 
     async def _get_pool(self) -> Any:
         """Share one initialized pool across concurrent first events."""
@@ -470,7 +482,23 @@ class TimescaleDBStorage:
                 if self._pool is None:
                     # Keep asyncpg's CA/client-certificate DSN processing while
                     # preventing its default unauthenticated TLS/plaintext fallback.
-                    pool = await asyncpg.create_pool(self.dsn, ssl=self._ssl)
+                    self._validate_password_source()
+                    password_file = self.config.timescaledb_password_file
+                    if password_file is None:
+                        pool = await asyncpg.create_pool(self.dsn, ssl=self._ssl)
+                    else:
+                        password = read_password_file(password_file)
+                        try:
+                            pool = await asyncpg.create_pool(
+                                self.dsn, ssl=self._ssl, password=password
+                            )
+                        except Exception:  # pylint: disable=broad-exception-caught
+                            # Driver/server diagnostics are not trusted to keep
+                            # an explicitly supplied credential confidential.
+                            raise RuntimeError(
+                                "TimescaleDB connection failed using password file; "
+                                "check server, TLS and authentication configuration"
+                            ) from None
                     try:
                         await self._init_schema(pool)
                     except (Exception, asyncio.CancelledError):  # pylint: disable=broad-exception-caught

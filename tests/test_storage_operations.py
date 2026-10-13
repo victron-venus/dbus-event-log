@@ -683,12 +683,20 @@ async def test_monitor_cli_wires_events_and_always_drains_before_publisher(
 def test_cleanup_deletes_using_configured_retention_and_reports_count(
     event_store: SQLiteStorage,
     storage_cli: CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """CLI cleanup applies configured days and retains newer committed records."""
+    """CLI cleanup crosses a month boundary and retains newer committed records."""
+
+    class MonthStart(datetime):
+        @classmethod
+        def now(cls, tz: tzinfo | None = None) -> "MonthStart":
+            return cls(2024, 3, 1, 12, tzinfo=tz)
+
+    monkeypatch.setattr(storage_module, "datetime", MonthStart)
     event_store.config.retention_days = 7
     old, recent = event(1, "old"), event(2, "recent")
-    old.timestamp = datetime.now(UTC) - timedelta(days=8)
-    recent.timestamp = datetime.now(UTC) - timedelta(days=6)
+    old.timestamp = MonthStart.now(UTC) - timedelta(days=8)
+    recent.timestamp = MonthStart.now(UTC) - timedelta(days=6)
     event_store.insert_batch([old, recent])
     result = storage_cli.invoke(cli_module.cli, ["cleanup", "--yes"])
     assert result.exit_code == 0, result.output

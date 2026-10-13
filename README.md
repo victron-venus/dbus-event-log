@@ -163,7 +163,8 @@ Create `config.yaml`:
 storage:
   backend: sqlite  # or "timescaledb"
   sqlite_path: /var/lib/dbus-event-log/events.db
-  timescaledb_dsn: "postgresql://user:pass@host/db?sslrootcert=/path/to/database-ca.pem"
+  timescaledb_dsn: "postgresql://user@host/db?sslrootcert=/path/to/database-ca.pem"
+  timescaledb_password_file: /run/secrets/database_password
   timescaledb_tls: verify-full
   retention_days: 30
   rotation_size_mb: 100
@@ -177,6 +178,7 @@ mqtt:
   port: 1883
   username: null
   password: null
+  password_file: null
   topic_prefix: "victron/dbus/events"
   qos: 1
   retain: false
@@ -209,6 +211,39 @@ export DBUS_EVENT_LOG_STORAGE_SQLITE_PATH=/data/events.db
 export DBUS_EVENT_LOG_MQTT_HOST=mosquitto
 export DBUS_EVENT_LOG_DBUS_SERVICES='["com.victronenergy.*"]'
 ```
+
+### Password files and rotation
+
+MQTT accepts `mqtt.password_file`; PostgreSQL accepts
+`storage.timescaledb_password_file`. Set the path in YAML or use
+`DBUS_EVENT_LOG_MQTT_PASSWORD_FILE` and
+`DBUS_EVENT_LOG_STORAGE_TIMESCALEDB_PASSWORD_FILE`. This keeps password contents
+out of the application configuration, environment and command line. Mount or
+create a private regular file (recommended mode `0600`, readable by the service)
+in an operator-controlled directory. The final path must not be a symlink.
+Files must contain one nonempty UTF-8 line, at most 4096 bytes including an
+optional final LF or CRLF. Spaces are significant; NUL and other line breaks are
+rejected. FIFOs, directories, unreadable files and oversized files fail closed.
+Errors do not include file contents or paths.
+
+MQTT requires a username and rejects simultaneous `password` and `password_file`,
+including an explicitly empty inline password. PostgreSQL rejects a DSN containing
+`password` (userinfo or query) or `passfile` when `timescaledb_password_file` is
+set. Its explicit password argument takes precedence over ambient `PGPASSWORD`,
+`PGPASSFILE`, default `.pgpass` and service-file passwords, as defined by
+[asyncpg's connection API](https://magicstack.github.io/asyncpg/current/api/index.html#asyncpg.connection.connect).
+When the dedicated field is unset, existing inline/native credential behavior
+is preserved. TLS private keys continue to use PostgreSQL's separate `sslkey`
+file option.
+
+Replace the file atomically in its private directory to rotate a password,
+then restart the service (or explicitly disconnect/reconnect MQTT and close/reopen
+the database pool). Each new client/pool reads the file again; existing automatic
+retries and connections retain their original credentials. The application does
+not write secret contents back to its configuration. MQTT operational failures
+log exception types rather than potentially sensitive exception text; database
+connection failures using the dedicated file return a generic diagnostic.
+Never commit real credential files or disable TLS to work around authentication.
 
 ### TimescaleDB transport
 

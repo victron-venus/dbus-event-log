@@ -10,7 +10,7 @@ The combined pytest invocation includes `tests/`, `.github/workflow-tests/` and 
 
 ## Coverage across maintained source languages
 
-The [source-scope inventory](evidence/coverage-scope-2026-10-12.json), with its [public reproduction recipe](evidence/coverage-scope-method.md), counts tracked shell scripts, workflow `run` steps, embedded Python and shell programs, and Docker build instructions where present. It uses language-appropriate AST statement units and conservative allowances for text-tool expressions and Docker instructions. All 411 additional units receive **zero execution credit**. Combined with measured Python coverage, the conservative bound is 5282 / (5954 + 411) = **82.9851%**. This is not a measurement of shell or native-library coverage. Dependencies, declarative configuration, tests and documentation examples are distinguished explicitly in the inventory. Repeat this review when maintained source languages or embedded scripts change.
+The [source-scope inventory](evidence/coverage-scope-2026-10-12.json), with its [public reproduction recipe](evidence/coverage-scope-method.md), counts tracked shell scripts, workflow `run` steps, embedded Python and shell programs, and Docker build instructions where present. It uses language-appropriate AST statement units and conservative allowances for text-tool expressions and Docker instructions. All 412 additional units receive **zero execution credit**. Combined with measured Python coverage, the conservative bound is 5282 / (5954 + 412) = **82.972%**. This is not a measurement of shell or native-library coverage. Dependencies, declarative configuration, tests and documentation examples are distinguished explicitly in the inventory. Repeat this review when maintained source languages or embedded scripts change.
 
 ## Repeating the build
 
@@ -19,7 +19,8 @@ Use Python 3.11, uv 0.12.18 and the committed lock. The build dependencies are p
 ```bash
 uv sync --locked --only-group build --no-install-workspace --no-install-local --no-build --python 3.11
 uv sync --locked --extra dev --group build --no-build-isolation --python 3.11
-export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+export SOURCE_DATE_EPOCH
 .venv/bin/python -m build --no-isolation
 .venv/bin/python -m build --no-isolation --wheel --outdir /tmp/dbus-event-log-repeat
 cmp dist/*.whl /tmp/dbus-event-log-repeat/*.whl

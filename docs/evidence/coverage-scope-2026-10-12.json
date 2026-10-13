@@ -9,8 +9,8 @@
   "method": "Count every Bash AST Stmt node, including compound statements and nested command substitutions, across all tracked shell files (including extensionless shebang scripts) and every GitHub Actions run step. Replace Actions expressions with a non-executable placeholder before parsing. Recursively count heredoc shell, SSH/trap command strings, and count embedded Python heredoc/-c AST statements separately at zero coverage. Add conservative sed/awk expression units and all Docker instructions plus RUN shell. Each declarative Compose command/entrypoint receives another zero-coverage unit. No non-Python execution credit is used.",
   "python_covered_statements": 5282,
   "python_statements": 5954,
-  "additional_zero_coverage_units": 411,
-  "aggregate_conservative_lower_bound_percent": 82.9851,
+  "additional_zero_coverage_units": 412,
+  "aggregate_conservative_lower_bound_percent": 82.972,
   "records": [
     {
       "path": ".github/workflows/ci.yml:jobs.build.steps[4].run",
@@ -21,8 +21,8 @@
     {
       "path": ".github/workflows/ci.yml:jobs.build.steps[5].run",
       "language": "Shell AST statements (including compound statements)",
-      "zero_coverage_statements": 5,
-      "sha256": "d23dd08ff40b75f1fed07c0ab2582f6cc2ca32dbf4e0be14456ee458858999a7"
+      "zero_coverage_statements": 6,
+      "sha256": "7181cbcfb7779372463fd960f5da3ffff1ea1af27ac9d0e6bf84b01924da116d"
     },
     {
       "path": ".github/workflows/ci.yml:jobs.build.steps[6].run",

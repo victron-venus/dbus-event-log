@@ -43,7 +43,8 @@ jobs:
           uv sync --locked --extra dev --group build --no-build-isolation
       - name: Build package
         run: |
-          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          export SOURCE_DATE_EPOCH
           .venv/bin/python -m build --no-isolation
           .venv/bin/python -m build --no-isolation --wheel --outdir /tmp/dbus-event-log-repeat
           cmp dist/*.whl /tmp/dbus-event-log-repeat/*.whl

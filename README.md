@@ -66,6 +66,13 @@ It complements existing metrics and application logs; it does not replace
 `venus-os-observability` or `inverter-monitoring`. Use a narrowly scoped capture
 when those sources cannot explain an incident.
 
+The monitor filters D-Bus messages into structured events and stores them in
+SQLite or TimescaleDB. After storage succeeds, the optional publisher forwards
+events to MQTT. The command-line query reads stored SQLite or TimescaleDB events
+and produces tables, JSON or CSV. The separate export command reads SQLite events
+and writes JSON or CSV. Downstream tools can use the storage or MQTT feed for
+their own dashboards.
+
 ```mermaid
 flowchart TD
     subgraph "D-Bus System Bus"
@@ -99,7 +106,7 @@ flowchart TD
 - **TimescaleDB Support** - Scalable time-series storage for HA deployments
 - **MQTT Publishing** - Forward persisted events to `victron/dbus/events` topics while connected
 - **CLI Query Tool** - Filter by time, service, event type, export to JSON/CSV
-- **Grafana Integration** - Pre-built dashboards for inverter monitoring
+- **Dashboard Integration** - Structured storage and MQTT events for downstream dashboards
 
 ## Installation
 
@@ -476,6 +483,12 @@ Recheck the firmware-provided Python and GI bindings after a Venus OS upgrade.
 
 ### Query Events
 
+`query` supports SQLite and TimescaleDB. TimescaleDB queries await the database
+response and close their connection pool before the command exits. For TimescaleDB
+time filters, timestamps without an offset mean UTC; explicit offsets are honoured.
+The `query --output` option supports both backends, while the separate `export`
+command and local maintenance commands remain SQLite-only.
+
 ```bash
 # Last 100 events as table
 dbus-event-log query
@@ -493,7 +506,7 @@ dbus-event-log query --type service_added --limit 50
 dbus-event-log export --format csv --output audit.csv --since 7d
 ```
 
-Relative filters such as `30m`, `24h`, and `7d` span hour, day, and month boundaries correctly. CLI query, export, statistics, and maintenance commands currently target SQLite; TimescaleDB is supported for event capture.
+Relative filters such as `30m`, `24h`, and `7d` span hour, day, and month boundaries correctly. Query supports both storage backends; the separate export, statistics, and maintenance commands target SQLite.
 
 ### Statistics
 
@@ -622,7 +635,9 @@ victron/dbus/events/
 
 ## Grafana Integration
 
-Import the dashboard from `docs/grafana-dashboard.json` or use the inverter-monitoring repo's pre-built dashboards.
+Configure your dashboard against the chosen storage or MQTT data source with
+appropriate access controls. Useful panels include the following; the CLI's
+JSON and CSV exports provide a text alternative for inspecting recorded events.
 
 ### Key Panels
 
@@ -634,10 +649,14 @@ Import the dashboard from `docs/grafana-dashboard.json` or use the inverter-moni
 
 ## Architecture
 
+The monitor uses pydbus and GLib/Gio to collect events. SQLite work is serialized
+through its executor; accepted events are stored before MQTT publication. The
+CLI queries the database independently. It has no live MQTT subscription command.
+
 ```mermaid
 flowchart TB
     subgraph "dbus-event-log"
-        DBusMonitor["DBusMonitor<br/>(pydbus async)"]
+        DBusMonitor["DBusMonitor<br/>(pydbus + GLib/Gio)"]
         SQLiteStorage["SQLiteStorage<br/>(serialized connections)"]
         MQTTPublisher["MQTTPublisher<br/>(paho-mqtt async)"]
     end
@@ -653,8 +672,11 @@ flowchart TB
     SQLiteStorage --> EventsDB
     MQTTPublisher --> MQTTBroker
     EventsDB --> CLI
-    MQTTBroker -.->|real-time| CLI
 ```
+
+Both diagrams have prose descriptions above them. See
+[accessibility](docs/accessibility.md) for text output options and the remaining
+interface review boundaries.
 
 ## Testing
 

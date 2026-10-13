@@ -20,7 +20,7 @@ from dbus_event_log.config import Config, get_config, set_config
 from dbus_event_log.models import EventType
 from dbus_event_log.monitor import DBusMonitor
 from dbus_event_log.mqtt_publisher import AsyncMQTTPublisher
-from dbus_event_log.storage import SQLiteStorage, get_storage
+from dbus_event_log.storage import SQLiteStorage, TimescaleDBStorage, get_storage
 
 console = Console()
 config = get_config()
@@ -170,16 +170,30 @@ def query(
     end_time = _parse_time(until) if until else None
     etype = EventType(event_type) if event_type else None
 
-    events = storage.query(
-        start_time=start_time,
-        end_time=end_time,
-        service=service,
-        event_type=etype,
-        limit=limit,
-        offset=offset,
-    )
+    filters: dict[str, Any] = {
+        "start_time": start_time,
+        "end_time": end_time,
+        "service": service,
+        "event_type": etype,
+        "limit": limit,
+        "offset": offset,
+    }
+    if isinstance(storage, TimescaleDBStorage):
+        events = asyncio.run(_query_timescale(storage, filters))
+    else:
+        events = storage.query(**filters)
 
-    _output_events(events, output_format, output)  # type: ignore[arg-type]
+    _output_events(events, output_format, output)
+
+
+async def _query_timescale(
+    storage: TimescaleDBStorage, filters: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Create, use and close the database pool within one CLI event loop."""
+    try:
+        return await storage.query(**filters)
+    finally:
+        await storage.close()
 
 
 @cli.command()
@@ -365,7 +379,7 @@ def _output_events(events: list[dict[str, Any]], fmt: str, output: str | None) -
         table.add_column("Args", style="white", max_width=40)
 
         for event in events:
-            ts = event.get("timestamp", "")[:19]
+            ts = str(event.get("timestamp", ""))[:19]
             args_str = str(event.get("arguments", ""))[:40]
             table.add_row(
                 ts,

@@ -10,6 +10,8 @@ Captures D-Bus signals, method calls and replies for temporary troubleshooting. 
 
 ### Maintenance
 
+- Await TimescaleDB CLI queries, close their pool on success or failure, pass typed
+  timestamp filters to asyncpg and render returned timestamps in table output.
 - Use pinned, locked build dependencies without build isolation, compare repeated wheel bytes in CI, and retain the extracted-source test.
 - Preserve timestamp wire formatting using supported Pydantic serializers and make TLS rejection fixtures robust to the Python 3.11 transport-close race.
 - Measure application, packaging and release-tooling Python coverage together with the unchanged 80% gate.

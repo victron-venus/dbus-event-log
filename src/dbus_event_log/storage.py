@@ -39,6 +39,12 @@ def _utc_timestamp(value: str) -> str | None:
     return timestamp.astimezone(UTC).isoformat(timespec="microseconds")
 
 
+def _query_timestamp(value: str) -> datetime:
+    """Give asyncpg an aware timestamp; legacy timezone-less filters mean UTC."""
+    timestamp = datetime.fromisoformat(value)
+    return timestamp.replace(tzinfo=UTC) if timestamp.tzinfo is None else timestamp
+
+
 class SQLiteStorage:
     """SQLite storage backend for D-Bus events."""
 
@@ -607,11 +613,11 @@ class TimescaleDBStorage:
 
         if start_time:
             conditions.append(f"timestamp >= ${param_idx}")
-            params.append(start_time)
+            params.append(_query_timestamp(start_time))
             param_idx += 1
         if end_time:
             conditions.append(f"timestamp <= ${param_idx}")
-            params.append(end_time)
+            params.append(_query_timestamp(end_time))
             param_idx += 1
         if service:
             conditions.append(f"service_name ILIKE ${param_idx}")

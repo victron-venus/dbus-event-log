@@ -476,6 +476,12 @@ Recheck the firmware-provided Python and GI bindings after a Venus OS upgrade.
 
 ### Query Events
 
+`query` supports SQLite and TimescaleDB. TimescaleDB queries await the database
+response and close their connection pool before the command exits. For TimescaleDB
+time filters, timestamps without an offset mean UTC; explicit offsets are honoured.
+The `query --output` option supports both backends, while the separate `export`
+command and local maintenance commands remain SQLite-only.
+
 ```bash
 # Last 100 events as table
 dbus-event-log query

@@ -21,6 +21,10 @@ Use maintained TLS libraries and their verified-certificate defaults rather than
 
 No first-party C/C++ source is compiled by this repository. Python packages such as asyncpg, PyGObject and pydantic-core, and system GLib/OpenSSL libraries, can contain native code. Python statement coverage does not measure their memory safety. Keep the locked dependencies and supported host patched, consult upstream advisories, and reassess sanitizer requirements when adding generated or maintained C/C++ code. This repository does not claim ASan coverage of third-party libraries.
 
+## Static-analysis review
+
+[The per-finding Bandit review](evidence/static-analysis-2026-10-12.json) records every warning from the all-severity source scan. Three SQL-construction warnings interpolate only fixed predicates and integer placeholder indices; hostile-value tests verify that external values remain bound parameters. The workflow YAML loader uses BaseLoader, which cannot construct arbitrary Python objects. These four reviewed false positives have precise rule-specific annotations. Remaining low-severity warnings cover reviewed test assertions, a method-dispatch invariant, fixed-argument subprocess use and the explicitly unavailable D-Bus-credential fallback. New warnings require review; a high-severity CI gate alone does not establish that lower severities are safe.
+
 ## Remaining evidence
 
 No real bus, broker, production database or hardware was used for the local validation reported here. See [quality/build evidence](quality-and-build.md), [continuity status](../GOVERNANCE.md) and [the roadmap](../ROADMAP.md). Authenticate release signatures against the documented publisher identity once published; a checksum alone is not a signature. Review this argument when transports, permissions, retention, capture or delivery change.

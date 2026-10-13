@@ -709,3 +709,27 @@ def test_cleanup_deletes_using_configured_retention_and_reports_count(
     result = storage_cli.invoke(cli_module.cli, ["cleanup", "--days", "-1", "--yes"])
     assert result.exit_code != 0
     assert event_store.count() == 1
+
+
+def test_sqlite_hostile_filter_is_literal_data(event_store: SQLiteStorage) -> None:
+    """SQL-looking service values neither broaden filters nor execute statements."""
+    hostile = "x' OR 1=1; DROP TABLE events; --"
+    expected = event(1, hostile)
+    event_store.insert_batch([expected, event(2, "ordinary")])
+    assert [row["id"] for row in event_store.query(service=hostile)] == [str(expected.id)]
+    assert event_store.count(service=hostile) == 1
+    assert event_store.count() == 2
+
+
+async def test_timescale_hostile_filters_stay_outside_sql(
+    timescale_driver: tuple[TimescaleDBStorage, MagicMock, AsyncMock, MagicMock],
+) -> None:
+    """The driver receives hostile filter content only as bound parameters."""
+    storage, connection, _, _ = timescale_driver
+    hostile = "x' OR 1=1; DROP TABLE events; --"
+    await storage.query(start_time=hostile, end_time=hostile, service=hostile)
+    sql, *parameters = connection.fetch.await_args.args
+    assert hostile not in sql
+    assert parameters == [hostile, hostile, f"%{hostile}%", 1000, 0]
+    assert "timestamp >= $1" in sql and "timestamp <= $2" in sql
+    assert "service_name ILIKE $3" in sql and "LIMIT $4 OFFSET $5" in sql

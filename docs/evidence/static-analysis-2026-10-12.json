@@ -1,0 +1,576 @@
+{
+  "reviewed_on": "2026-10-12",
+  "tool": "Bandit 1.9.2",
+  "review_source_commit": "9188cf42b084cb50b20a6936382160462ba69b77",
+  "scope": "Same directory exclusions as scripts/ci.sh, all severities retained for review. No medium/high findings are considered resolved solely because CI gates HIGH severity.",
+  "findings": [
+    {
+      "file": ".github/release-tests/test_assemble_native_container.py",
+      "line": 14,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_assemble_native_container.py#L14"
+    },
+    {
+      "file": ".github/release-tests/test_assemble_native_container.py",
+      "line": 90,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_assemble_native_container.py#L90"
+    },
+    {
+      "file": ".github/release-tests/test_merge_oci_archives.py",
+      "line": 13,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_merge_oci_archives.py#L13"
+    },
+    {
+      "file": ".github/release-tests/test_merge_oci_archives.py",
+      "line": 687,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_merge_oci_archives.py#L687"
+    },
+    {
+      "file": ".github/release-tests/test_merge_oci_archives.py",
+      "line": 689,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_merge_oci_archives.py#L689"
+    },
+    {
+      "file": ".github/release-tests/test_merge_oci_archives.py",
+      "line": 719,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_merge_oci_archives.py#L719"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_adapter.py",
+      "line": 7,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_native_container_adapter.py#L7"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_adapter.py",
+      "line": 93,
+      "rule": "B607",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_native_container_adapter.py#L93"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_adapter.py",
+      "line": 93,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_native_container_adapter.py#L93"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_adapter.py",
+      "line": 224,
+      "rule": "B607",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_native_container_adapter.py#L224"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_adapter.py",
+      "line": 224,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_native_container_adapter.py#L224"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_check.py",
+      "line": 9,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_native_container_check.py#L9"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_check.py",
+      "line": 68,
+      "rule": "B607",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_native_container_check.py#L68"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_check.py",
+      "line": 68,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_native_container_check.py#L68"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_check.py",
+      "line": 88,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_native_container_check.py#L88"
+    },
+    {
+      "file": ".github/release-tests/test_release_control.py",
+      "line": 580,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_release_control.py#L580"
+    },
+    {
+      "file": ".github/release-tests/test_release_notes.py",
+      "line": 89,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_release_notes.py#L89"
+    },
+    {
+      "file": ".github/release-tests/test_release_notes.py",
+      "line": 90,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_release_notes.py#L90"
+    },
+    {
+      "file": ".github/release-tests/test_release_notes.py",
+      "line": 91,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_release_notes.py#L91"
+    },
+    {
+      "file": ".github/release-tests/test_verified_publication.py",
+      "line": 11,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/release-tests/test_verified_publication.py#L11"
+    },
+    {
+      "file": ".github/security-tests/test_bandit_discovery.py",
+      "line": 5,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/security-tests/test_bandit_discovery.py#L5"
+    },
+    {
+      "file": ".github/security-tests/test_bandit_discovery.py",
+      "line": 55,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/security-tests/test_bandit_discovery.py#L55"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 20,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L20"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 21,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L21"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 24,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L24"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 25,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L25"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 26,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L26"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 29,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L29"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 31,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L31"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 32,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L32"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 34,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L34"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 38,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L38"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 39,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L39"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 41,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L41"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 44,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L44"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 51,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L51"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 52,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L52"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 53,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L53"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 57,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L57"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 64,
+      "rule": "B506",
+      "severity": "MEDIUM",
+      "disposition": "reviewed_false_positive",
+      "rationale": "The explicit PyYAML BaseLoader constructs basic mappings/sequences/strings and cannot instantiate arbitrary Python objects. It deliberately preserves workflow keys such as on as strings.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/.github/workflow-tests/test_scorecard_workflow.py#L64"
+    },
+    {
+      "file": "scripts/assemble_native_container.py",
+      "line": 16,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/assemble_native_container.py#L16"
+    },
+    {
+      "file": "scripts/assemble_native_container.py",
+      "line": 189,
+      "rule": "B607",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/assemble_native_container.py#L189"
+    },
+    {
+      "file": "scripts/assemble_native_container.py",
+      "line": 189,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/assemble_native_container.py#L189"
+    },
+    {
+      "file": "scripts/package_release.py",
+      "line": 10,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/package_release.py#L10"
+    },
+    {
+      "file": "scripts/package_release.py",
+      "line": 38,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/package_release.py#L38"
+    },
+    {
+      "file": "scripts/package_release.py",
+      "line": 69,
+      "rule": "B607",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/package_release.py#L69"
+    },
+    {
+      "file": "scripts/package_release.py",
+      "line": 69,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/package_release.py#L69"
+    },
+    {
+      "file": "scripts/package_release.py",
+      "line": 147,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/package_release.py#L147"
+    },
+    {
+      "file": "scripts/package_release.py",
+      "line": 152,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/package_release.py#L152"
+    },
+    {
+      "file": "scripts/publish_verified.py",
+      "line": 20,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/publish_verified.py#L20"
+    },
+    {
+      "file": "scripts/publish_verified.py",
+      "line": 148,
+      "rule": "B607",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/publish_verified.py#L148"
+    },
+    {
+      "file": "scripts/publish_verified.py",
+      "line": 148,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/publish_verified.py#L148"
+    },
+    {
+      "file": "scripts/publish_verified.py",
+      "line": 273,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/publish_verified.py#L273"
+    },
+    {
+      "file": "scripts/verified_images.py",
+      "line": 16,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/verified_images.py#L16"
+    },
+    {
+      "file": "scripts/verified_images.py",
+      "line": 127,
+      "rule": "B607",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/verified_images.py#L127"
+    },
+    {
+      "file": "scripts/verified_images.py",
+      "line": 127,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/verified_images.py#L127"
+    },
+    {
+      "file": "scripts/verified_images.py",
+      "line": 132,
+      "rule": "B607",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/verified_images.py#L132"
+    },
+    {
+      "file": "scripts/verified_images.py",
+      "line": 132,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/scripts/verified_images.py#L132"
+    },
+    {
+      "file": "src/dbus_event_log/method_capture.py",
+      "line": 228,
+      "rule": "B110",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "D-Bus credential lookup may fail for vanished callers or denied bus policy. The fallback explicitly records credentials_status=unavailable and does not invent an authenticated identity. Capture is observational, not an authorization gateway.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/src/dbus_event_log/method_capture.py#L228"
+    },
+    {
+      "file": "src/dbus_event_log/monitor.py",
+      "line": 146,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Internal method-dispatch invariant and type narrowing: capture is initialized before scheduling this task. It is not an authorization or input-validation check; disabling asserts cannot grant access.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/src/dbus_event_log/monitor.py#L146"
+    },
+    {
+      "file": "src/dbus_event_log/storage.py",
+      "line": 244,
+      "rule": "B608",
+      "severity": "MEDIUM",
+      "disposition": "reviewed_false_positive",
+      "rationale": "Only fixed SQL predicate fragments and locally incremented integer placeholder indices are interpolated. All time/service/type/limit/offset values are bound separately through SQLite/asyncpg parameters. Hostile-filter tests exercise this boundary.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/src/dbus_event_log/storage.py#L244"
+    },
+    {
+      "file": "src/dbus_event_log/storage.py",
+      "line": 283,
+      "rule": "B608",
+      "severity": "MEDIUM",
+      "disposition": "reviewed_false_positive",
+      "rationale": "Only fixed SQL predicate fragments and locally incremented integer placeholder indices are interpolated. All time/service/type/limit/offset values are bound separately through SQLite/asyncpg parameters. Hostile-filter tests exercise this boundary.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/src/dbus_event_log/storage.py#L283"
+    },
+    {
+      "file": "src/dbus_event_log/storage.py",
+      "line": 624,
+      "rule": "B608",
+      "severity": "MEDIUM",
+      "disposition": "reviewed_false_positive",
+      "rationale": "Only fixed SQL predicate fragments and locally incremented integer placeholder indices are interpolated. All time/service/type/limit/offset values are bound separately through SQLite/asyncpg parameters. Hostile-filter tests exercise this boundary.",
+      "source_url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/src/dbus_event_log/storage.py#L624"
+    }
+  ],
+  "follow_up": "Four reviewed medium false positives receive rule-specific annotations at their exact sites; no global suppression or threshold reduction. New findings require review. This is source review, not proof of absence of vulnerabilities."
+}

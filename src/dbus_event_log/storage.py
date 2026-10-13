@@ -241,12 +241,13 @@ class SQLiteStorage:
             params.append(event_type.value)
 
         where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
+        # Only fixed predicates/placeholder indices are interpolated; values are bound.
         query = f"""
             SELECT * FROM events
             {where_clause}
             ORDER BY timestamp DESC
             LIMIT ? OFFSET ?
-        """
+        """  # nosec B608 - fixed SQL fragments; all external values are bound
         params.extend([limit, offset])
 
         with self._connection() as conn:
@@ -280,7 +281,8 @@ class SQLiteStorage:
             params.append(event_type.value)
 
         where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
-        query = f"SELECT COUNT(*) as count FROM events {where_clause}"
+        # Predicates are fixed strings above; all external values remain parameters.
+        query = f"SELECT COUNT(*) as count FROM events {where_clause}"  # nosec B608
 
         with self._connection() as conn:
             cursor = conn.execute(query, params)
@@ -621,12 +623,13 @@ class TimescaleDBStorage:
             param_idx += 1
 
         where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
+        # Only fixed predicates/placeholder indices are interpolated; values are bound.
         query = f"""
             SELECT * FROM events
             {where_clause}
             ORDER BY timestamp DESC
             LIMIT ${param_idx} OFFSET ${param_idx + 1}
-        """
+        """  # nosec B608 - fixed predicates and integer indices, never external values
         params.extend([limit, offset])
 
         pool = await self._get_pool()

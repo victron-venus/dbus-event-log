@@ -39,6 +39,7 @@ plan = version_plan.validate_plan(json.loads(Path(".release-plan.json").read_tex
 print(version_plan.projections(plan, "pep440")["package"])
 VERSION
 )
+source_epoch=$(git show -s --format=%ct "$source_revision")
 image="dbus-event-log-native:$source_revision-$arch"
 mkdir "$output"
 temporary=$(mktemp -d)
@@ -54,12 +55,13 @@ for variable in CC CFLAGS CXX CXXFLAGS LDFLAGS; do
   fi
 done
 docker buildx build --progress plain --platform "$platform" \
+  --build-arg "SOURCE_DATE_EPOCH=$source_epoch" \
   "${build_arguments[@]}" \
   --label "org.opencontainers.image.version=$package_version" \
   --label "org.opencontainers.image.revision=$source_revision" \
   --tag "$image" \
-  --output "type=oci,dest=$output/container-$arch.oci.tar,attestation-inline=true" \
-  --output type=docker .
+  --output "type=oci,dest=$output/container-$arch.oci.tar,attestation-inline=true,rewrite-timestamp=true" \
+  --output type=docker,rewrite-timestamp=true .
 build_seconds=$((SECONDS - build_start))
 docker image inspect "$image" > "$temporary/image.json"
 image_id=$(python3 - "$temporary/image.json" "$arch" "$package_version" "$source_revision" <<'IDENTITY'

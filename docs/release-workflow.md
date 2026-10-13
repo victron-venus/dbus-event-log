@@ -34,6 +34,7 @@ Callable validation workflows:
 - `.github/workflows/release-security.yml`
 - `.github/workflows/codeql.yml`
 - `.github/workflows/dependency-review.yml`
+- `.github/workflows/container-repeatability.yml`
 
 The [release strategy](../RELEASING.md) defines versioning, channels, acceptance,
 ownership, hotfixes and rollback. This document is the operational runbook.

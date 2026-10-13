@@ -50,6 +50,7 @@ class NativeContainerAdapterTests(unittest.TestCase):
             RUNNER_ARCH="X64",
             NATIVE_TEST_ROOT=str(self.root),
         )
+        self._executable("git", "print(1791763200)\n")
         self._executable(
             "uname",
             "import os, sys\n"
@@ -116,10 +117,10 @@ class NativeContainerAdapterTests(unittest.TestCase):
         builds = [call for call in calls if call[:2] == ["buildx", "build"]]
         self.assertEqual(len(builds), 1)
         self.assertIn(
-            "type=oci,dest=native-container-amd64/container-amd64.oci.tar,attestation-inline=true",
+            "type=oci,dest=native-container-amd64/container-amd64.oci.tar,attestation-inline=true,rewrite-timestamp=true",
             builds[0],
         )
-        self.assertIn("type=docker", builds[0])
+        self.assertIn("type=docker,rewrite-timestamp=true", builds[0])
         self.assertNotIn("--push", builds[0])
         self.assertFalse(any(arg.startswith("--provenance") for arg in builds[0]))
         self.assertFalse(any("provenance=false" in arg or "cache-" in arg for arg in builds[0]))
@@ -157,7 +158,10 @@ class NativeContainerAdapterTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         build = next(call for call in self._calls() if call[:2] == ["buildx", "build"])
         arguments = [build[i + 1] for i, value in enumerate(build) if value == "--build-arg"]
-        self.assertEqual(arguments, [f"{key}={value}" for key, value in values.items()])
+        self.assertEqual(
+            arguments,
+            ["SOURCE_DATE_EPOCH=1791763200", *[f"{key}={value}" for key, value in values.items()]],
+        )
         self.assertFalse((self.root / "injected").exists())
 
     def test_unset_compiler_variables_are_omitted_and_explicit_empty_is_preserved(self) -> None:
@@ -169,7 +173,7 @@ class NativeContainerAdapterTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         build = next(call for call in self._calls() if call[:2] == ["buildx", "build"])
         arguments = [build[i + 1] for i, value in enumerate(build) if value == "--build-arg"]
-        self.assertEqual(arguments, ["CFLAGS="])
+        self.assertEqual(arguments, ["SOURCE_DATE_EPOCH=1791763200", "CFLAGS="])
 
     def test_arm64_runner_produces_arm64_evidence(self) -> None:
         """ARM64 uses the same adapter with its native host and image architecture."""
@@ -248,6 +252,7 @@ class NativeContainerAdapterTests(unittest.TestCase):
             "import pathlib, sys\n"
             "for option in ('--output', '--evidence'):\n"
             "    pathlib.Path(sys.argv[sys.argv.index(option) + 1]).write_bytes(b'checked')\n"
+            "pathlib.Path('release-dist/dbus-event-log-container.provenance.json').write_bytes(b'checked')\n"
         )
         result = subprocess.run(
             ["bash", "scripts/package-container.sh"],
@@ -263,6 +268,7 @@ class NativeContainerAdapterTests(unittest.TestCase):
             (output / "SHA256SUMS").read_text(),
             "existing-wheel-checksum\n"
             f"{digest}  dbus-event-log-container.oci.tar\n"
-            f"{digest}  container-build-evidence.json\n",
+            f"{digest}  container-build-evidence.json\n"
+            f"{digest}  dbus-event-log-container.provenance.json\n",
         )
         self.assertEqual(self._calls(), [])

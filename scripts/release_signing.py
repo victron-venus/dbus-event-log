@@ -13,6 +13,7 @@ import hashlib
 import json
 import re
 import subprocess  # nosec B404
+import tempfile
 from pathlib import Path
 
 MANIFEST = "release-signatures.json"
@@ -25,12 +26,12 @@ UNSIGNED_METADATA = {MANIFEST, BUNDLE, RECEIPT, "release-manifest.json"}
 
 def read_json(path: Path) -> dict:
     """Bound control data before parsing, refusing nonregular file aliases."""
-    if path.is_symlink() or not path.is_file():
-        raise ValueError("Control document must be a regular file")
-    with path.open("rb") as stream:
-        raw = stream.read(MAX_MANIFEST_BYTES + 1)
-    if len(raw) > MAX_MANIFEST_BYTES:
-        raise ValueError("Control document exceeds size limit")
+    from release_provenance import read_snapshot  # pylint: disable=import-outside-toplevel
+
+    try:
+        raw = read_snapshot(path, MAX_MANIFEST_BYTES)
+    except OSError as error:
+        raise ValueError("Control document must be a regular file") from error
     value = json.loads(raw)
     if not isinstance(value, dict):
         raise ValueError("Control document must be an object")
@@ -114,6 +115,10 @@ def prepare(directory: Path, root: Path, source_sha: str) -> None:
         "schema": 1, "repository": repository, "ref": ref, "source_sha": source_sha,
         "artifacts": [digest(p) for p in files(directory).values()],
     }
+    from release_provenance import policy_pairs  # pylint: disable=import-outside-toplevel
+
+    if policy_pairs(policy):
+        manifest["plan"] = plan
     encoded = (json.dumps(manifest, sort_keys=True, indent=2) + "\n").encode()
     if len(encoded) > MAX_MANIFEST_BYTES:
         raise ValueError("Release inventory exceeds size limit")
@@ -121,10 +126,11 @@ def prepare(directory: Path, root: Path, source_sha: str) -> None:
         output.write(encoded)
 
 
-def verify_inventory(directory: Path, policy: dict, source_sha: str) -> None:
+def verify_inventory(directory: Path, policy: dict, source_sha: str, manifest=None) -> None:
     """After authentication, require exact identity, source and complete payload set."""
     repository, ref, _ = trust(policy, source_sha)
-    manifest = read_json(directory / MANIFEST)
+    if manifest is None:
+        manifest = read_json(directory / MANIFEST)
     if (
         manifest.get("schema") != 1
         or manifest.get("repository") != repository
@@ -148,18 +154,37 @@ def verify(directory: Path, policy: dict, source_sha: str) -> None:
     entries = files(directory)
     if MANIFEST not in entries or BUNDLE not in entries:
         raise ValueError("Release signature and manifest are required")
-    if entries[MANIFEST].stat().st_size > MAX_MANIFEST_BYTES:
-        raise ValueError("Release inventory exceeds size limit")
-    subprocess.run(  # nosec B603, B607
-        ["cosign", "verify-blob", "--bundle", str(entries[BUNDLE]),
-         "--certificate-identity", identity,
-         "--certificate-oidc-issuer", ISSUER,
-         "--certificate-github-workflow-repository", repository,
-         "--certificate-github-workflow-ref", ref,
-         "--certificate-github-workflow-sha", source_sha,
-         str(entries[MANIFEST])], check=True,
-    )
-    verify_inventory(directory, policy, source_sha)
+    # Authenticate private bounded copies, then parse those exact bytes. Safe
+    # FD acquisition also rejects FIFO/symlink swaps after the initial inventory.
+    from release_provenance import read_snapshot  # pylint: disable=import-outside-toplevel
+
+    snapshots = {name: read_snapshot(entries[name], limit) for name, limit in
+                 ((MANIFEST, MAX_MANIFEST_BYTES), (BUNDLE, 8 * MAX_MANIFEST_BYTES))}
+    with tempfile.TemporaryDirectory(prefix="release-signature-") as temporary:
+        private = Path(temporary)
+        for name, raw in snapshots.items():
+            (private / name).write_bytes(raw)
+        subprocess.run(  # nosec B603, B607
+            ["cosign", "verify-blob", "--bundle", str(private / BUNDLE),
+             "--certificate-identity", identity,
+             "--certificate-oidc-issuer", ISSUER,
+             "--certificate-github-workflow-repository", repository,
+             "--certificate-github-workflow-ref", ref,
+             "--certificate-github-workflow-sha", source_sha,
+             str(private / MANIFEST)], check=True,
+        )
+    manifest = json.loads(snapshots[MANIFEST])
+    if not isinstance(manifest, dict):
+        raise ValueError("Release inventory must be an object")
+    verify_inventory(directory, policy, source_sha, manifest)
+    from release_provenance import policy_pairs, verify_all  # pylint: disable=import-outside-toplevel
+
+    if policy_pairs(policy):
+        from version_plan import validate_plan  # pylint: disable=import-outside-toplevel
+
+        plan = validate_plan(manifest.get("plan"), policy, source_sha)
+        verify_all(directory, policy, plan, manifest["artifacts"])
+
 
 
 def main() -> None:

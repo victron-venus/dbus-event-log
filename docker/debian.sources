@@ -1,0 +1,14 @@
+# Immutable, signed archive snapshots. Refresh both timestamps in a reviewed PR.
+Types: deb
+URIs: https://snapshot.debian.org/archive/debian/20261012T000000Z/
+Suites: trixie trixie-updates
+Components: main
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+Check-Valid-Until: no
+
+Types: deb
+URIs: https://snapshot.debian.org/archive/debian-security/20261012T000000Z/
+Suites: trixie-security
+Components: main
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+Check-Valid-Until: no

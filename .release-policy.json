@@ -3,7 +3,8 @@
     "ci.yml",
     "release-security.yml",
     "codeql.yml",
-    "dependency-review.yml"
+    "dependency-review.yml",
+    "container-repeatability.yml"
   ],
   "artifact_pattern": "release-assets*",
   "local_checks": [
@@ -78,6 +79,16 @@
   },
   "single_entry_ci": true,
   "release_notes": "CHANGELOG.md",
-  "toolkit_revision": "7282a18bd5975975ec323ac765557cf0aec6e11d",
-  "sign_releases": true
+  "toolkit_revision": "d0226c39a2bdb316b97f63579b0236d074b52af7",
+  "sign_releases": true,
+  "detached_provenance": [
+    {
+      "image": "dbus-event-log-container.oci.tar",
+      "sidecar": "dbus-event-log-container.provenance.json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ]
+    }
+  ]
 }

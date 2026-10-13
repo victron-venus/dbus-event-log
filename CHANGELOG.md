@@ -10,6 +10,11 @@ Captures D-Bus signals, method calls and replies for temporary troubleshooting. 
 
 ### Maintenance
 
+- Freeze container package repositories and native source/build paths, and compare
+  two independent native builds of each supported architecture in required CI.
+- Preserve the original container attestations in an authenticated, separately
+  signed provenance sidecar so the complete runnable OCI archive can repeat.
+
 - Await TimescaleDB CLI queries, close their pool on success or failure, pass typed
   timestamp filters to asyncpg and render returned timestamps in table output.
 - Use pinned, locked build dependencies without build isolation, compare repeated wheel bytes in CI, and retain the extracted-source test.

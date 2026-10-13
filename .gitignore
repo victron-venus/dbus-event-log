@@ -67,3 +67,7 @@ release-assets/
 native-container-amd64/
 native-container-arm64/
 native-inputs/
+
+# Independent container repeatability evidence
+cold-*/
+container-repeatability.json

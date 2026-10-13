@@ -81,6 +81,15 @@ jobs:
       - scope
       - workflow-contracts
     if: ${{ needs.scope.outputs.run == 'true' }}
+  check-4:
+    uses: ./.github/workflows/container-repeatability.yml
+    permissions:
+      contents: read
+      actions: read
+    needs:
+      - scope
+      - workflow-contracts
+    if: ${{ needs.scope.outputs.run == 'true' }}
   workflow-contracts:
     name: CI configuration contracts
     runs-on: ${{ fromJSON((vars.CI_RUNNER_MODE == 'self-hosted' || vars.CI_RUNNER_MODE == 'k3s') && ((github.event_name
@@ -138,6 +147,7 @@ jobs:
       - check-1
       - check-2
       - check-3
+      - check-4
       - workflow-contracts
       - release-contracts
     if: ${{ always() }}
@@ -158,7 +168,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           results = json.loads(os.environ['RESULTS'])
-          expected = ['check-0', 'check-1', 'check-2', 'check-3', 'release-contracts', 'scope', 'workflow-contracts']
+          expected = ['check-0', 'check-1', 'check-2', 'check-3', 'check-4', 'release-contracts', 'scope', 'workflow-contracts']
           always = ['scope']
           if set(results) != set(expected):
               raise SystemExit('Validation job inventory differs')

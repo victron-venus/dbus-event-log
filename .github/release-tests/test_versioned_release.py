@@ -508,6 +508,9 @@ class ToolchainTests(unittest.TestCase):
 
 class ReceiptTests(unittest.TestCase):
     def setUp(self):
+        # This synthetic fixture intentionally has no detached OCI contract.
+        import release_provenance
+        self.enterContext(patch.object(release_provenance, "REQUIRED_PAIRS", ()))
         self.enterContext(
             patch.object(
                 receipt,
@@ -610,6 +613,9 @@ class ReceiptTests(unittest.TestCase):
 
 class LifecycleTests(unittest.TestCase):  # pylint: disable=too-many-public-methods
     def setUp(self):
+        # This synthetic fixture intentionally has no detached OCI contract.
+        import release_provenance
+        self.enterContext(patch.object(release_provenance, "REQUIRED_PAIRS", ()))
         self.enterContext(
             patch.object(
                 receipt,

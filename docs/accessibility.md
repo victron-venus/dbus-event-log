@@ -28,7 +28,8 @@ help was readable without terminal colour escapes, and JSON/CSV exports preserve
 the fixture's named fields. JSON standard output also preserved long strings,
 literal terminal markup, Unicode and embedded newlines without wrapping or interpretation. The [rendered README review](evidence/accessibility-browser-2026-10-12.json) also checked headings,
 labelled badge images, real table headers and keyboard navigation to this page.
-Diagram alternatives and machine-readable output remain available.
+Diagram alternatives and machine-readable output remain available. The final
+[release acceptance](release-acceptance.md) independently rechecked JSON/CSV standard output and files against the exact distributed image, including long text, literal markup, Unicode and embedded newlines.
 
 This is a scoped review of authored documentation and text interfaces. It did not
 test a screen reader or establish WCAG conformance for GitHub or an operator's

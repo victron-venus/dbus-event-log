@@ -65,6 +65,8 @@ payload inventory. Its contract tests cover malformed identities, incomplete
 payloads and publication rejection paths. Consult the checked-in release policy
 and generated workflow metadata for the current toolkit revision.
 
+The verified stable release and its original RC are recorded in [release acceptance](release-acceptance.md), including identity-bound signature verification, exact artifact hashes, the complete-archive cold-build comparison and scoped ELF inspection.
+
 Preview signatures prove the published preview's integrity. Stable promotion
 also requires acceptance of the exact RC assets on the intended targets, as
 specified in `RELEASING.md`; local tests and hosted CI do not establish hardware
@@ -77,12 +79,9 @@ At this update:
 - No verified succession or emergency-access arrangement exists. A real mechanism
   must allow issues, changes and releases to continue within one week if the
   primary maintainer becomes unavailable.
-- The currently advertised stable release is unsigned. Publishing and verifying
-  signed preview candidates does not retroactively sign that distribution.
-- Native dependency builds still need verified compiler/linker flag forwarding.
-- Repeatability of the complete distributed OCI image remains unproven; identical Python wheels alone do not establish it.
 
 The live Silver form also records suggested practices that remain incomplete,
-including accessibility review, internationalization and signed version tags.
+including internationalization and signed version tags. The scoped
+[accessibility review](accessibility.md) is complete; it is not a WCAG certification.
 The repository's `.bestpractices.json` is an importable Passing evidence snapshot;
 it neither updates the website automatically nor establishes future compliance.

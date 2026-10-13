@@ -6,7 +6,7 @@ Run `bash scripts/ci.sh --install` with uv 0.12.18, then `bash scripts/ci.sh`. T
 
 The combined pytest invocation includes `tests/`, `.github/workflow-tests/` and `.github/release-tests/`. Coverage uses the repository root with namespace-package discovery so unimported maintained Python scripts remain visible at zero coverage. It excludes test code, virtual environments and build/distribution outputs. Shell and workflow configuration are exercised by contract/installation tests but are not part of the Python-statement denominator. Third-party installed libraries are outside that denominator. The enforced threshold remains 80%; there is no branch-coverage claim.
 
-[Machine-readable measurement](evidence/coverage-2026-10-12.json) records the measured source hashes, executable/covered statements, test result and environment. Those hashes bind the result to the tested source, without a circular commit hash in the evidence file. A local run is not hosted CI: inspect the pull request's actual required checks before merging or submitting a badge assessment. The [regression ledger](evidence/regressions-2026-10-12.json) records recent fix/test links and gaps; a test count is not a bugfix ratio.
+[Machine-readable measurement](evidence/container-build-python-2026-10-12.json) records the measured source hashes, executable/covered statements, test result and environment. Those hashes bind the result to the tested source, without a circular commit hash in the evidence file. A local run is not hosted CI: inspect the pull request's actual required checks before merging or submitting a badge assessment. The [regression ledger](evidence/regressions-2026-10-12.json) records recent fix/test links and gaps; a test count is not a bugfix ratio.
 
 ## Coverage across maintained source languages
 
@@ -26,7 +26,7 @@ export SOURCE_DATE_EPOCH
 cmp dist/*.whl /tmp/dbus-event-log-repeat/*.whl
 ```
 
-Choose a fresh repeat-build output directory. CI runs the equivalent commands and runs the extracted source distribution's application tests, catching missing fixtures. [The local build record](evidence/build-2026-10-12.json) records two identical wheels and 272 passing extracted-source tests (48 subtests). The byte comparison establishes repeatability for the wheel in the tested environment; it does not claim bit-identical containers or source tarballs across platforms/toolchain versions. Locked native dependency wheels can differ by supported platform.
+Choose a fresh repeat-build output directory. CI runs the equivalent commands and runs the extracted source distribution's application tests, catching missing fixtures. [The historical local build record](evidence/build-2026-10-12.json) records two identical wheels and 272 passing extracted-source tests (48 subtests). The byte comparison establishes repeatability for the wheel in the tested environment; it does not claim bit-identical containers or source tarballs across platforms/toolchain versions. Locked native dependency wheels can differ by supported platform.
 
 The wheel supports standard Python installation destinations. For example, stage with a prepared pip environment using `python -m pip install --no-deps --root "$DESTDIR" --prefix /usr dist/*.whl`, or install into a disposable virtual environment. This does not configure or start a capture service. Standard pip uninstall tracks package-owned installed files; protect operator configuration and captured data separately.
 
@@ -51,3 +51,5 @@ also includes the later native build-flag support. The tests use a controlled as
 boundary and do not establish live database or device acceptance.
 
 The [native container procedure](container-repeatability.md) now adds a required full-archive cold-build comparison. Only successful, source-bound CI evidence establishes container repeatability; the historical wheel-only record above does not.
+
+The successful [final complete-archive comparison and exact release acceptance](release-acceptance.md) record the verified native outputs, immutable source identities and companion-host limitations. The final packaging follow-up also passed 281 extracted-source tests and 48 subtests; earlier build records retain their original source scope.

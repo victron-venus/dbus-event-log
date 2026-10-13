@@ -1,0 +1,158 @@
+{
+  "observed_at": "2026-10-13T11:41:12.287712+00:00",
+  "repository": "victron-venus/dbus-event-log",
+  "tag": "v0.2.1-rc.3",
+  "source": "a02ec28b1b406a760bf9a61032e90df277589c6f",
+  "release_url": "https://github.com/victron-venus/dbus-event-log/releases/tag/v0.2.1-rc.3",
+  "build_run_url": "https://github.com/victron-venus/dbus-event-log/actions/runs/38344408225",
+  "passed": true,
+  "scope": "Independent native Linux ARM64 companion-host container acceptance of the authenticated release archive, plus static AMD64 and ARM64 selected Python/runtime ELF inventory.",
+  "authentication": {
+    "signed_inventory_positive_returncode": 0,
+    "wrong_source_rejected_returncode": 1,
+    "detached_original_amd64_arm64_provenance_verified": true,
+    "oci_sha256": "d2dfe61f00677359727b3261fa1b0fd6c23a6cd45fd809fc12320474ad768e39",
+    "oci_size": 335206400,
+    "source_archive_sha256": "4cfc59d4ef274ef74963ee3c4541d29d13cd618afb8ee203b42800a6239996c1"
+  },
+  "execution_binding": {
+    "observed_at": "2026-10-13T11:41:23.660699+00:00",
+    "archive_sha256": "d2dfe61f00677359727b3261fa1b0fd6c23a6cd45fd809fc12320474ad768e39",
+    "loaded_index_digest": "sha256:c90a387979ba344465cefade149095198b875d442762c664a32ce195ceef8d76",
+    "native_manifest_digest": "sha256:20f430e86ea7e4e8c61755576537a65fc3917e42db15f42c071fcd24badd9b87",
+    "native_config_digest": "sha256:35c3ddbd511fe76a932d4a615e2967469fffda4284ca1ce9685888b63989df04",
+    "rootfs_layer_count": 13,
+    "rootfs_diff_ids_match": true,
+    "config_user_labels_environment_match": true,
+    "source_label_matches": true,
+    "passed": true
+  },
+  "runtime": {
+    "machine": "aarch64",
+    "uid": 1000,
+    "version": "0.2.1",
+    "native_imports": [
+      "GLib",
+      "Gio",
+      "cairo"
+    ],
+    "CapEff": "0000000000000000",
+    "NoNewPrivs": "1",
+    "randomize_va_space": "2",
+    "ADDR_NO_RANDOMIZE": false,
+    "writable_executable_mappings": 0,
+    "stack_executable": false
+  },
+  "restrictions": {
+    "read_only_rootfs": true,
+    "tmpfs_tmp": true,
+    "network": "none",
+    "capabilities_dropped": "ALL",
+    "no_new_privileges": true,
+    "memory_limit_bytes": 536870912,
+    "pid_limit": 128
+  },
+  "cli": {
+    "checks": [
+      {
+        "format": "json",
+        "target": "stdout",
+        "exit_code": 0,
+        "passed": true,
+        "error": null
+      },
+      {
+        "format": "json",
+        "target": "file",
+        "exit_code": 0,
+        "passed": true,
+        "error": null
+      },
+      {
+        "format": "csv",
+        "target": "stdout",
+        "exit_code": 0,
+        "passed": true,
+        "error": null
+      },
+      {
+        "format": "csv",
+        "target": "file",
+        "exit_code": 0,
+        "passed": true,
+        "error": null
+      }
+    ]
+  },
+  "help": {
+    "escape_free": true,
+    "usage_and_query_export_commands_present": true
+  },
+  "private_dbus_smoke": {
+    "passed": true,
+    "source_member": "source/tests/smoke_monitor.py",
+    "sha256": "14bb003ba9f1b1b750e99ae3a3435472d566eb8becaefec649eac36af434b880",
+    "production_bus_accessed": false
+  },
+  "elf_summary": [
+    {
+      "architecture": "amd64",
+      "count": 93,
+      "gnu_relro": 93,
+      "immediate_binding": 1,
+      "nonexecutable_stack": 93,
+      "executable_stack": 0,
+      "stack_metadata_absent": 0,
+      "stack_chk_fail_symbol": 74
+    },
+    {
+      "architecture": "arm64",
+      "count": 93,
+      "gnu_relro": 93,
+      "immediate_binding": 1,
+      "nonexecutable_stack": 93,
+      "executable_stack": 0,
+      "stack_metadata_absent": 0,
+      "stack_chk_fail_symbol": 74
+    }
+  ],
+  "elf_architectures": [
+    {
+      "platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "manifest_digest": "sha256:6beb81e6239e3470d9de46c85e6a5e3157b038f5c8986c4a2b1214276bb71c2c",
+      "config_digest": "sha256:592a6dbed0f9f26999f0367450bae6d87c6188dbfd9697301363079c986c9ebb"
+    },
+    {
+      "platform": {
+        "architecture": "arm64",
+        "os": "linux"
+      },
+      "manifest_digest": "sha256:20f430e86ea7e4e8c61755576537a65fc3917e42db15f42c071fcd24badd9b87",
+      "config_digest": "sha256:35c3ddbd511fe76a932d4a615e2967469fffda4284ca1ce9685888b63989df04"
+    }
+  ],
+  "evidence_sha256": {
+    "receipt.json": "e55ef9612eeb023b2bf80ff0369ee44450ca049646cc7854bf4e50cae32f7143",
+    "elf.json": "17ebf0cd139f4c2de87b1265b15cf5f68f85c10cd25cf4a5e669445c58b9fd8b",
+    "image-binding.json": "2b5b447139dc7182b400e6e75bab18e40d3a029c3b3b697eb415edb66c4edc46",
+    "cli-output.stdout": "a242ff14e319f757c9557fb2ad152eb6abcece66edbca16e16872fac9e54cee0",
+    "native-runtime.stdout": "c9e39730286f369a2a77630bce28dad1bac404496261e97f080c18a57b203c97",
+    "private-dbus-smoke.stderr": "ba1fe487fc1c121ee2ab7453772135f94baf05ff50b04bf541cf215673ce79c8",
+    "cli-help.stdout": "1386def1388aca7f997b721afa7803244daae27952aac534aa27477ced9306f6"
+  },
+  "limits": [
+    "No production device access or modification.",
+    "No local AMD64 execution; both architectures are statically inventoried.",
+    "This companion-host container test does not establish Venus OS ABI compatibility or a native Cerbo SetupHelper installation.",
+    "Only a private synthetic D-Bus was exercised; no physical-device or production system-bus capture was performed.",
+    "No live MQTT broker, TimescaleDB, or external device integration tested.",
+    "Release signature verification is performed separately; expected hashes must come from that verified release.",
+    "ELF inventory covers /usr/local/bin/python* and shared objects under /usr/local/lib, not every executable or system library in the image.",
+    "GNU_RELRO is partial except where immediate binding is present; canary symbol presence is not function-by-function coverage.",
+    "No blanket full-RELRO, native-dependency fortification, sanitizer, or screen-reader/WCAG claim.",
+    "Acceptance restrictions are explicit test invocation options, not a claim that every deployment automatically applies them."
+  ]
+}

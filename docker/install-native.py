@@ -6,7 +6,8 @@ import sys
 import tarfile
 from pathlib import Path
 
-ROOT = Path("/tmp/event-native-build")
+# This fixed build-only path is below root-owned /opt, outside the shared /tmp namespace.
+ROOT = Path("/opt/event-native-build")
 DOWNLOADS = ROOT / "downloads"
 WHEELS = ROOT / "wheels"
 

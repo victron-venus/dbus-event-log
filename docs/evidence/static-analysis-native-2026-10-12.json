@@ -1,0 +1,553 @@
+{
+  "reviewed_on": "2026-10-12",
+  "tool": "Bandit 1.9.2",
+  "scope": "Same directory exclusions as scripts/ci.sh, all severities retained for review. No medium/high findings are considered resolved solely because CI gates HIGH severity.",
+  "source_binding": "Per-file SHA-256 values identify the exact reviewed source.",
+  "findings": [
+    {
+      "file": ".github/release-tests/test_assemble_native_container.py",
+      "line": 14,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "a4103528fb0ef318758a0ffdd9384db35ae78178bb048fcbb9400576d8c43362"
+    },
+    {
+      "file": ".github/release-tests/test_assemble_native_container.py",
+      "line": 116,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "a4103528fb0ef318758a0ffdd9384db35ae78178bb048fcbb9400576d8c43362"
+    },
+    {
+      "file": ".github/release-tests/test_merge_oci_archives.py",
+      "line": 13,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "8a53fac2c0ea81be14b25f39e7ebc88695f1271d838e71d4d8f18ff2f5839593"
+    },
+    {
+      "file": ".github/release-tests/test_merge_oci_archives.py",
+      "line": 687,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "8a53fac2c0ea81be14b25f39e7ebc88695f1271d838e71d4d8f18ff2f5839593"
+    },
+    {
+      "file": ".github/release-tests/test_merge_oci_archives.py",
+      "line": 689,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "8a53fac2c0ea81be14b25f39e7ebc88695f1271d838e71d4d8f18ff2f5839593"
+    },
+    {
+      "file": ".github/release-tests/test_merge_oci_archives.py",
+      "line": 719,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "8a53fac2c0ea81be14b25f39e7ebc88695f1271d838e71d4d8f18ff2f5839593"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_adapter.py",
+      "line": 7,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "7891e815335f9ae85c0218ab9c353d4b7cc2a16ee95919077827b99fb9dab545"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_adapter.py",
+      "line": 94,
+      "rule": "B607",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "7891e815335f9ae85c0218ab9c353d4b7cc2a16ee95919077827b99fb9dab545"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_adapter.py",
+      "line": 94,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "7891e815335f9ae85c0218ab9c353d4b7cc2a16ee95919077827b99fb9dab545"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_adapter.py",
+      "line": 257,
+      "rule": "B607",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "7891e815335f9ae85c0218ab9c353d4b7cc2a16ee95919077827b99fb9dab545"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_adapter.py",
+      "line": 257,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "7891e815335f9ae85c0218ab9c353d4b7cc2a16ee95919077827b99fb9dab545"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_check.py",
+      "line": 9,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "9460b4a29ceef43bbbcbdc0299c111cdf3e0d66a77af38096d6501e538410c3d"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_check.py",
+      "line": 68,
+      "rule": "B607",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "9460b4a29ceef43bbbcbdc0299c111cdf3e0d66a77af38096d6501e538410c3d"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_check.py",
+      "line": 68,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "9460b4a29ceef43bbbcbdc0299c111cdf3e0d66a77af38096d6501e538410c3d"
+    },
+    {
+      "file": ".github/release-tests/test_native_container_check.py",
+      "line": 88,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "9460b4a29ceef43bbbcbdc0299c111cdf3e0d66a77af38096d6501e538410c3d"
+    },
+    {
+      "file": ".github/release-tests/test_release_control.py",
+      "line": 580,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "9b9f596699d5b8d06df8e1dab9372f12ea1ef02b68d3b8e9b9a7fc4bc034ed66"
+    },
+    {
+      "file": ".github/release-tests/test_release_notes.py",
+      "line": 89,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "f46890913de2f97502beafa26536a0b835c14e4b7c403a81ab4ba82d092e5fc1"
+    },
+    {
+      "file": ".github/release-tests/test_release_notes.py",
+      "line": 90,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "f46890913de2f97502beafa26536a0b835c14e4b7c403a81ab4ba82d092e5fc1"
+    },
+    {
+      "file": ".github/release-tests/test_release_notes.py",
+      "line": 91,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "f46890913de2f97502beafa26536a0b835c14e4b7c403a81ab4ba82d092e5fc1"
+    },
+    {
+      "file": ".github/release-tests/test_verified_publication.py",
+      "line": 11,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "d5c4af107b6093e764246ca0ffc3a737d52919cf32ab0d8f892e1fcc70613b0b"
+    },
+    {
+      "file": ".github/security-tests/test_bandit_discovery.py",
+      "line": 5,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "059fec15d1ac23fa173ce7ebf2685ef70fdc72a28fcbcae261afd44ac279ae65"
+    },
+    {
+      "file": ".github/security-tests/test_bandit_discovery.py",
+      "line": 55,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Subprocess use in tests executes fixed test commands or the active Python interpreter with argument arrays and shell=False. Fixtures/worktrees are disposable and inputs are controlled by tests.",
+      "source_sha256": "059fec15d1ac23fa173ce7ebf2685ef70fdc72a28fcbcae261afd44ac279ae65"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 20,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "2a8367d5f6f4eac1c52fd7ea4bd7c6e611049de69b22e61f82d3d224802a0dc7"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 21,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "2a8367d5f6f4eac1c52fd7ea4bd7c6e611049de69b22e61f82d3d224802a0dc7"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 24,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "2a8367d5f6f4eac1c52fd7ea4bd7c6e611049de69b22e61f82d3d224802a0dc7"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 25,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "2a8367d5f6f4eac1c52fd7ea4bd7c6e611049de69b22e61f82d3d224802a0dc7"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 26,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "2a8367d5f6f4eac1c52fd7ea4bd7c6e611049de69b22e61f82d3d224802a0dc7"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 29,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "2a8367d5f6f4eac1c52fd7ea4bd7c6e611049de69b22e61f82d3d224802a0dc7"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 31,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "2a8367d5f6f4eac1c52fd7ea4bd7c6e611049de69b22e61f82d3d224802a0dc7"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 32,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "2a8367d5f6f4eac1c52fd7ea4bd7c6e611049de69b22e61f82d3d224802a0dc7"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 34,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "2a8367d5f6f4eac1c52fd7ea4bd7c6e611049de69b22e61f82d3d224802a0dc7"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 38,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "2a8367d5f6f4eac1c52fd7ea4bd7c6e611049de69b22e61f82d3d224802a0dc7"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 39,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "2a8367d5f6f4eac1c52fd7ea4bd7c6e611049de69b22e61f82d3d224802a0dc7"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 41,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "2a8367d5f6f4eac1c52fd7ea4bd7c6e611049de69b22e61f82d3d224802a0dc7"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 44,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "2a8367d5f6f4eac1c52fd7ea4bd7c6e611049de69b22e61f82d3d224802a0dc7"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 51,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "2a8367d5f6f4eac1c52fd7ea4bd7c6e611049de69b22e61f82d3d224802a0dc7"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 52,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "2a8367d5f6f4eac1c52fd7ea4bd7c6e611049de69b22e61f82d3d224802a0dc7"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 53,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "2a8367d5f6f4eac1c52fd7ea4bd7c6e611049de69b22e61f82d3d224802a0dc7"
+    },
+    {
+      "file": ".github/workflow-tests/test_scorecard_workflow.py",
+      "line": 57,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Test oracle assertion in test/fixture code. Tests run without Python optimization; this is not a production authorization check.",
+      "source_sha256": "2a8367d5f6f4eac1c52fd7ea4bd7c6e611049de69b22e61f82d3d224802a0dc7"
+    },
+    {
+      "file": "docker/install-native.py",
+      "line": 4,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Build-only installer executes the active Python interpreter with fixed pip subcommands and argument arrays, shell=False. Source downloads are hash-required, extraction uses the data filter, native build paths are stable below root-owned /opt, and the build directory is removed after installation.",
+      "source_sha256": "68074214ed01fe71be8f2cae59f4b21507eb6eafa907497168b60378230c3127"
+    },
+    {
+      "file": "scripts/assemble_native_container.py",
+      "line": 16,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "0481eb8b5cc4486567d3047bb3f38384688405bb36775f58cd7f5afc9a008420"
+    },
+    {
+      "file": "scripts/assemble_native_container.py",
+      "line": 224,
+      "rule": "B607",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "0481eb8b5cc4486567d3047bb3f38384688405bb36775f58cd7f5afc9a008420"
+    },
+    {
+      "file": "scripts/assemble_native_container.py",
+      "line": 224,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "0481eb8b5cc4486567d3047bb3f38384688405bb36775f58cd7f5afc9a008420"
+    },
+    {
+      "file": "scripts/package_release.py",
+      "line": 10,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "dc1aac185f6292a712f37a9e41c90f03a90ea14fe5b93f5ace25ee2bc30ce005"
+    },
+    {
+      "file": "scripts/package_release.py",
+      "line": 38,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "dc1aac185f6292a712f37a9e41c90f03a90ea14fe5b93f5ace25ee2bc30ce005"
+    },
+    {
+      "file": "scripts/package_release.py",
+      "line": 69,
+      "rule": "B607",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "dc1aac185f6292a712f37a9e41c90f03a90ea14fe5b93f5ace25ee2bc30ce005"
+    },
+    {
+      "file": "scripts/package_release.py",
+      "line": 69,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "dc1aac185f6292a712f37a9e41c90f03a90ea14fe5b93f5ace25ee2bc30ce005"
+    },
+    {
+      "file": "scripts/package_release.py",
+      "line": 147,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "dc1aac185f6292a712f37a9e41c90f03a90ea14fe5b93f5ace25ee2bc30ce005"
+    },
+    {
+      "file": "scripts/package_release.py",
+      "line": 152,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "dc1aac185f6292a712f37a9e41c90f03a90ea14fe5b93f5ace25ee2bc30ce005"
+    },
+    {
+      "file": "scripts/publish_verified.py",
+      "line": 20,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "764d512dd78a26a348eedfd50e37fa4ffddb31c5010f1c8d634e930dce070f8d"
+    },
+    {
+      "file": "scripts/publish_verified.py",
+      "line": 148,
+      "rule": "B607",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "764d512dd78a26a348eedfd50e37fa4ffddb31c5010f1c8d634e930dce070f8d"
+    },
+    {
+      "file": "scripts/publish_verified.py",
+      "line": 148,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "764d512dd78a26a348eedfd50e37fa4ffddb31c5010f1c8d634e930dce070f8d"
+    },
+    {
+      "file": "scripts/publish_verified.py",
+      "line": 273,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "764d512dd78a26a348eedfd50e37fa4ffddb31c5010f1c8d634e930dce070f8d"
+    },
+    {
+      "file": "scripts/verified_images.py",
+      "line": 16,
+      "rule": "B404",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "16e66685364277555dd246b072c679546c361929be3efe45f5b6ff47b92f77b0"
+    },
+    {
+      "file": "scripts/verified_images.py",
+      "line": 127,
+      "rule": "B607",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "16e66685364277555dd246b072c679546c361929be3efe45f5b6ff47b92f77b0"
+    },
+    {
+      "file": "scripts/verified_images.py",
+      "line": 127,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "16e66685364277555dd246b072c679546c361929be3efe45f5b6ff47b92f77b0"
+    },
+    {
+      "file": "scripts/verified_images.py",
+      "line": 132,
+      "rule": "B607",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "16e66685364277555dd246b072c679546c361929be3efe45f5b6ff47b92f77b0"
+    },
+    {
+      "file": "scripts/verified_images.py",
+      "line": 132,
+      "rule": "B603",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Release tool uses argument arrays and shell=False. Executables are fixed git/Python/skopeo commands; source policies and version/asset destinations are validated before publication. Operator/CI PATH and tool installation remain trusted environment inputs, not network-controlled commands. Tests cover malformed metadata and unverified publication rejection.",
+      "source_sha256": "16e66685364277555dd246b072c679546c361929be3efe45f5b6ff47b92f77b0"
+    },
+    {
+      "file": "src/dbus_event_log/method_capture.py",
+      "line": 228,
+      "rule": "B110",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "D-Bus credential lookup may fail for vanished callers or denied bus policy. The fallback explicitly records credentials_status=unavailable and does not invent an authenticated identity. Capture is observational, not an authorization gateway.",
+      "source_sha256": "b9723202c7e99d32e4e02b2784a1ce502c2d6fabea3dde7f220604d47c7325fa"
+    },
+    {
+      "file": "src/dbus_event_log/monitor.py",
+      "line": 146,
+      "rule": "B101",
+      "severity": "LOW",
+      "disposition": "reviewed_acceptable_use",
+      "rationale": "Internal method-dispatch invariant and type narrowing: capture is initialized before scheduling this task. It is not an authorization or input-validation check; disabling asserts cannot grant access.",
+      "source_sha256": "1741dc59fad30b3be6df9c1726983846919279bf827e7beb4b90b2016b03da01"
+    }
+  ],
+  "errors": [],
+  "follow_up": [
+    "The new B108 fixed-/tmp warning was resolved by moving build staging below root-owned /opt; no rule suppression was added.",
+    "TemporaryDirectory alias cleanup was independently reviewed and covered by failure/race tests in toolkit PR143."
+  ]
+}

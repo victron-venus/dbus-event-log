@@ -1,6 +1,13 @@
 recursive-include tests *.py
 include scripts/validate_scorecard_json.py
+include scripts/check_container_repeatability.py
+include scripts/release_provenance.py
+include scripts/merge_oci_archives.py
+include scripts/version_plan.py
+include scripts/release_control.py
 include scripts/cerbo-manual.sh
+recursive-include docker *.py *.sources
+include requirements*.txt
 include docker-compose.yml
 include Dockerfile
 include config.yaml.example

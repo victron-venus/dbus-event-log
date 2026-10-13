@@ -37,10 +37,10 @@ commands, environments, measurements and limitations. The local entry point is
 [scripts/ci.sh](../scripts/ci.sh); the combined suite covers application,
 workflow and release tooling. Python warnings fail the test suite.
 
-- [Measured Python coverage](evidence/coverage-2026-10-12.json) includes source
+- [Measured Python coverage](evidence/container-build-python-2026-10-12.json) includes source
   hashes and unexecuted maintained Python modules.
-- [Coverage scope](evidence/coverage-scope-2026-10-12.json) and its
-  [reproduction method](evidence/coverage-scope-method.md) include conservative
+- [Coverage scope](evidence/container-build-scope-2026-10-12.json) and its
+  [reproduction method](evidence/container-build-scope-method.md) include conservative
   zero-credit allowances for maintained non-Python executable source. The
   resulting bound is not a measured shell, branch or native-library coverage rate.
 - [Regression ledger](evidence/regressions-2026-10-12.json) links reviewed fixes

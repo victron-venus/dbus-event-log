@@ -24,6 +24,8 @@ RUN test "$(. /etc/os-release && echo "$VERSION_CODENAME")" = trixie && \
     gcc \
     libcairo2-dev \
     pkg-config \
+    && chage --lastday "$((SOURCE_DATE_EPOCH / 86400))" messagebus \
+    && rm -f /etc/passwd- /etc/group- /etc/shadow- /etc/gshadow- \
     && dpkg-query -W -f='${Package} ${Version} ${Architecture}\n' | LC_ALL=C sort > /usr/share/dbus-event-log-debian-packages.txt \
     && rm -rf /var/lib/apt/lists/* /var/log/apt/* /var/log/dpkg.log /var/log/alternatives.log \
     /var/cache/ldconfig/aux-cache /var/lib/dbus/machine-id

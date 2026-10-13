@@ -22,10 +22,17 @@ hosts the rendered documentation and contribution interface.
 
 ## Review boundary
 
-This review checked the repository's Markdown, diagram descriptions and CLI
-output options. It did not test the tables with a screen reader or establish
-WCAG conformance for GitHub or an operator's Grafana dashboard. The OpenSSF
-assessment records the remaining review requirement.
+The dated [CLI review](evidence/accessibility-cli-2026-10-12.json) exercised the
+actual command entry point against an isolated SQLite fixture: main/query/export
+help was readable without terminal colour escapes, and JSON/CSV exports preserved
+the fixture's named fields. JSON standard output also preserved long strings,
+literal terminal markup, Unicode and embedded newlines without wrapping or interpretation. The [rendered README review](evidence/accessibility-browser-2026-10-12.json) also checked headings,
+labelled badge images, real table headers and keyboard navigation to this page.
+Diagram alternatives and machine-readable output remain available.
+
+This is a scoped review of authored documentation and text interfaces. It did not
+test a screen reader or establish WCAG conformance for GitHub or an operator's
+Grafana dashboard.
 
 Report a barrier through [GitHub Issues](https://github.com/victron-venus/dbus-event-log/issues).
 Include the affected page or command, expected behaviour, platform and assistive

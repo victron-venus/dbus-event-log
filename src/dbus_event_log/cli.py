@@ -351,7 +351,8 @@ def _output_events(events: list[dict[str, Any]], fmt: str, output: str | None) -
             Path(output).write_text(data, encoding="utf-8")
             console.print(f"Written to {output}")
         else:
-            console.print(data)
+            # JSON is a machine-readable stream: never wrap text or interpret markup.
+            click.echo(data)
     elif fmt == "csv":
         if not events:
             console.print("No events to output")

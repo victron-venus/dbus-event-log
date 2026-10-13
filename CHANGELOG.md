@@ -10,6 +10,9 @@ Captures D-Bus signals, method calls and replies for temporary troubleshooting. 
 
 ### Maintenance
 
+- Preserve arbitrary event text in JSON standard output, including long strings,
+  Unicode, literal terminal markup and embedded newlines.
+
 - Freeze container package repositories and native source/build paths, and compare
   two independent native builds of each supported architecture in required CI.
 - Preserve the original container attestations in an authenticated, separately

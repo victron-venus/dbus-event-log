@@ -1,0 +1,58 @@
+{
+  "measured_on": "2026-10-12",
+  "source": "893979e13a6785d29694a7e18bb9c52d288e2af5",
+  "scope": "Actual Click command entry point with temporary on-disk SQLite fixture; no production connections; color disabled.",
+  "checks": [
+    {
+      "arguments": [
+        "--help"
+      ],
+      "exit_code": 0,
+      "contains_terminal_escape": false,
+      "text_sha256": "2467e66d64e43e2e2b144322bc7116aad75c6a34487ca3a58a219be80483e40a"
+    },
+    {
+      "arguments": [
+        "query",
+        "--help"
+      ],
+      "exit_code": 0,
+      "contains_terminal_escape": false,
+      "text_sha256": "a24a77d49b92ef1229b10a92945f9ad275edab5154bcbfe28af43cc2434e7c56"
+    },
+    {
+      "arguments": [
+        "export",
+        "--help"
+      ],
+      "exit_code": 0,
+      "contains_terminal_escape": false,
+      "text_sha256": "f5834db544de719d7d69742e84b160f1c29e6d46485c51af3230b1a543a0de61"
+    },
+    {
+      "format": "json",
+      "target": "stdout",
+      "exit_code": 0,
+      "long_markup_unicode_newline_preserved": true
+    },
+    {
+      "format": "json",
+      "exit_code": 0,
+      "structured_rows": 1,
+      "fixture_preserved": true
+    },
+    {
+      "format": "csv",
+      "exit_code": 0,
+      "structured_rows": 1,
+      "fixture_preserved": true
+    }
+  ],
+  "limitations": [
+    "No screen reader tested.",
+    "No WCAG conformance or GitHub/Grafana application accessibility claim."
+  ],
+  "source_binding": {
+    "src/dbus_event_log/cli.py": "db2a84c45ec38459e3bfc32794579f028e8ff926d44d35749e335d95b52b1644"
+  }
+}

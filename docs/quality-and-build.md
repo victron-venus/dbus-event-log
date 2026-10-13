@@ -10,7 +10,7 @@ The combined pytest invocation includes `tests/`, `.github/workflow-tests/` and 
 
 ## Coverage across maintained source languages
 
-The [source-scope inventory](evidence/coverage-scope-2026-10-12.json), with its [public reproduction recipe](evidence/coverage-scope-method.md), counts tracked shell scripts, workflow `run` steps, embedded Python and shell programs, release-policy command strings and the unused CLI fallback, and Docker build instructions where present. It uses language-appropriate AST statement units and conservative allowances for text-tool expressions and Docker instructions. All 426 additional units receive **zero execution credit**. Combined with the source-bound [CLI follow-up measurement](evidence/timescale-cli-2026-10-12.json), the conservative bound is 5292 / (5964 + 426) = **82.8169%**. This is not a measurement of shell or native-library coverage. Dependencies, declarative configuration, tests and documentation examples are distinguished explicitly in the inventory. Repeat this review when maintained source languages or embedded scripts change.
+The current [source-scope inventory](evidence/container-build-scope-2026-10-12.json), with its [public reproduction recipe](evidence/container-build-scope-method.md), counts tracked shell scripts, workflow `run` steps, embedded Python and shell programs, release-policy command strings and the unused CLI fallback, Docker instructions and the two coverage.py exclusion units. All **460 additional units receive zero execution credit**. Combined with the [current Python measurement](evidence/container-build-python-2026-10-12.json), the conservative bound is **5679 / (6436 + 460) = 82.3521%**. The full suite passed 909 tests with one environment-specific skip. New native installer and provenance code is included; the installer has zero Python coverage credit despite separate container execution. This is not a measurement of shell, branch or native-library coverage. Repeat this review whenever maintained code or embedded script forms change. Previous coverage records remain dated historical evidence.
 
 ## Repeating the build
 
@@ -49,3 +49,5 @@ new CLI regression cases fail before the fix. The full suite covers 5292 of
 non-Python units gave a conservative 82.9597% bound; the current inventory above
 also includes the later native build-flag support. The tests use a controlled asyncpg
 boundary and do not establish live database or device acceptance.
+
+The [native container procedure](container-repeatability.md) now adds a required full-archive cold-build comparison. Only successful, source-bound CI evidence establishes container repeatability; the historical wheel-only record above does not.

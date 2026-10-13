@@ -47,7 +47,14 @@ build_start=$SECONDS
 # Buildx/BuildKit >= 0.13 support multiple exporters from one build result.
 # Retain default inline-only provenance in OCI; Docker loads the same build for smoke.
 # Explicit global --provenance conflicts with the classic Docker exporter.
+build_arguments=()
+for variable in CC CFLAGS CXX CXXFLAGS LDFLAGS; do
+  if [[ -v "$variable" ]]; then
+    build_arguments+=(--build-arg "$variable=${!variable}")
+  fi
+done
 docker buildx build --progress plain --platform "$platform" \
+  "${build_arguments[@]}" \
   --label "org.opencontainers.image.version=$package_version" \
   --label "org.opencontainers.image.revision=$source_revision" \
   --tag "$image" \

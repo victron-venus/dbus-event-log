@@ -6,7 +6,7 @@ This is the verification recipe used for the dated evidence, not an application 
 SHFMT=/absolute/path/to/shfmt .venv-ci/bin/python /tmp/audit-scope.py "$PWD" > /tmp/coverage-scope.json
 ```
 
-The script reads tracked source and the existing measured Python coverage JSON. It parses source without running project scripts and writes only its report to stdout. The recorded totals are reproducible from the reviewed commit. Embedded command forms, language classification and the exclusions were also reviewed manually; this recipe is tailored to these projects, not a universal static-analysis parser. Reassess it when adding languages or other ways to execute embedded code. The Python and shell statement units differ: no shell execution is credited, compound shell statements are included, and extra Docker/Compose/text-tool allowances make the bound conservative.
+The script reads tracked source and the source-bound TimescaleDB CLI follow-up measurement. It verifies every recorded maintained Python source hash before using that measurement; the original coverage JSON remains historical evidence. It parses source without running project scripts and writes only its report to stdout. The recorded totals are reproducible from the reviewed commit. Embedded command forms, language classification and the exclusions were also reviewed manually; this recipe is tailored to these projects, not a universal static-analysis parser. Reassess it when adding languages or other ways to execute embedded code. The Python and shell statement units differ: no shell execution is credited, compound shell statements are included, and extra Docker/Compose/text-tool allowances make the bound conservative.
 
 
 The inventory also counts the two `local_checks` command strings in
@@ -190,9 +190,16 @@ for root_arg in sys.argv[1:]:
                     f"scripts/release.py:{call.lineno}:local_checks-fallback",
                     records,
                 )
-    cov = json.loads((root / "docs/evidence/coverage-2026-10-12.json").read_text())
+    measurement_path = root / "docs/evidence/timescale-cli-2026-10-12.json"
+    measurement_bytes = measurement_path.read_bytes()
+    measurement = json.loads(measurement_bytes)
+    for relative, entry in measurement["production_files"].items():
+        actual = hashlib.sha256((root / relative).read_bytes()).hexdigest()
+        if actual != entry["sha256"]:
+            raise ValueError(f"Python measurement is stale for {relative}")
+    cov = measurement["coverage"]
     extra = sum(x["zero_coverage_statements"] for x in records)
-    lower = cov["covered_statements"] / (cov["statements"] + extra) * 100
+    lower = cov["python_covered_statements"] / (cov["python_statements"] + extra) * 100
     d = {
         "measured_on": "2026-10-12",
         "parser": {
@@ -202,8 +209,12 @@ for root_arg in sys.argv[1:]:
             "source_url": "https://github.com/mvdan/sh/releases/tag/v3.14.1",
         },
         "method": "Count every Bash AST Stmt node, including compound statements and nested command substitutions, across all tracked shell files (including extensionless shebang scripts) and every GitHub Actions run step. Replace Actions expressions with a non-executable placeholder before parsing. Recursively count heredoc shell, SSH/trap command strings, and count embedded Python heredoc/-c AST statements separately at zero coverage. Add conservative sed/awk expression units and all Docker instructions plus RUN shell. Each declarative Compose command/entrypoint receives another zero-coverage unit. Local release-policy shell command strings and the CLI fallback command are also counted, including wrappers around already-counted scripts. No non-Python execution credit is used.",
-        "python_covered_statements": cov["covered_statements"],
-        "python_statements": cov["statements"],
+        "python_measurement": {
+            "path": str(measurement_path.relative_to(root)),
+            "sha256": hashlib.sha256(measurement_bytes).hexdigest(),
+        },
+        "python_covered_statements": cov["python_covered_statements"],
+        "python_statements": cov["python_statements"],
         "additional_zero_coverage_units": extra,
         "aggregate_conservative_lower_bound_percent": round(lower, 4),
         "records": records,

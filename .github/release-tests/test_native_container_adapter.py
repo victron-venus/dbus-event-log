@@ -143,6 +143,34 @@ class NativeContainerAdapterTests(unittest.TestCase):
             {"container-amd64.oci.tar", "native-build.json", "release-inputs-native-amd64.json"},
         )
 
+    def test_compiler_variables_preserve_exact_values_without_shell_evaluation(self) -> None:
+        """Each caller value is one build argument, including spaces and metacharacters."""
+        values = {
+            "CC": "gcc -fno-inline",
+            "CFLAGS": "-O1 -DNAME='two words' $(touch injected); *",
+            "CXX": "g++",
+            "CXXFLAGS": "-O2 -g",
+            "LDFLAGS": "-Wl,--build-id=sha1",
+        }
+        self.environment.update(values)
+        result = self._run()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        build = next(call for call in self._calls() if call[:2] == ["buildx", "build"])
+        arguments = [build[i + 1] for i, value in enumerate(build) if value == "--build-arg"]
+        self.assertEqual(arguments, [f"{key}={value}" for key, value in values.items()])
+        self.assertFalse((self.root / "injected").exists())
+
+    def test_unset_compiler_variables_are_omitted_and_explicit_empty_is_preserved(self) -> None:
+        """Do not overwrite toolchain defaults merely because a host variable is absent."""
+        for key in ("CC", "CFLAGS", "CXX", "CXXFLAGS", "LDFLAGS"):
+            self.environment.pop(key, None)
+        self.environment["CFLAGS"] = ""
+        result = self._run()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        build = next(call for call in self._calls() if call[:2] == ["buildx", "build"])
+        arguments = [build[i + 1] for i, value in enumerate(build) if value == "--build-arg"]
+        self.assertEqual(arguments, ["CFLAGS="])
+
     def test_arm64_runner_produces_arm64_evidence(self) -> None:
         """ARM64 uses the same adapter with its native host and image architecture."""
         self.environment.update(

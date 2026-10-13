@@ -25,6 +25,14 @@ COPY pyproject.toml README.md LICENSE requirements-docker*.txt ./
 COPY src/ ./src/
 COPY config.yaml.example ./config.yaml
 
+# Build-only inputs honor caller compiler/linker settings for native dependencies.
+# ARG values reach RUN but are not persisted in the runtime environment.
+ARG CC
+ARG CFLAGS
+ARG CXX
+ARG CXXFLAGS
+ARG LDFLAGS
+
 # Install the real D-Bus monitoring bindings and fail the build if imports break.
 RUN pip install --no-cache-dir --only-binary=:all: --require-hashes -r requirements-docker-build.txt && \
     pip install --no-cache-dir --only-binary=:all: --no-binary=pycairo --no-build-isolation --require-hashes -r requirements-docker-cairo.txt && \

@@ -556,7 +556,14 @@ async def test_timescale_query_binds_filters_and_empty_batch_does_not_connect(
     assert "service_name ILIKE $3" in sql
     assert "event_type = $4" in sql
     assert "LIMIT $5 OFFSET $6" in sql
-    assert parameters == ["2024-01-01", "2024-01-02", "%battery%", "error", 2, 3]
+    assert parameters == [
+        datetime(2024, 1, 1, tzinfo=UTC),
+        datetime(2024, 1, 2, tzinfo=UTC),
+        "%battery%",
+        "error",
+        2,
+        3,
+    ]
     await storage.query()
     sql, *parameters = connection.fetch.await_args.args
     assert "WHERE" not in sql
@@ -727,9 +734,113 @@ async def test_timescale_hostile_filters_stay_outside_sql(
     """The driver receives hostile filter content only as bound parameters."""
     storage, connection, _, _ = timescale_driver
     hostile = "x' OR 1=1; DROP TABLE events; --"
-    await storage.query(start_time=hostile, end_time=hostile, service=hostile)
+    await storage.query(start_time="2024-01-01", end_time="2024-01-02", service=hostile)
     sql, *parameters = connection.fetch.await_args.args
     assert hostile not in sql
-    assert parameters == [hostile, hostile, f"%{hostile}%", 1000, 0]
+    assert parameters == [
+        datetime(2024, 1, 1, tzinfo=UTC),
+        datetime(2024, 1, 2, tzinfo=UTC),
+        f"%{hostile}%",
+        1000,
+        0,
+    ]
     assert "timestamp >= $1" in sql and "timestamp <= $2" in sql
     assert "service_name ILIKE $3" in sql and "LIMIT $4 OFFSET $5" in sql
+
+
+@pytest.mark.parametrize("field", ["start_time", "end_time"])
+async def test_timescale_rejects_invalid_timestamp_before_connecting(
+    timescale_driver: tuple[TimescaleDBStorage, MagicMock, AsyncMock, MagicMock],
+    field: str,
+) -> None:
+    """Invalid timestamp text never reaches a database or a driver codec."""
+    storage, _connection, create_pool, _pool = timescale_driver
+    with pytest.raises(ValueError, match="Invalid isoformat"):
+        hostile = "x' OR 1=1; DROP TABLE events; --"
+        if field == "start_time":
+            await storage.query(start_time=hostile)
+        else:
+            await storage.query(end_time=hostile)
+    create_pool.assert_not_awaited()
+
+
+@pytest.mark.parametrize("output_format", ["table", "json", "csv"])
+def test_timescale_cli_awaits_query_and_closes_pool(
+    timescale_driver: tuple[TimescaleDBStorage, MagicMock, AsyncMock, MagicMock],
+    monkeypatch: pytest.MonkeyPatch,
+    output_format: str,
+) -> None:
+    """The real CLI/storage path handles driver timestamps and one event-loop lifetime."""
+    storage, connection, create_pool, pool = timescale_driver
+    loops = []
+
+    async def fetch(_sql: str, *parameters: object) -> list[dict[str, object]]:
+        loops.append(asyncio.get_running_loop())
+        assert parameters == (
+            datetime(2024, 1, 1, tzinfo=UTC),
+            datetime(2024, 1, 2, tzinfo=UTC),
+            "%battery%",
+            "error",
+            2,
+            3,
+        )
+        return [
+            {
+                "timestamp": datetime(2024, 1, 1, 12, tzinfo=UTC),
+                "service_name": "battery",
+                "event_type": "error",
+            }
+        ]
+
+    async def close() -> None:
+        loops.append(asyncio.get_running_loop())
+
+    connection.fetch.side_effect = fetch
+    pool.close.side_effect = close
+    monkeypatch.setattr(cli_module, "get_storage", lambda: storage)
+    monkeypatch.setattr(cli_module, "setup_logging", lambda: None)
+    result = CliRunner().invoke(
+        cli_module.cli,
+        [
+            "query",
+            "--format",
+            output_format,
+            "--since",
+            "2024-01-01",
+            "--until",
+            "2024-01-02T02:00:00+02:00",
+            "--service",
+            "battery",
+            "--type",
+            "error",
+            "--limit",
+            "2",
+            "--offset",
+            "3",
+        ],
+    )
+    assert result.exit_code == 0, result.exception
+    assert "battery" in result.output and "2024-01-01" in result.output
+    create_pool.assert_awaited_once()
+    connection.fetch.assert_awaited_once()
+    pool.close.assert_awaited_once()
+    assert len(loops) == 2 and loops[0] is loops[1] and loops[0].is_closed()
+    assert storage._pool is None
+
+
+def test_timescale_cli_closes_pool_after_query_error(
+    timescale_driver: tuple[TimescaleDBStorage, MagicMock, AsyncMock, MagicMock],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed query cannot leave the driver's pool attached to a closed CLI loop."""
+    storage, connection, _create_pool, pool = timescale_driver
+    connection.fetch.side_effect = RuntimeError("test query failure")
+    monkeypatch.setattr(cli_module, "get_storage", lambda: storage)
+    monkeypatch.setattr(cli_module, "setup_logging", lambda: None)
+    result = CliRunner().invoke(cli_module.cli, ["query", "--format", "json"])
+    assert result.exit_code != 0
+    assert isinstance(result.exception, RuntimeError)
+    assert str(result.exception) == "test query failure"
+    connection.fetch.assert_awaited_once()
+    pool.close.assert_awaited_once()
+    assert storage._pool is None

@@ -37,3 +37,12 @@ Contributions must resolve new warnings, preserve enforced checks, test importan
 ## Warning policy
 
 Python warnings are errors during the entire pytest suite (`filterwarnings = ["error"]`), including release and workflow contracts. Ruff lint and formatting checks fail CI; strict mypy checks also run. Do not add a blanket warning ignore: fix a warning, or document a narrowly matched upstream exception with its rationale. This chooses the useful warning mechanisms for Python rather than enabling mutually conflicting style rules.
+
+## TimescaleDB CLI follow-up
+
+The [query regression record](evidence/timescale-cli-2026-10-12.json) binds the
+follow-up source to 871 passing tests and one optional-environment skip. Four
+new CLI regression cases fail before the fix. The full suite covers 5292 of
+5964 Python statements; including the corrected 415 zero-credit non-Python
+units gives a conservative 82.9597% bound. The tests use a controlled asyncpg
+boundary and do not establish live database or device acceptance.

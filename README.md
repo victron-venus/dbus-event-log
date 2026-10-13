@@ -68,9 +68,10 @@ when those sources cannot explain an incident.
 
 The monitor filters D-Bus messages into structured events and stores them in
 SQLite or TimescaleDB. After storage succeeds, the optional publisher forwards
-events to MQTT. The command-line query and export commands read stored SQLite events
-and produce tables, JSON or CSV; downstream tools can use the storage or MQTT
-feed for their own dashboards.
+events to MQTT. The command-line query reads stored SQLite or TimescaleDB events
+and produces tables, JSON or CSV. The separate export command reads SQLite events
+and writes JSON or CSV. Downstream tools can use the storage or MQTT feed for
+their own dashboards.
 
 ```mermaid
 flowchart TD
@@ -482,6 +483,12 @@ Recheck the firmware-provided Python and GI bindings after a Venus OS upgrade.
 
 ### Query Events
 
+`query` supports SQLite and TimescaleDB. TimescaleDB queries await the database
+response and close their connection pool before the command exits. For TimescaleDB
+time filters, timestamps without an offset mean UTC; explicit offsets are honoured.
+The `query --output` option supports both backends, while the separate `export`
+command and local maintenance commands remain SQLite-only.
+
 ```bash
 # Last 100 events as table
 dbus-event-log query
@@ -499,7 +506,7 @@ dbus-event-log query --type service_added --limit 50
 dbus-event-log export --format csv --output audit.csv --since 7d
 ```
 
-Relative filters such as `30m`, `24h`, and `7d` span hour, day, and month boundaries correctly. CLI query, export, statistics, and maintenance commands currently target SQLite; TimescaleDB is supported for event capture.
+Relative filters such as `30m`, `24h`, and `7d` span hour, day, and month boundaries correctly. Query supports both storage backends; the separate export, statistics, and maintenance commands target SQLite.
 
 ### Statistics
 

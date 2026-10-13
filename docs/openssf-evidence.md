@@ -85,3 +85,11 @@ Toolkit revision `4895f852f87ca1f27e2bc75e24c5c792e4f95aa6` includes verified st
 Toolkit revision `d8089003f43637ee420fa4cbcccdf11f5d21e469` also rejects empty Markdown lists, task items and quotations as release guidance, while preserving literal examples and lists with substantive text.
 
 The CodeQL configuration also analyzes GitHub Actions in its own analysis category; existing application-language analyses remain enabled.
+
+## Silver preparation, October 2026
+
+The [Silver criteria](https://www.bestpractices.dev/en/criteria/1) require Passing first. [Governance](../GOVERNANCE.md), [conduct](../CODE_OF_CONDUCT.md), [roadmap](../ROADMAP.md), [security assurance](security-assurance.md), [quality/build evidence](quality-and-build.md), and the [six-month regression ledger](evidence/regressions-2026-10-12.json) provide project-specific evidence for review.
+
+The combined coverage measurement includes maintained Python release/build tools, including unexecuted files. Configuring a threshold is not evidence of a measured result. The quality document describes exclusions and records the exact local measurement separately from hosted CI.
+
+**Open requirements:** no verified continuity arrangement is in place; inspect an actual signed release before claiming release signatures; resolve and refresh regression-history evidence; confirm all human and response-history answers with the responsible maintainer. This change does not claim a Silver award. The live badge assessment, once submitted, is authoritative.

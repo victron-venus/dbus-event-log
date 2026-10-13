@@ -28,3 +28,11 @@ Validate external values at trust boundaries, reject unsupported or malformed co
 Obtain source and published artifacts through the repository's HTTPS URLs. Verify published checksums or provenance when provided, over an authenticated channel. Keep local configuration, credentials and private keys out of source control and logs. Report suspected exposure through the private channel so credentials can be revoked and replaced; deleting a file alone does not revoke it.
 
 [OpenSSF evidence and remaining verification](docs/openssf-evidence.md) is maintained separately from this policy.
+
+## Recognition, credentials and assurance review
+
+With the reporter's consent, acknowledge vulnerability reporters in the advisory or release notes. Offer anonymity, and do not make credit depend on public disclosure before remediation. This is the policy for future reports; it does not assert a history of reports or awards.
+
+If a repository token, service credential or signing identity is compromised, revoke or disable it at its provider, replace it through the normal secret store, inspect access/publication logs and invalidate affected artifacts where necessary. A source-code deletion does not revoke a credential. Prefer scoped, short-lived credentials; never publish private recovery material.
+
+[The project security assurance case](docs/security-assurance.md) records claims, test evidence and limitations. Revisit it when interfaces, privilege, transport, storage or release mechanisms change. The public issue/PR history records design decisions; confidential details stay in the private reporting channel until coordinated disclosure.

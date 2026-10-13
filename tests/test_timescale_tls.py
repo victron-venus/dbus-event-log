@@ -87,7 +87,17 @@ async def handle_connection(
             writer.write(b"S" if context else b"N")
             await writer.drain()
             if context:
-                await writer.start_tls(context, ssl_handshake_timeout=3)
+                plain_transport = writer.transport
+                try:
+                    await writer.start_tls(context, ssl_handshake_timeout=3)
+                except AttributeError:
+                    # CPython 3.11 can replace _transport with None when the peer
+                    # closes during TLS upgrade. Restore the already-closing
+                    # transport for cleanup; never suppress unrelated failures.
+                    if writer.transport is not None or not plain_transport.is_closing():
+                        raise
+                    setattr(writer, "_transport", plain_transport)
+                    raise ConnectionError("Peer closed during TLS negotiation") from None
                 encrypted = True
             size = struct.unpack("!I", await reader.readexactly(4))[0]
             await reader.readexactly(size - 4)
@@ -123,8 +133,11 @@ async def handle_connection(
     finally:
         writers.discard(writer)
         writer.close()
-        with suppress(ConnectionError, ssl.SSLError):
-            await writer.wait_closed()
+        # A rejected start_tls on Python 3.11 can leave the stream protocol's
+        # close future unresolved. Bound cleanup; the client failure and the
+        # absence of startup/password frames are asserted independently.
+        with suppress(ConnectionError, ssl.SSLError, TimeoutError):
+            await asyncio.wait_for(writer.wait_closed(), timeout=1)
 
 
 @asynccontextmanager

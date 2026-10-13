@@ -16,6 +16,8 @@ jobs:
       dependency-extras: "dev"
       build-dependency-group: build
       python-version: '3.11'
+      coverage-threshold: 80
+      test-args: tests/ .github/workflow-tests/ .github/release-tests/
 
   build:
     name: Build
@@ -34,11 +36,17 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
-          version: "latest"
+          version: "0.12.18"
       - name: Install dependencies
-        run: uv sync --extra dev
+        run: |
+          uv sync --locked --only-group build --no-install-workspace --no-install-local --no-build
+          uv sync --locked --extra dev --group build --no-build-isolation
       - name: Build package
-        run: uv build
+        run: |
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          .venv/bin/python -m build --no-isolation
+          .venv/bin/python -m build --no-isolation --wheel --outdir /tmp/dbus-event-log-repeat
+          cmp dist/*.whl /tmp/dbus-event-log-repeat/*.whl
       - name: Test the source distribution
         run: |
           .venv/bin/python - <<'PY'

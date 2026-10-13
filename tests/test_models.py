@@ -81,3 +81,17 @@ def test_default_timestamp_is_timezone_aware() -> None:
     )
     assert event.timestamp.tzinfo is UTC
     assert event.to_mqtt_payload()["ts"].endswith("+00:00")
+
+
+def test_json_serialization_preserves_timestamp_and_uuid() -> None:
+    """Pydantic's supported serializers retain the existing wire representation."""
+    event = DBusEvent(
+        event_type=EventType.SIGNAL,
+        service_name="com.example",
+        object_path="/",
+        timestamp=datetime(2026, 10, 12, 12, 30, tzinfo=UTC),
+    )
+    encoded = event.model_dump(mode="json")
+    assert encoded["timestamp"] == "2026-10-12T12:30:00+00:00"
+    assert encoded["id"] == str(event.id)
+    assert event.to_dict() == encoded

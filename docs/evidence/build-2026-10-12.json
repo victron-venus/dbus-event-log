@@ -1,0 +1,9 @@
+{
+  "checked_on": "2026-10-12",
+  "source_date_epoch": "1791849353",
+  "wheel": "dbus_event_log-0.2.1-py3-none-any.whl",
+  "wheel_sha256": "0ec0d32588dafbef3de0d3f94941a322c0463ad9e1efa88993953ab86aa56db2",
+  "repeat_wheel_bytes_identical": true,
+  "source_distribution_tests": "passed",
+  "limitations": "Local macOS arm64 build; no claim about cross-platform container/sdist byte identity. Source content as in PR."
+}

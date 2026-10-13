@@ -1,5 +1,8 @@
 # D-Bus Event Log
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15436/badge)](https://www.bestpractices.dev/projects/15436)
+
+
 **A temporary troubleshooting recorder, not a continuously running monitoring service.**
 Start it for a specific incident, reproduce the problem, export the evidence,
 and **stop it when the investigation is finished**. The CLI stops capture after
@@ -622,3 +625,7 @@ MIT - Victron Energy BV
 See [CONTRIBUTING.md](CONTRIBUTING.md) for reports, development checks and pull requests,
 [SECURITY.md](SECURITY.md) for private vulnerability reporting and deployment trust boundaries,
 and the [OpenSSF evidence index](docs/openssf-evidence.md) for assessment references and remaining verification.
+
+## Project maintenance and assurance
+
+See [contributing and local checks](CONTRIBUTING.md), [governance and continuity](GOVERNANCE.md), [code of conduct](CODE_OF_CONDUCT.md), [maintenance roadmap](ROADMAP.md), [security reporting](SECURITY.md), [security assurance](docs/security-assurance.md), and [quality/build evidence](docs/quality-and-build.md). The [OpenSSF evidence index](docs/openssf-evidence.md) distinguishes verified evidence from remaining requirements.

@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 # Bump when DBusEvent fields, MQTT topic layout, or SQLite schema change.
 # Subscribers and storage backends gate migrations on this.
@@ -39,10 +39,7 @@ class SignalType(StrEnum):
 class DBusEvent(BaseModel):
     """Represents a captured D-Bus event."""
 
-    model_config = ConfigDict(
-        populate_by_name=True,
-        json_encoders={datetime: datetime.isoformat, UUID: str},
-    )
+    model_config = ConfigDict(populate_by_name=True)
 
     id: UUID = Field(default_factory=uuid4)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -61,6 +58,11 @@ class DBusEvent(BaseModel):
     error_message: str | None = None
     state_from: str | None = None
     state_to: str | None = None
+
+    @field_serializer("timestamp", when_used="json")
+    def serialize_timestamp(self, value: datetime) -> str:
+        """Preserve the documented ISO timestamp representation in Pydantic 2."""
+        return value.isoformat()
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""

@@ -68,10 +68,10 @@ when those sources cannot explain an incident.
 
 The monitor filters D-Bus messages into structured events and stores them in
 SQLite or TimescaleDB. After storage succeeds, the optional publisher forwards
-events to MQTT. The command-line query reads stored SQLite or TimescaleDB events;
-the separate export command reads SQLite events
-and produce tables, JSON or CSV; downstream tools can use the storage or MQTT
-feed for their own dashboards.
+events to MQTT. The command-line query reads stored SQLite or TimescaleDB events
+and produces tables, JSON or CSV. The separate export command reads SQLite events
+and writes JSON or CSV. Downstream tools can use the storage or MQTT feed for
+their own dashboards.
 
 ```mermaid
 flowchart TD

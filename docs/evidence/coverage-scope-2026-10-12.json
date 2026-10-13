@@ -9,8 +9,8 @@
   "method": "Count every Bash AST Stmt node, including compound statements and nested command substitutions, across all tracked shell files (including extensionless shebang scripts) and every GitHub Actions run step. Replace Actions expressions with a non-executable placeholder before parsing. Recursively count heredoc shell, SSH/trap command strings, and count embedded Python heredoc/-c AST statements separately at zero coverage. Add conservative sed/awk expression units and all Docker instructions plus RUN shell. Each declarative Compose command/entrypoint receives another zero-coverage unit. Local release-policy shell command strings and the CLI fallback command are also counted, including wrappers around already-counted scripts. No non-Python execution credit is used.",
   "python_covered_statements": 5282,
   "python_statements": 5954,
-  "additional_zero_coverage_units": 415,
-  "aggregate_conservative_lower_bound_percent": 82.933,
+  "additional_zero_coverage_units": 426,
+  "aggregate_conservative_lower_bound_percent": 82.79,
   "records": [
     {
       "path": ".github/workflows/ci.yml:jobs.build.steps[4].run",
@@ -35,6 +35,12 @@
       "language": "embedded Python AST statements",
       "zero_coverage_statements": 15,
       "sha256": "2c5026816d3df8b3f5f75a69d5918d899cd684c25cec4e21db443302e4893cb0"
+    },
+    {
+      "path": ".github/workflows/ci.yml:jobs.build-flags.steps[3].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "08d9234ed872ad53131a9f3730ee48c70e04cb410b28c92b078927c60f26914f"
     },
     {
       "path": ".github/workflows/dependency-review.yml:jobs.dependency-review.steps[3].run",
@@ -279,8 +285,8 @@
     {
       "path": "Dockerfile",
       "language": "Docker declarative instruction allowance (in addition to RUN shell)",
-      "zero_coverage_statements": 12,
-      "sha256": "35b6bb51fb39d9cc19b2ed339119e13fd1b0d94c53e683319ad1d55a9a6dc5c0"
+      "zero_coverage_statements": 17,
+      "sha256": "1b6f8cb344a82a052d583a56a3272936f157a3eb13968a3211496541047ca811"
     },
     {
       "path": "Dockerfile:RUN[3]",
@@ -289,19 +295,19 @@
       "sha256": "5a4c5a53aa34d08717c20b83e282964ee7d0d1bb73a35b6033044f5df530f858"
     },
     {
-      "path": "Dockerfile:RUN[7]",
+      "path": "Dockerfile:RUN[12]",
       "language": "Shell AST statements (including compound statements)",
       "zero_coverage_statements": 9,
       "sha256": "75fe54e140468aad4686c46bcbd601d7f87095c75166e86a0f3a2e22bc53f19a"
     },
     {
-      "path": "Dockerfile:RUN[7]:command@1:python-c",
+      "path": "Dockerfile:RUN[12]:command@1:python-c",
       "language": "embedded Python AST statements",
       "zero_coverage_statements": 2,
       "sha256": "7c1d9b3cff457d6b3bd159e32458df9218240fa0611f8ac45ff683874415971d"
     },
     {
-      "path": "Dockerfile:RUN[8]",
+      "path": "Dockerfile:RUN[13]",
       "language": "Shell AST statements (including compound statements)",
       "zero_coverage_statements": 5,
       "sha256": "0ac810340cb73d36706b770b273fa08b70672ae08f1d9f17ce90661b2a0a6457"
@@ -327,8 +333,8 @@
     {
       "path": "scripts/build-native-container.sh",
       "language": "Shell AST statements (including compound statements)",
-      "zero_coverage_statements": 70,
-      "sha256": "8e2b877f6f91f94b9ecb9b7866f8f82e8accec05e15fd9b87276624f6f67ff04"
+      "zero_coverage_statements": 75,
+      "sha256": "654db66097f8685bccd845782106982f1c7c73815736fe593078a422401d67c1"
     },
     {
       "path": "scripts/build-native-container.sh:heredoc@31",
@@ -343,19 +349,19 @@
       "sha256": "5440a05559951a8f5c5ea61da0b8fcf8a4589909a4bf559e8eddfc66164a6ede"
     },
     {
-      "path": "scripts/build-native-container.sh:heredoc@59",
+      "path": "scripts/build-native-container.sh:heredoc@66",
       "language": "embedded Python AST statements",
       "zero_coverage_statements": 21,
       "sha256": "6c4d0f175ab70f0ce3b803ab2c887602083852f2b335e3391847ec42a602cb9d"
     },
     {
-      "path": "scripts/build-native-container.sh:command@84:python-c",
+      "path": "scripts/build-native-container.sh:command@91:python-c",
       "language": "embedded Python AST statements",
       "zero_coverage_statements": 7,
       "sha256": "775333c901e0c9a40d778f5cdada60cbfc913b5d6dd5d3428c83064c8192d28b"
     },
     {
-      "path": "scripts/build-native-container.sh:heredoc@101",
+      "path": "scripts/build-native-container.sh:heredoc@108",
       "language": "embedded Python AST statements",
       "zero_coverage_statements": 13,
       "sha256": "b48a71e64f30bbef2cd863996392cdfcded02b0058331070816c53ab39d524e9"
@@ -420,6 +426,5 @@
     "External interpreters, installed libraries, tools and remote reusable workflows/actions are dependencies rather than project-maintained source. Test/fixture source and documentation examples are not production source.",
     "Most YAML/TOML/JSON configuration is data; executable workflow run steps, release-policy command strings and Docker RUN bodies are included. Docker instructions receive an extra zero-coverage allowance.",
     "Do not apply this bound to native dependency memory safety or branch coverage."
-  ],
-  "reproduction": "coverage-scope-method.md"
+  ]
 }

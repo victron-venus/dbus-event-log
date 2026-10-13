@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Vendored release toolkit; change the toolkit source, then render again.
+# ruff: noqa
+# mypy: ignore-errors
+# pylint: skip-file
+# fmt: off
 """Stage only declared final upload files and bind them to frozen version inputs."""
 
 from __future__ import annotations

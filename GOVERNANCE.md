@@ -10,6 +10,10 @@ Release maintainers verify the reviewed source, checks, release notes and produc
 
 Use an issue for a proposal affecting interfaces, supported platforms, dependencies or security assumptions. Describe the problem, alternatives, compatibility and migration implications. Record the maintainer's decision and rationale publicly before implementing a disputed design. Small fixes can use the pull request itself. Report confidential concerns through [SECURITY.md](SECURITY.md). Contributors can request reconsideration with new evidence in the issue; maintainers should explain the final decision respectfully.
 
+## Current role holder
+
+[4alvit](https://github.com/4alvit) is the current primary maintainer and repository administrator (administrative access verified on 2026-10-12), responsible for final scope/review decisions, releases and handling security reports. Contributors and reviewers take the proposal-specific responsibilities above. No independent successor is appointed by this document.
+
 ## Continuity: open requirement
 
 There is currently **no documented and verified succession or emergency-access arrangement** for this project. Do not report the OpenSSF Silver `access_continuity` requirement as met. Bots, organization membership and a public clone do not establish recovery of repository administration, release publication or security reporting.

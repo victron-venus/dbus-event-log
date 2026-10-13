@@ -57,3 +57,7 @@ A new or changed feature needs automated tests of its observable behavior. Bugfi
 The maintenance floor is regression evidence for at least half of the bugs fixed in the previous six months; the intended practice is to cover every reproducible defect. Include CI, installer and release defects in that review. Dependency updates without an identified defect are not automatically bugfixes. A test added later may be linked with its actual addition date; never imply that it existed when the fix landed. Keep [the evidence ledger](docs/evidence/regressions-2026-10-12.json) current.
 
 Run the combined suite in this document; application tests alone do not cover the release tooling. Preserve the 80% statement threshold and explain all exclusions. See [quality and build evidence](docs/quality-and-build.md), [governance](GOVERNANCE.md) and the [roadmap](ROADMAP.md).
+
+## Coding standards
+
+Python follows [PEP 8](https://peps.python.org/pep-0008/) as implemented by the checked-in Ruff lint/format configuration. Formatter output is the project convention where it differs from optional PEP 8 layout suggestions. Keep shell changes consistent with the existing interpreter, quote variable expansions, and validate shell syntax; do not introduce Bash syntax into generated POSIX service scripts. Python runtime warnings fail the automated test suite.

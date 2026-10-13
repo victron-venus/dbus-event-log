@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Vendored release toolkit; change the toolkit source, then render again.
+# ruff: noqa
+# mypy: ignore-errors
+# pylint: skip-file
+# fmt: off
 """Reserve immutable version plans through a repository-scoped GitHub CAS ledger.
 
 The dedicated branch is metadata only. No operation changes the default branch,
@@ -61,6 +66,7 @@ class StateGitHub(rc.GitHub):
                 set(body) <= {"branch", "content", "message", "sha"},
                 "Invalid ledger write",
             )
+        # Developer/CI toolchain selected by the invoking operator via PATH.
         result = subprocess.run(  # nosec B603, B607
             [
                 "gh",

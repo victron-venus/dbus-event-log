@@ -1,6 +1,6 @@
 # Maintenance roadmap
 
-Priorities are reviewed in public issues and pull requests. These are work items, not delivery-date promises or claims that a badge has been awarded.
+This roadmap covers October 2026 through October 2027. Priorities are reviewed in public issues and pull requests. These are work items, not delivery-date promises or claims that a badge has been awarded.
 
 1. Establish and verify the real emergency-access/continuity arrangement described in [GOVERNANCE.md](GOVERNANCE.md). This is an open mandatory Silver requirement.
 2. Publish cryptographically signed release evidence for reviewed source and every distributed artifact, document identity-bound verification, and test rejection of altered artifacts. Checksums alone are not signatures. Verify a real published release before claiming the signing criterion.
@@ -8,3 +8,7 @@ Priorities are reviewed in public issues and pull requests. These are work items
 4. Maintain the six-month bugfix/regression ledger. Resolve entries without linked regression evidence and refresh the reviewed time window before submitting a badge assessment.
 5. Keep dependency/security analyses current and investigate findings; periodically re-evaluate the assumptions in [the security assurance case](docs/security-assurance.md), including native dependencies and deployment boundaries.
 6. Complete an evidence-backed Passing assessment first, then recheck each Silver criterion against the merged revision and public CI/release results. Human knowledge and response-history answers must come from the responsible maintainer, not repository prose.
+
+## Scope and non-goals
+
+Maintain bounded diagnostic capture, dependable storage and optional live publication. The project does not intend to become a tamper-proof compliance audit system, control D-Bus hardware methods, or run an unauthenticated public telemetry service during this roadmap period.

@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy project files
-COPY pyproject.toml README.md requirements-docker*.txt ./
+COPY pyproject.toml README.md LICENSE requirements-docker*.txt ./
 COPY src/ ./src/
 COPY config.yaml.example ./config.yaml
 

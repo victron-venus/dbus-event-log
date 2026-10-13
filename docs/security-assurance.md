@@ -16,10 +16,14 @@ Assets are captured event contents, credentials, bounded disk/memory use and ser
 
 ## Cryptography and native-code boundary
 
-Use maintained TLS libraries and their verified-certificate defaults rather than custom crypto. The application does not hash/store login passwords; PostgreSQL/broker authentication policy belongs to the server. Prefer SCRAM-SHA-256 for PostgreSQL password authentication. The recorder may capture sensitive event data: avoid unnecessary capture and restrict retention, exports and permissions.
+Use maintained TLS libraries and their verified-certificate defaults rather than custom crypto. The application does not hash/store login passwords; PostgreSQL/broker authentication policy belongs to the server. Supported PostgreSQL deployments require SCRAM-SHA-256 and verified TLS; follow the README migration steps for existing password verifiers. asyncpg retains legacy MD5 compatibility and does not enforce the server authentication choice, so this is a documented server deployment requirement, not a claimed client-side restriction. The recorder may capture sensitive event data: avoid unnecessary capture and restrict retention, exports and permissions.
 
 No first-party C/C++ source is compiled by this repository. Python packages such as asyncpg, PyGObject and pydantic-core, and system GLib/OpenSSL libraries, can contain native code. Python statement coverage does not measure their memory safety. Keep the locked dependencies and supported host patched, consult upstream advisories, and reassess sanitizer requirements when adding generated or maintained C/C++ code. This repository does not claim ASan coverage of third-party libraries.
 
 ## Remaining evidence
 
 No real bus, broker, production database or hardware was used for the local validation reported here. See [quality/build evidence](quality-and-build.md), [continuity status](../GOVERNANCE.md) and [the roadmap](../ROADMAP.md). Authenticate release signatures against the documented publisher identity once published; a checksum alone is not a signature. Review this argument when transports, permissions, retention, capture or delivery change.
+
+## Implemented release signing
+
+The opted-in release workflow delegates signing to pinned Cosign 3.1.3. Its default [ECDSA P-256 generation uses Go crypto/rand](https://github.com/sigstore/cosign/blob/v3.1.3/pkg/cosign/keys.go). The project uses standard SHA-256 digests and does not implement its own cryptography. [Recipient verification](release-signatures.md) binds the signature to the expected repository, workflow, branch and reviewed source commit before inspecting every payload. Ephemeral signing keys are not a claim about forward secrecy of every deployment transport. A real signed publication must still be verified before marking the Silver release-signature requirement complete.

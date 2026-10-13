@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Vendored release toolkit; change the toolkit source, then render again.
+# ruff: noqa
+# mypy: ignore-errors
+# pylint: skip-file
+# fmt: off
 """Prepare exact versions before building and publish only matching build receipts."""
 
 from __future__ import annotations
@@ -10,7 +15,7 @@ import re
 import sys
 import tempfile
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
 from urllib.parse import quote
@@ -128,6 +133,8 @@ def context(
         local_policy == snapshot["data"], "Working policy differs from source commit"
     )
     rc.check_ancestry(gh, cast(str, run["head_sha"]), cast(str, info["default_branch"]))
+    if gate:
+        rc.validate_validation_run(gh, run, cast(dict[str, object], snapshot["data"]), channel)
     return info, run, snapshot
 
 
@@ -162,6 +169,7 @@ def verified_rc(
         manifest["run_id"] != current_run["id"], "RC must come from a separate run"
     )
     source_run = cast(dict[str, object], gh.api(f"actions/runs/{manifest['run_id']}"))
+    rc.validate_validation_run(gh, source_run, cast(dict[str, object], source_policy["data"]), "rc")
     rc.require(
         source_run.get("id") == manifest["run_id"], "RC source run identity mismatch"
     )
@@ -357,6 +365,7 @@ def verify_scheduled_reuse(
         "Qualified manifest differs from its source and durable plan",
     )
     manifest = cast(dict[str, object], manifest)
+    rc.validate_validation_manifest(manifest)
     expected = manifest.get("assets")
     rc.require(isinstance(expected, list) and expected, "Qualified payloads missing")
     expected = cast(list[dict[str, object]], expected)
@@ -376,6 +385,7 @@ def verify_scheduled_reuse(
         "Qualified asset metadata mismatch",
     )
     source_run = cast(dict[str, object], gh.api(f"actions/runs/{source_run_id}"))
+    rc.validate_validation_run(gh, source_run, cast(dict[str, object], snapshot["data"]), cast(str, plan["channel"]))
     rc.require(source_run.get("id") == source_run_id, "Qualified run ID mismatch")
     attempt = rc.positive(manifest.get("run_attempt"), "qualified run attempt")
     rc.validate_run(
@@ -538,7 +548,7 @@ def prepare(args: argparse.Namespace) -> dict[str, object]:
         cast(str, run["head_sha"]),
         cast(int, run["id"]),
         cast(int, run["run_attempt"]),
-        datetime.now(UTC),
+        datetime.now(timezone.utc),
         parent,
     )
     PLAN.write_bytes(rc.json_bytes(plan))
@@ -589,6 +599,7 @@ def publish_versioned(args: argparse.Namespace) -> dict[str, object]:
         stage = Path(temp)
         assets = rc.stage_assets(Path(args.assets), stage)
         receipts = verify_receipts(stage, plan, assets, policy)
+        rc.verify_required_signatures(stage, gh.repo, cast(str, plan["source_sha"]))
         if parent:
             verify_final_toolchains(gh, candidate, receipts)
         package_versions = verify_declared_artifacts(stage, policy, plan)
@@ -603,7 +614,7 @@ def publish_versioned(args: argparse.Namespace) -> dict[str, object]:
             "workflow_path": rc.WORKFLOW,
             "run_id": cast(int, run["id"]),
             "run_attempt": cast(int, run["run_attempt"]),
-            "created_at": datetime.now(UTC).isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "assets": assets,
             "version_plan": plan,
             "plan_sha256": version_plan.plan_digest(plan),
@@ -614,6 +625,9 @@ def publish_versioned(args: argparse.Namespace) -> dict[str, object]:
         }
         if parent:
             manifest["derived_from_rc"] = parent
+        selected_profile = rc.validation_profile(policy, channel)
+        if selected_profile is not None:
+            manifest["validation_profile"] = selected_profile
         content = rc.json_bytes(manifest)
         (stage / rc.MANIFEST).write_bytes(content)
         # Recheck immediately before the first public release mutation.

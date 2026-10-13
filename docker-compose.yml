@@ -28,17 +28,21 @@ services:
   # Optional: TimescaleDB backend
   timescaledb:
     image: timescale/timescaledb:latest-pg16
+    command: ["postgres", "-c", "password_encryption=scram-sha-256"]
     container_name: dbus-event-log-timescaledb
     restart: "no"
     logging: *bounded-logging
     environment:
       - POSTGRES_DB=dbus_events
       - POSTGRES_USER=dbus_event_log
-      - POSTGRES_PASSWORD=${TIMESCALEDB_PASSWORD:-changeme}
+      # Empty by default: PostgreSQL refuses first initialization until supplied.
+      - POSTGRES_PASSWORD=${TIMESCALEDB_PASSWORD:-}
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
     volumes:
       - timescaledb-data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     profiles:
       - timescaledb
 
@@ -49,8 +53,8 @@ services:
     restart: "no"
     logging: *bounded-logging
     ports:
-      - "1883:1883"
-      - "9001:9001"
+      - "127.0.0.1:1883:1883"
+      - "127.0.0.1:9001:9001"
     volumes:
       - mosquitto-data:/mosquitto/data
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro

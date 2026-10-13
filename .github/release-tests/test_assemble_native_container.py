@@ -21,10 +21,10 @@ from unittest.mock import patch
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
-import assemble_native_container as native
-import merge_oci_archives as oci
-import version_plan
-import version_receipt
+import assemble_native_container as native  # noqa: E402 - Import the source scripts after adding their directory.
+import merge_oci_archives as oci  # noqa: E402 - Import the source scripts after adding their directory.
+import version_plan  # noqa: E402 - Import the source scripts after adding their directory.
+import version_receipt  # noqa: E402 - Import the source scripts after adding their directory.
 
 
 class NativeReceiptTests(unittest.TestCase):

@@ -156,9 +156,14 @@ def require_unpublished_version(image, version):
             version not in json.loads(check.stdout).get("Tags", []),
             f"Container version already exists: {image}:{version}",
         )
-    elif (
-        "NAME_UNKNOWN" not in check.stderr
-        and "repository does not exist" not in check.stderr
+    # Skopeo can render the registry's NAME_UNKNOWN code as "name unknown".
+    # Require an unambiguous terminal diagnostic: a missing-repository phrase
+    # followed by a login or permission warning is not proof of absence.
+    elif not re.search(
+        r"(?:\bNAME_UNKNOWN\b(?:: repository name not known to registry)?"
+        r"|\bname unknown\b|\brepository does not exist\b)[\"']?\s*$",
+        check.stderr,
+        re.IGNORECASE,
     ):
         raise ReleaseError(
             "Cannot establish registry tag inventory; authenticate and retry: " + image

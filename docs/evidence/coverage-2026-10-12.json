@@ -1,15 +1,15 @@
 {
-  "measured_on": "2026-10-13T01:45:24.550208+00:00",
-  "source_base_commit": "87895d92bbc98eb44c6a60b3aa829fa8e066efe6",
+  "measured_on": "2026-10-13T01:51:12.154287+00:00",
+  "source_base_commit": "41969f701cff1e5bac62a9eba68abab865331797",
   "source_state": "PR working tree; exact production source content is bound by per-file SHA-256 hashes below. Review/merge commit is supplied by the PR.",
   "command": "bash scripts/ci.sh --install && bash scripts/ci.sh",
   "interpreter": "Python 3.11.16",
   "host": "macOS-26.7-arm64-arm-64bit-Mach-O",
-  "covered_statements": 4356,
-  "statements": 5338,
-  "statement_percent": 81.6036,
+  "covered_statements": 5233,
+  "statements": 5904,
+  "statement_percent": 88.6348,
   "threshold_percent": 80,
-  "test_result": "659 passed, 1 skipped in 57.74s",
+  "test_result": "834 passed, 1 skipped in 89.79s (0:01:29)",
   "limitations": [
     "Python statements only, not branch coverage.",
     "Excluded tests, virtual environments and generated build/distribution output; native dependencies and shell are not Python statement coverage.",
@@ -25,9 +25,9 @@
     },
     {
       "path": "scripts/change_scope.py",
-      "sha256": "dbc1908c8e9fbb6773938250862a805584b1ea4cf5b5c08dbdda57352a4473a5",
+      "sha256": "174e460603f2efe87cf6e5cde1b8682f0a0f2d35c4c129aafe3cde8801299be8",
       "statements": 160,
-      "covered_statements": 0
+      "covered_statements": 118
     },
     {
       "path": "scripts/merge_oci_archives.py",
@@ -43,55 +43,73 @@
     },
     {
       "path": "scripts/prepare_version.py",
-      "sha256": "4ef10ad0529bf77a5889ad0ca54e5a99fe44642fa433e8c32758cda7289ce683",
+      "sha256": "6e9c4a9c2fe4e3c7e4954d9725ed02fb2f179c5771ef843a653ef4f065fae0e2",
       "statements": 213,
-      "covered_statements": 181
+      "covered_statements": 182
     },
     {
       "path": "scripts/publish_verified.py",
-      "sha256": "46fc91360a634ff4ec9a15fb361341ed6f093a9f58cf6635e6c25388641eaded",
+      "sha256": "764d512dd78a26a348eedfd50e37fa4ffddb31c5010f1c8d634e930dce070f8d",
       "statements": 109,
-      "covered_statements": 0
+      "covered_statements": 102
     },
     {
       "path": "scripts/release.py",
-      "sha256": "f94f169b2b7d965f8b349270db973404e360ac483886b26ded8f6c2cd405c822",
+      "sha256": "2584b05d01ef82b48f2ef75dc5d8e649de09df591fc6121097b2388f65a7b4eb",
       "statements": 187,
-      "covered_statements": 42
+      "covered_statements": 138
     },
     {
       "path": "scripts/release_container_labels.py",
-      "sha256": "b56a6f1e597e1f73744a99b3d1f406bed8f3b408816eaee0f69e4de6f016d212",
+      "sha256": "8030cb28474e577a97ff9f406acfe75bf6b1d423dc144173667becc0605bec9f",
       "statements": 35,
       "covered_statements": 17
     },
     {
       "path": "scripts/release_control.py",
-      "sha256": "f438f1030ef4e2479e7a5207cdef82059e6956d192e24cc0de91c2f2cefadec3",
-      "statements": 860,
-      "covered_statements": 797
+      "sha256": "1700427ea38864763ca223bca4f3074456ad80d52cc1bf3e63ed6929ff29a7ff",
+      "statements": 922,
+      "covered_statements": 859
+    },
+    {
+      "path": "scripts/release_signing.py",
+      "sha256": "29a4cb3d1e6deb913d501965292664b2b3a7b44a3f6fe297b121c87eb73f0d4b",
+      "statements": 111,
+      "covered_statements": 98
     },
     {
       "path": "scripts/release_state.py",
-      "sha256": "f439143c3e7c06c518984467c4e4fb896136ccd8e26172a90d5c189b64a3b406",
+      "sha256": "7c9717ce50dd10695dbc74f4fa876a5143c83f49e4f9a6bca77190916fef3641",
       "statements": 120,
       "covered_statements": 120
     },
     {
+      "path": "scripts/release_validation.py",
+      "sha256": "d87f110445cd6618aff991ff126218de47154afc7a878aa9ba37621b800ece42",
+      "statements": 75,
+      "covered_statements": 53
+    },
+    {
       "path": "scripts/release_version_adapter.py",
-      "sha256": "b96934d425f215a51a3f9f4dc1aea595d2b00f7844012ba56fc2ced5a623595b",
+      "sha256": "2a520b4333d681cfda32437c8f5f00050839dabdcdd29527d1b1346f43fd5792",
       "statements": 48,
       "covered_statements": 36
     },
     {
       "path": "scripts/release_versioned.py",
-      "sha256": "4000cbcb05e1fbefc2e98f3ae6042cf49f651ff41b62a11e5f18cd00dac1086c",
-      "statements": 286,
-      "covered_statements": 262
+      "sha256": "9461377600faf2010804eaa943b6283674457b0d5c9a55db6b2f11d0156acb75",
+      "statements": 295,
+      "covered_statements": 273
+    },
+    {
+      "path": "scripts/runner_preflight.py",
+      "sha256": "c0460d162e83d2fa515615452c59567186d05f3ef26dddaa68735352bbcedf80",
+      "statements": 197,
+      "covered_statements": 195
     },
     {
       "path": "scripts/stage_release_assets.py",
-      "sha256": "4036770c03e3c7091f6d0d77bd9e62a59770121336f32b45fdba3532756db596",
+      "sha256": "ec308cd5346b5e55860336dba0352e426284b674d9f6f4ae7f5bd80e11dd9003",
       "statements": 106,
       "covered_statements": 95
     },
@@ -105,25 +123,25 @@
       "path": "scripts/verified_images.py",
       "sha256": "16e66685364277555dd246b072c679546c361929be3efe45f5b6ff47b92f77b0",
       "statements": 97,
-      "covered_statements": 0
+      "covered_statements": 95
     },
     {
       "path": "scripts/version_plan.py",
-      "sha256": "b6a837f41eb483ea7ff9b158689def54d60810e2b823d51332ff7bad3624fbbc",
+      "sha256": "5ab44b0750a135f291417825b18536e0256938d8b36f87918ab5e35ce1b49a39",
       "statements": 954,
       "covered_statements": 930
     },
     {
       "path": "scripts/version_receipt.py",
-      "sha256": "5734cf1007cd4d5526458589cd94c1b0f26604c07ac1529c05c4d2dc9f1e8310",
+      "sha256": "da2d97f686d8d41ae73715fdbfbcbafc31f23389152006cc2519fb9d56902169",
       "statements": 192,
       "covered_statements": 175
     },
     {
       "path": "scripts/workflow_contracts.py",
-      "sha256": "e281553719d1f014ed299b148812d6305e34522a25e6043cafa240a8a77becd2",
-      "statements": 104,
-      "covered_statements": 88
+      "sha256": "5332b472b01df64077e7a474b7e5171ba48d8cfa2ae1b0b4d7572024effd248d",
+      "statements": 216,
+      "covered_statements": 134
     },
     {
       "path": "scripts/write_binary_build_metadata.py",

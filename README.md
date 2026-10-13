@@ -220,7 +220,15 @@ the DSN's `sslrootcert=/path/to/database-ca.pem`, or use asyncpg's standard
 other asyncpg DSN options retain their native meaning; private client keys remain
 operator-owned files. This native `verify-full` path does not automatically use
 the operating system CA bundle. The DSN hostname must match the server certificate.
-Configure PostgreSQL to use SCRAM-SHA-256 for password authentication.
+The supported PostgreSQL deployment uses SCRAM-SHA-256 password authentication
+with verified TLS. Set `password_encryption = 'scram-sha-256'`, rotate existing
+role passwords, and use `hostssl ... scram-sha-256` rules in `pg_hba.conf`.
+[PostgreSQL's migration instructions](https://www.postgresql.org/docs/16/auth-password.html)
+explain why changing the setting alone does not replace existing MD5 verifiers.
+The server chooses its authentication mechanism: asyncpg can still accept legacy
+MD5 if an operator configures that server policy. The client does not enforce
+SCRAM, and TLS verification alone does not upgrade database password storage.
+Do not deploy MD5 authentication as the supported secure configuration.
 
 Verified mode requires an explicit TCP host in the DSN authority or `host` query
 parameter. Hostless DSNs that rely on `PGHOST`, a service file or asyncpg's default
@@ -255,6 +263,16 @@ trust boundary, not an automatic check that a host or private IP is safe. Use it
 only for an isolated trusted transport. A DSN `sslmode` may be omitted in this
 mode, but if supplied it must be `disable`. Keep credentials outside version
 control. No connection automatically switches between the two modes.
+
+The optional Compose database requires `TIMESCALEDB_PASSWORD` on first startup;
+there is no sample password fallback. Its new database initialization selects
+SCRAM. These initialization variables do not modify an existing data volume:
+rotate its password and migrate its `pg_hba.conf` separately. Database and demo
+broker ports bind only to host loopback; the recorder reaches the broker through
+the private Compose network. The demo broker is anonymous plaintext for this
+local trust boundary, not a public broker. Remote deployments must provide an
+authenticated broker and protected transport; do not publish these demo ports
+on untrusted interfaces.
 
 ## Usage
 

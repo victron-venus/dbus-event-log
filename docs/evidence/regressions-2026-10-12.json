@@ -5,7 +5,7 @@
   "window_start": "2026-04-12",
   "window_end_commit": "87895d92bbc98eb44c6a60b3aa829fa8e066efe6",
   "criterion": "regression_tests_added50",
-  "criterion_status": "unverified",
+  "criterion_status": "met_pending_review_and_merge",
   "method": "Review public non-merge history for six months, including runtime, installer, packaging and CI defects. Candidate selection uses fix/repair/security-related subjects plus manual additions after reading the complete subject history. Ordinary dependency updates without an identified project defect are not bugs. Individual commits can bundle multiple defects; the provisional group counts below are not the criterion denominator. Later regression evidence is allowed when dated accurately. Missing links mean unverified, not proof of absent tests.",
   "summary": {
     "reviewed_non_merge_commits": 163,
@@ -14,7 +14,8 @@
     "groups_with_partial_evidence": 0,
     "groups_requiring_regression_review": 15,
     "excluded_non_defect_or_upstream_dependency_groups": 2,
-    "badge_ratio_claimed": false
+    "badge_ratio_claimed": false,
+    "note": "Discovery group counts are retained for traceability only; use defect_review.summary for the actual manually classified ratio."
   },
   "fix_groups": [
     {
@@ -2991,5 +2992,1242 @@
       "title": "feat: initial commit - dbus-event-log audit log for D-Bus commands and inverter state transitions"
     }
   ],
-  "next_review": "Resolve unverified groups with meaningful existing/late-added tests (prefer affected-parent-fails/fixed-version-passes), split bundled independent defects, and recompute against the final merged head before marking the 50% criterion met."
+  "next_review": "After merge, refresh the window end to the merged revision and confirm required CI before submitting. Future fixes must extend the ledger; unverified regressions remain visible.",
+  "defect_review": {
+    "method": "Manual review of each candidate diff, split by independent failure mechanism. New source-bound release-note functionality and its first implementation tests are not counted as historical defects. Repeated attempts to repair one cause and empty/format-only commits are explicitly excluded. Existing later tests count only where their assertions address the old defect; tests without an exact verified link conservatively do not count in the numerator. Earlier group-level discovery data is retained for traceability, not used as the denominator.",
+    "reviewed_scope": "Non-merge main history from 2026-04-12 through initial inspected head, plus current reviewed PR fixes. Changes were classified by failure mechanism, not one test or one commit per bug.",
+    "defects": [
+      {
+        "id": "dbus-event-log-001",
+        "defect": "Error prose could authorize absent GitHub resources and initialize release state without an authoritative HTTP 404",
+        "fixed_commit": "2d0c0f98942324628e4cdc5161037b4a18c75191",
+        "fixed_on": "2026-10-12T14:40:54-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/2d0c0f98942324628e4cdc5161037b4a18c75191",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_error_body_and_cli_message_cannot_authorize_absence",
+          "file": ".github/release-tests/test_github_missing_status.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_github_missing_status.py#L50",
+          "introduced_commit": "2d0c0f98942324628e4cdc5161037b4a18c75191",
+          "introduced_on": "2026-10-12T14:40:54-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-002",
+        "defect": "Staging accepted ambiguous or unsafe release payload paths",
+        "fixed_commit": "2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+        "fixed_on": "2026-10-08T04:12:19-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_staging_rejects_ambiguous_or_unsafe_payloads_before_output",
+          "file": ".github/release-tests/test_consumer_versioning.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_consumer_versioning.py#L270",
+          "introduced_commit": "2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+          "introduced_on": "2026-10-08T04:12:19-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-003",
+        "defect": "A failed staging operation left partial output or could remove pre-existing operator output",
+        "fixed_commit": "2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+        "fixed_on": "2026-10-08T04:12:19-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_staging_failure_never_removes_preexisting_target",
+          "file": ".github/release-tests/test_consumer_versioning.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_consumer_versioning.py#L259",
+          "introduced_commit": "2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+          "introduced_on": "2026-10-08T04:12:19-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-004",
+        "defect": "Version editing misparsed quoted TOML delimiters and assignments",
+        "fixed_commit": "2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+        "fixed_on": "2026-10-08T04:12:19-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_toml_quoted_assignment_keys_preserve_delimiters_and_escapes",
+          "file": ".github/release-tests/test_version_plan.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_version_plan.py#L422",
+          "introduced_commit": "2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+          "introduced_on": "2026-10-08T04:12:19-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-005",
+        "defect": "Release receipt accepted invalid package identity or incomplete changed-file coverage",
+        "fixed_commit": "2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+        "fixed_on": "2026-10-08T04:12:19-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_publisher_rejects_mutated_receipt_identity_and_coverage",
+          "file": ".github/release-tests/test_version_receipt.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_version_receipt.py#L115",
+          "introduced_commit": "2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+          "introduced_on": "2026-10-08T04:12:19-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-006",
+        "defect": "Workflow validation without the optional manifest did not enforce immutable remote references",
+        "fixed_commit": "2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+        "fixed_on": "2026-10-08T04:12:19-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_mutable_step_action_is_rejected_without_manifest",
+          "file": ".github/workflow-tests/test_action_pins.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/workflow-tests/test_action_pins.py#L56",
+          "introduced_commit": "2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+          "introduced_on": "2026-10-08T04:12:19-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-007",
+        "defect": "Quality aggregation could overlook selected default/experimental checks",
+        "fixed_commit": "87895d92bbc98eb44c6a60b3aa829fa8e066efe6",
+        "fixed_on": "2026-10-12T16:55:53-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/87895d92bbc98eb44c6a60b3aa829fa8e066efe6",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_every_default_check_is_required_and_experimental_checks_fail",
+          "file": "tests/test_validate_scorecard_json.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_validate_scorecard_json.py#L139",
+          "introduced_commit": "87895d92bbc98eb44c6a60b3aa829fa8e066efe6",
+          "introduced_on": "2026-10-12T16:55:53-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-008",
+        "defect": "Remote TimescaleDB connections could transmit credentials without verified TLS",
+        "fixed_commit": "bb2c5ef02219660872174bb5e87e4e0b2dcc7436",
+        "fixed_on": "2026-10-08T08:00:33-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/bb2c5ef02219660872174bb5e87e4e0b2dcc7436",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_default_refuses_plaintext_before_credentials",
+          "file": "tests/test_timescale_tls.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_timescale_tls.py#L183",
+          "introduced_commit": "bb2c5ef02219660872174bb5e87e4e0b2dcc7436",
+          "introduced_on": "2026-10-08T08:00:33-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-009",
+        "defect": "Hostless or Unix-socket DSNs could bypass the intended TLS boundary",
+        "fixed_commit": "bb2c5ef02219660872174bb5e87e4e0b2dcc7436",
+        "fixed_on": "2026-10-08T08:00:33-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/bb2c5ef02219660872174bb5e87e4e0b2dcc7436",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_verified_mode_requires_explicit_tcp_destinations",
+          "file": "tests/test_timescale_tls.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_timescale_tls.py#L322",
+          "introduced_commit": "bb2c5ef02219660872174bb5e87e4e0b2dcc7436",
+          "introduced_on": "2026-10-08T08:00:33-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-010",
+        "defect": "Conflicting or duplicate DSN sslmode values could weaken explicit transport policy",
+        "fixed_commit": "bb2c5ef02219660872174bb5e87e4e0b2dcc7436",
+        "fixed_on": "2026-10-08T08:00:33-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/bb2c5ef02219660872174bb5e87e4e0b2dcc7436",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_duplicate_sslmode_cannot_hide_weaker_mode",
+          "file": "tests/test_timescale_tls.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_timescale_tls.py#L275",
+          "introduced_commit": "bb2c5ef02219660872174bb5e87e4e0b2dcc7436",
+          "introduced_on": "2026-10-08T08:00:33-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-011",
+        "defect": "Initial MQTT connection failure never recovered without process restart",
+        "fixed_commit": "ecfd04552647cf89cba2a2d73af1ff2748f63d16",
+        "fixed_on": "2026-10-04T14:35:22-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/ecfd04552647cf89cba2a2d73af1ff2748f63d16",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_initial_failure_recovers_without_restarting_publisher",
+          "file": "tests/test_mqtt_recovery.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_mqtt_recovery.py#L40",
+          "introduced_commit": "ecfd04552647cf89cba2a2d73af1ff2748f63d16",
+          "introduced_on": "2026-10-04T14:35:22-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-012",
+        "defect": "MQTT thread-start/cleanup failure leaked client state or escaped into recorder",
+        "fixed_commit": "ecfd04552647cf89cba2a2d73af1ff2748f63d16",
+        "fixed_on": "2026-10-04T14:35:22-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/ecfd04552647cf89cba2a2d73af1ff2748f63d16",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_real_thread_start_failure_does_not_escape_or_retain_client",
+          "file": "tests/test_mqtt_recovery.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_mqtt_recovery.py#L134",
+          "introduced_commit": "ecfd04552647cf89cba2a2d73af1ff2748f63d16",
+          "introduced_on": "2026-10-04T14:35:22-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-013",
+        "defect": "Monitor omitted matching D-Bus services that appeared after startup",
+        "fixed_commit": "665bc234edd3ca9e8298a8d35da5135dddf21b3c",
+        "fixed_on": "2026-10-04T05:03:22-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/665bc234edd3ca9e8298a8d35da5135dddf21b3c",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_late_matching_service_signals_are_captured",
+          "file": "tests/test_monitor.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_monitor.py#L227",
+          "introduced_commit": "665bc234edd3ca9e8298a8d35da5135dddf21b3c",
+          "introduced_on": "2026-10-04T05:03:22-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-014",
+        "defect": "Service discovery could race the owner-change subscription",
+        "fixed_commit": "665bc234edd3ca9e8298a8d35da5135dddf21b3c",
+        "fixed_on": "2026-10-04T05:03:22-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/665bc234edd3ca9e8298a8d35da5135dddf21b3c",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_owner_watch_precedes_discovery",
+          "file": "tests/test_monitor.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_monitor.py#L266",
+          "introduced_commit": "665bc234edd3ca9e8298a8d35da5135dddf21b3c",
+          "introduced_on": "2026-10-04T05:03:22-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-015",
+        "defect": "Slow storage blocked subscription to new matching services",
+        "fixed_commit": "665bc234edd3ca9e8298a8d35da5135dddf21b3c",
+        "fixed_on": "2026-10-04T05:03:22-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/665bc234edd3ca9e8298a8d35da5135dddf21b3c",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_late_subscription_does_not_wait_for_slow_storage",
+          "file": "tests/test_monitor.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_monitor.py#L286",
+          "introduced_commit": "665bc234edd3ca9e8298a8d35da5135dddf21b3c",
+          "introduced_on": "2026-10-04T05:03:22-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-016",
+        "defect": "Native container dependencies were resolved without immutable hash constraints",
+        "fixed_commit": "7af031e226d3befea9de2071926aa8b699c64ac2",
+        "fixed_on": "2026-10-03T13:49:55-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/7af031e226d3befea9de2071926aa8b699c64ac2",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-017",
+        "defect": "Closed beta cycles continued packaging after a stable release existed",
+        "fixed_commit": "c7d1f39aac77402ce01c426b93967d9e2d002a68",
+        "fixed_on": "2026-10-03T04:02:46-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/c7d1f39aac77402ce01c426b93967d9e2d002a68",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_closed_push_cycle_stops_before_plan_allocation",
+          "file": ".github/release-tests/test_versioned_release.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_versioned_release.py#L980",
+          "introduced_commit": "c7d1f39aac77402ce01c426b93967d9e2d002a68",
+          "introduced_on": "2026-10-03T04:02:46-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-018",
+        "defect": "Version synchronization did not preserve Python single-quoted assignments",
+        "fixed_commit": "c7d1f39aac77402ce01c426b93967d9e2d002a68",
+        "fixed_on": "2026-10-03T04:02:46-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/c7d1f39aac77402ce01c426b93967d9e2d002a68",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_python_version_updates_preserve_single_and_double_quotes",
+          "file": ".github/release-tests/test_version_plan.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_version_plan.py#L565",
+          "introduced_commit": "c7d1f39aac77402ce01c426b93967d9e2d002a68",
+          "introduced_on": "2026-10-03T04:02:46-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-019",
+        "defect": "SBOM-only OCI attestations were accepted as build provenance",
+        "fixed_commit": "9f277965c8e683e7a261c595eb2021c236e353e8",
+        "fixed_on": "2026-10-02T20:41:19-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/9f277965c8e683e7a261c595eb2021c236e353e8",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_sbom_alone_does_not_replace_build_provenance",
+          "file": ".github/release-tests/test_assemble_native_container.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_assemble_native_container.py#L256",
+          "introduced_commit": "9f277965c8e683e7a261c595eb2021c236e353e8",
+          "introduced_on": "2026-10-02T20:41:19-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-020",
+        "defect": "OCI layer identity was not checked against uncompressed rootfs diff_ids",
+        "fixed_commit": "9f277965c8e683e7a261c595eb2021c236e353e8",
+        "fixed_on": "2026-10-02T20:41:19-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/9f277965c8e683e7a261c595eb2021c236e353e8",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_layer_diff_id_must_match_even_with_valid_blob_hashes",
+          "file": ".github/release-tests/test_merge_oci_archives.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_merge_oci_archives.py#L379",
+          "introduced_commit": "9f277965c8e683e7a261c595eb2021c236e353e8",
+          "introduced_on": "2026-10-02T20:41:19-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-021",
+        "defect": "Compressed layer expansion was unbounded",
+        "fixed_commit": "9f277965c8e683e7a261c595eb2021c236e353e8",
+        "fixed_on": "2026-10-02T20:41:19-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/9f277965c8e683e7a261c595eb2021c236e353e8",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_expanded_layer_and_rootfs_limits_fail_before_output",
+          "file": ".github/release-tests/test_merge_oci_archives.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_merge_oci_archives.py#L428",
+          "introduced_commit": "9f277965c8e683e7a261c595eb2021c236e353e8",
+          "introduced_on": "2026-10-02T20:41:19-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-022",
+        "defect": "Partial or raced evidence writes could leave an invalid archive/evidence pair",
+        "fixed_commit": "9f277965c8e683e7a261c595eb2021c236e353e8",
+        "fixed_on": "2026-10-02T20:41:19-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/9f277965c8e683e7a261c595eb2021c236e353e8",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_partial_evidence_write_is_cleaned_and_retry_succeeds",
+          "file": ".github/release-tests/test_assemble_native_container.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_assemble_native_container.py#L276",
+          "introduced_commit": "9f277965c8e683e7a261c595eb2021c236e353e8",
+          "introduced_on": "2026-10-02T20:41:19-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-023",
+        "defect": "Temporary-file cleanup errors invalidated already-published output",
+        "fixed_commit": "9f277965c8e683e7a261c595eb2021c236e353e8",
+        "fixed_on": "2026-10-02T20:41:19-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/9f277965c8e683e7a261c595eb2021c236e353e8",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_cleanup_failure_after_publication_keeps_valid_output_pair",
+          "file": ".github/release-tests/test_assemble_native_container.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_assemble_native_container.py#L329",
+          "introduced_commit": "9f277965c8e683e7a261c595eb2021c236e353e8",
+          "introduced_on": "2026-10-02T20:41:19-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-024",
+        "defect": "A failed session-bus smoke probe could still produce successful identity evidence",
+        "fixed_commit": "9f277965c8e683e7a261c595eb2021c236e353e8",
+        "fixed_on": "2026-10-02T20:41:19-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/9f277965c8e683e7a261c595eb2021c236e353e8",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_failed_session_bus_smoke_cannot_attest_a_successful_identity_probe",
+          "file": ".github/release-tests/test_native_container_adapter.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_native_container_adapter.py#L189",
+          "introduced_commit": "9f277965c8e683e7a261c595eb2021c236e353e8",
+          "introduced_on": "2026-10-02T20:41:19-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-025",
+        "defect": "Default event timestamps were naive UTC",
+        "fixed_commit": "c3cd9b6b21415cad36bfc61750866964d8b5a772",
+        "fixed_on": "2026-10-02T17:37:56-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/c3cd9b6b21415cad36bfc61750866964d8b5a772",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_default_timestamp_is_timezone_aware",
+          "file": "tests/test_models.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_models.py#L75",
+          "introduced_commit": "c3cd9b6b21415cad36bfc61750866964d8b5a772",
+          "introduced_on": "2026-10-02T17:37:56-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-026",
+        "defect": "Scheduled nightlies invalidated qualified RC promotion eligibility",
+        "fixed_commit": "980dc144c8fb2344456ce11246750dcb297667e2",
+        "fixed_on": "2026-10-02T05:17:33-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/980dc144c8fb2344456ce11246750dcb297667e2",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_scheduled_rc_reuse_preserves_floor_and_promotion_after_full_build",
+          "file": ".github/release-tests/test_versioned_release.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_versioned_release.py#L754",
+          "introduced_commit": "980dc144c8fb2344456ce11246750dcb297667e2",
+          "introduced_on": "2026-10-02T05:17:33-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-027",
+        "defect": "Upload parse failure could mishandle an incomplete draft release",
+        "fixed_commit": "980dc144c8fb2344456ce11246750dcb297667e2",
+        "fixed_on": "2026-10-02T05:17:33-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/980dc144c8fb2344456ce11246750dcb297667e2",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_upload_parse_failure_keeps_draft_and_reports_safe_asset_context",
+          "file": ".github/release-tests/test_release_control.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_release_control.py#L1548",
+          "introduced_commit": "980dc144c8fb2344456ce11246750dcb297667e2",
+          "introduced_on": "2026-10-02T05:17:33-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-028",
+        "defect": "Verified image output could escape through a symlink or replaced parent directory",
+        "fixed_commit": "247b9e8898b0524490effa04fbb06e84f0bbcfe7",
+        "fixed_on": "2026-09-30T07:38:26-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/247b9e8898b0524490effa04fbb06e84f0bbcfe7",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_parent_replacement_cannot_redirect_the_anchored_write",
+          "file": ".github/release-tests/test_verified_publication.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_verified_publication.py#L550",
+          "introduced_commit": "6d77605871b76147d0f5506486f8fe16b8aee444",
+          "introduced_on": "2026-10-12T18:51:41-07:00",
+          "timing": "later_added"
+        }
+      },
+      {
+        "id": "dbus-event-log-029",
+        "defect": "Concurrent Timescale initializations created competing pools",
+        "fixed_commit": "17e098d0f35bd4fbbf00b73c186cb1b30174f245",
+        "fixed_on": "2026-09-29T17:47:57-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/17e098d0f35bd4fbbf00b73c186cb1b30174f245",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_timescale_concurrent_start_creates_one_ready_pool",
+          "file": "tests/test_storage_operations.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_storage_operations.py#L352",
+          "introduced_commit": "17e098d0f35bd4fbbf00b73c186cb1b30174f245",
+          "introduced_on": "2026-09-29T17:47:57-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-030",
+        "defect": "Failed or cancelled pool initialization leaked resources and prevented retry",
+        "fixed_commit": "17e098d0f35bd4fbbf00b73c186cb1b30174f245",
+        "fixed_on": "2026-09-29T17:47:57-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/17e098d0f35bd4fbbf00b73c186cb1b30174f245",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_timescale_canceled_initializer_closes_candidate_and_waiter_retries",
+          "file": "tests/test_storage_operations.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_storage_operations.py#L420",
+          "introduced_commit": "17e098d0f35bd4fbbf00b73c186cb1b30174f245",
+          "introduced_on": "2026-09-29T17:47:57-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-031",
+        "defect": "Pool close and reopen could race in-flight initialization",
+        "fixed_commit": "17e098d0f35bd4fbbf00b73c186cb1b30174f245",
+        "fixed_on": "2026-09-29T17:47:57-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/17e098d0f35bd4fbbf00b73c186cb1b30174f245",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_timescale_close_waits_for_creation_and_serializes_reopening",
+          "file": "tests/test_storage_operations.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_storage_operations.py#L486",
+          "introduced_commit": "17e098d0f35bd4fbbf00b73c186cb1b30174f245",
+          "introduced_on": "2026-09-29T17:47:57-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-032",
+        "defect": "Automatic superseded candidates were published or handled as success without a proven successor",
+        "fixed_commit": "f5d222c76e3307dfbef48fdd90b70357ca00d79b",
+        "fixed_on": "2026-09-28T21:43:06-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/f5d222c76e3307dfbef48fdd90b70357ca00d79b",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_unproven_replacement_fails_before_floor_and_tag",
+          "file": ".github/release-tests/test_versioned_release.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_versioned_release.py#L1185",
+          "introduced_commit": "f5d222c76e3307dfbef48fdd90b70357ca00d79b",
+          "introduced_on": "2026-09-28T21:43:06-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-033",
+        "defect": "Current candidate publication used an unsuitable token",
+        "fixed_commit": "f5d222c76e3307dfbef48fdd90b70357ca00d79b",
+        "fixed_on": "2026-09-28T21:43:06-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/f5d222c76e3307dfbef48fdd90b70357ca00d79b",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-034",
+        "defect": "Publication rejected transient runner states before a fresh active run was visible",
+        "fixed_commit": "08a3988da6c0f9766fd67c4ea75cd469992e8bce",
+        "fixed_on": "2026-09-28T21:13:29-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/08a3988da6c0f9766fd67c4ea75cd469992e8bce",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_transitional_states_require_a_fresh_in_progress_response",
+          "file": ".github/release-tests/test_release_control.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_release_control.py#L1904",
+          "introduced_commit": "08a3988da6c0f9766fd67c4ea75cd469992e8bce",
+          "introduced_on": "2026-09-28T21:13:29-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-035",
+        "defect": "Release publication did not validate the intended token identity and scope",
+        "fixed_commit": "08a3988da6c0f9766fd67c4ea75cd469992e8bce",
+        "fixed_on": "2026-09-28T21:13:29-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/08a3988da6c0f9766fd67c4ea75cd469992e8bce",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_scope_or_repository_mismatch_rejects_before_write",
+          "file": ".github/release-tests/test_release_control.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_release_control.py#L1195",
+          "introduced_commit": "08a3988da6c0f9766fd67c4ea75cd469992e8bce",
+          "introduced_on": "2026-09-28T21:13:29-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-036",
+        "defect": "Nightly version projection overflowed uv numeric component limits",
+        "fixed_commit": "f164dfa8ca836dc4739f650d6d913c61371188e4",
+        "fixed_on": "2026-09-19T18:59:28-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/f164dfa8ca836dc4739f650d6d913c61371188e4",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_real_nightly_run_fits_uv_numeric_limit",
+          "file": ".github/release-tests/test_version_plan.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_version_plan.py#L127",
+          "introduced_commit": "f164dfa8ca836dc4739f650d6d913c61371188e4",
+          "introduced_on": "2026-09-19T18:59:28-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-037",
+        "defect": "Build jobs inherited release credentials unnecessarily",
+        "fixed_commit": "f164dfa8ca836dc4739f650d6d913c61371188e4",
+        "fixed_on": "2026-09-19T18:59:28-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/f164dfa8ca836dc4739f650d6d913c61371188e4",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-038",
+        "defect": "Source binding rejected legitimate Git checkout EOL conversions",
+        "fixed_commit": "2df854b7a2bda7057606f7c2db978c0401ee6a0c",
+        "fixed_on": "2026-09-13T20:26:09-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/2df854b7a2bda7057606f7c2db978c0401ee6a0c",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_git_source_binding_accepts_declared_checkout_eol_conversion",
+          "file": ".github/release-tests/test_version_plan.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_version_plan.py#L789",
+          "introduced_commit": "2df854b7a2bda7057606f7c2db978c0401ee6a0c",
+          "introduced_on": "2026-09-13T20:26:09-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-039",
+        "defect": "OCI artifact attestation validation mishandled BuildKit empty config",
+        "fixed_commit": "2df854b7a2bda7057606f7c2db978c0401ee6a0c",
+        "fixed_on": "2026-09-13T20:26:09-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/2df854b7a2bda7057606f7c2db978c0401ee6a0c",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_oci_buildkit_artifact_attestation_checks_subject_and_empty_config",
+          "file": ".github/release-tests/test_version_plan.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_version_plan.py#L1011",
+          "introduced_commit": "2df854b7a2bda7057606f7c2db978c0401ee6a0c",
+          "introduced_on": "2026-09-13T20:26:09-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-040",
+        "defect": "Isolated lifecycle fixtures omitted required imports",
+        "fixed_commit": "2af4ce1be0218c2e209b48ec322aadb7c56cc6e7",
+        "fixed_on": "2026-09-13T16:59:37-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/2af4ce1be0218c2e209b48ec322aadb7c56cc6e7",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_real_beta_rc_final_cycle_has_exact_versions_and_fresh_final_hashes",
+          "file": ".github/release-tests/test_versioned_release.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/release-tests/test_versioned_release.py#L1349",
+          "introduced_commit": "86645d156b16a64892ddfd37756fa213ba609981",
+          "introduced_on": "2026-09-13T15:48:46-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-041",
+        "defect": "Compose component environment keys were ignored",
+        "fixed_commit": "4cabd3e5da78c24ed1e7c57fbe2cd32e338a8e29",
+        "fixed_on": "2026-09-12T16:07:55-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/4cabd3e5da78c24ed1e7c57fbe2cd32e338a8e29",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_compose_environment_names_accept_nondefault_values",
+          "file": "tests/test_compose_config.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_compose_config.py#L41",
+          "introduced_commit": "4cabd3e5da78c24ed1e7c57fbe2cd32e338a8e29",
+          "introduced_on": "2026-09-12T16:07:55-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-042",
+        "defect": "Host networking prevented service-name broker resolution",
+        "fixed_commit": "4cabd3e5da78c24ed1e7c57fbe2cd32e338a8e29",
+        "fixed_on": "2026-09-12T16:07:55-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/4cabd3e5da78c24ed1e7c57fbe2cd32e338a8e29",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_compose_settings_and_network_match",
+          "file": "tests/test_compose_config.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_compose_config.py#L20",
+          "introduced_commit": "4cabd3e5da78c24ed1e7c57fbe2cd32e338a8e29",
+          "introduced_on": "2026-09-12T16:07:55-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-043",
+        "defect": "Example YAML logging key did not configure logging",
+        "fixed_commit": "4cabd3e5da78c24ed1e7c57fbe2cd32e338a8e29",
+        "fixed_on": "2026-09-12T16:07:55-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/4cabd3e5da78c24ed1e7c57fbe2cd32e338a8e29",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_example_yaml_logging_key_is_effective",
+          "file": "tests/test_compose_config.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_compose_config.py#L94",
+          "introduced_commit": "4cabd3e5da78c24ed1e7c57fbe2cd32e338a8e29",
+          "introduced_on": "2026-09-12T16:07:55-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-044",
+        "defect": "Companion process logs and restarts escaped finite capture bounds",
+        "fixed_commit": "4cabd3e5da78c24ed1e7c57fbe2cd32e338a8e29",
+        "fixed_on": "2026-09-12T16:07:55-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/4cabd3e5da78c24ed1e7c57fbe2cd32e338a8e29",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_compose_rotates_output_without_an_unbounded_broker_file",
+          "file": "tests/test_compose_config.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_compose_config.py#L76",
+          "introduced_commit": "4cabd3e5da78c24ed1e7c57fbe2cd32e338a8e29",
+          "introduced_on": "2026-09-12T16:07:55-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-045",
+        "defect": "Retention was not applied during startup or idle operation",
+        "fixed_commit": "1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+        "fixed_on": "2026-09-12T09:45:33-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_startup_and_idle_maintenance_apply_retention",
+          "file": "tests/test_monitor.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_monitor.py#L493",
+          "introduced_commit": "1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+          "introduced_on": "2026-09-12T09:45:33-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-046",
+        "defect": "Retention timestamp comparison mishandled offsets and exact boundaries",
+        "fixed_commit": "1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+        "fixed_on": "2026-09-12T09:45:33-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_expiration_keeps_exact_boundary_and_normalizes_offsets",
+          "file": "tests/test_retention.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_retention.py#L46",
+          "introduced_commit": "1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+          "introduced_on": "2026-09-12T09:45:33-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-047",
+        "defect": "Rotation could discard committed WAL records or race another active writer",
+        "fixed_commit": "1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+        "fixed_on": "2026-09-12T09:45:33-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_checkpoint_preserves_committed_wal_records",
+          "file": "tests/test_retention.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_retention.py#L184",
+          "introduced_commit": "1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+          "introduced_on": "2026-09-12T09:45:33-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-048",
+        "defect": "Rotation/archive cleanup could overwrite collisions or prune unrelated files",
+        "fixed_commit": "1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+        "fixed_on": "2026-09-12T09:45:33-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_unrelated_files_legacy_backups_and_symlinks_are_never_pruned",
+          "file": "tests/test_retention.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_retention.py#L128",
+          "introduced_commit": "1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+          "introduced_on": "2026-09-12T09:45:33-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-049",
+        "defect": "Failed replacement/schema preparation could lose the active database",
+        "fixed_commit": "1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+        "fixed_on": "2026-09-12T09:45:33-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_failed_replacement_install_restores_original_database",
+          "file": "tests/test_retention.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_retention.py#L314",
+          "introduced_commit": "1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+          "introduced_on": "2026-09-12T09:45:33-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-050",
+        "defect": "CLI cleanup ignored configured retention or reported the wrong deletion count",
+        "fixed_commit": "1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+        "fixed_on": "2026-09-12T09:45:33-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_cleanup_deletes_using_configured_retention_and_reports_count",
+          "file": "tests/test_storage_operations.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_storage_operations.py#L683",
+          "introduced_commit": "1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+          "introduced_on": "2026-09-12T09:45:33-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-051",
+        "defect": "Dismissed approvals were not refreshed for current PR head",
+        "fixed_commit": "13df8e6d8c1a1aea4dab8715ff52bfc34eb57d1f",
+        "fixed_on": "2026-09-11T22:17:11-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/13df8e6d8c1a1aea4dab8715ff52bfc34eb57d1f",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-052",
+        "defect": "Auto-merge evaluated stale check attempts",
+        "fixed_commit": "e021b956e7c8a49fbc21fa77639cd0581795316d",
+        "fixed_on": "2026-09-11T21:46:58-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/e021b956e7c8a49fbc21fa77639cd0581795316d",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-053",
+        "defect": "Auto-merge did not recognize trusted bot identities",
+        "fixed_commit": "faaecb1b9a4ba280840fc1daead04b13f03b2201",
+        "fixed_on": "2026-09-11T21:24:28-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/faaecb1b9a4ba280840fc1daead04b13f03b2201",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-054",
+        "defect": "Source distributions omitted fixtures needed to run packaged tests",
+        "fixed_commit": "16a6bbbc1f70942321f8fc3ef1890d7a4e8665ee",
+        "fixed_on": "2026-09-11T19:46:11-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/16a6bbbc1f70942321f8fc3ef1890d7a4e8665ee",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "CI Test the source distribution",
+          "file": ".github/workflows/ci.yml",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/workflows/ci.yml",
+          "introduced_commit": "16a6bbbc1f70942321f8fc3ef1890d7a4e8665ee",
+          "introduced_on": "2026-09-11T19:46:11-07:00",
+          "timing": "same_fix",
+          "assertion": "Build/extract actual sdist, then execute its tests, including shared conftest fixtures."
+        }
+      },
+      {
+        "id": "dbus-event-log-055",
+        "defect": "Release wildcard selected non-distribution output",
+        "fixed_commit": "eebddfdb3c427ba3666cd55a64649d6e83386c8e",
+        "fixed_on": "2026-09-11T19:39:18-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/eebddfdb3c427ba3666cd55a64649d6e83386c8e",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-056",
+        "defect": "Reusable Python CI was incorrectly invoked as a step action",
+        "fixed_commit": "7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "fixed_on": "2026-09-11T19:25:59-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_actual_workflows_pass_without_optional_manifest",
+          "file": ".github/workflow-tests/test_action_pins.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/workflow-tests/test_action_pins.py#L52",
+          "introduced_commit": "2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+          "introduced_on": "2026-10-08T04:12:19-07:00",
+          "timing": "later_added"
+        }
+      },
+      {
+        "id": "dbus-event-log-057",
+        "defect": "Monitor did not dispatch GLib callbacks while asyncio ran",
+        "fixed_commit": "7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "fixed_on": "2026-09-11T19:25:59-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_dispatch_caps_nonblocking_glib_work_before_yielding",
+          "file": "tests/test_monitor.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_monitor.py#L394",
+          "introduced_commit": "7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+          "introduced_on": "2026-09-11T19:25:59-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-058",
+        "defect": "Async persistence was not awaited before delivery/shutdown",
+        "fixed_commit": "7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "fixed_on": "2026-09-11T19:25:59-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_async_storage_is_awaited_for_both_event_paths",
+          "file": "tests/test_monitor.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_monitor.py#L347",
+          "introduced_commit": "7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+          "introduced_on": "2026-09-11T19:25:59-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-059",
+        "defect": "Late callbacks could write after monitor shutdown",
+        "fixed_commit": "7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "fixed_on": "2026-09-11T19:25:59-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_stop_waits_for_pending_event_storage_and_rejects_late_callbacks",
+          "file": "tests/test_monitor.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_monitor.py#L417",
+          "introduced_commit": "7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+          "introduced_on": "2026-09-11T19:25:59-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-060",
+        "defect": "MQTT callbacks used an incompatible Paho API signature",
+        "fixed_commit": "7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "fixed_on": "2026-09-11T19:25:59-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_disconnect_callback_uses_paho_v2_dispatch",
+          "file": "tests/test_mqtt_publisher.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_mqtt_publisher.py#L100",
+          "introduced_commit": "7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+          "introduced_on": "2026-09-11T19:25:59-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-061",
+        "defect": "Event serialization lost identity/schema fields",
+        "fixed_commit": "7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "fixed_on": "2026-09-11T19:25:59-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_all_fields_present_after_serialization",
+          "file": "tests/test_schema_contracts.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_schema_contracts.py#L75",
+          "introduced_commit": "79b3cd2090f89e2b30f913daaa420343d59a674d",
+          "introduced_on": "2026-08-30T09:32:33-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-062",
+        "defect": "Relative-time filters failed across calendar boundaries",
+        "fixed_commit": "7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "fixed_on": "2026-09-11T19:25:59-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_relative_time_filters_cross_calendar_boundaries",
+          "file": "tests/test_storage_operations.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_storage_operations.py#L624",
+          "introduced_commit": "7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+          "introduced_on": "2026-09-11T19:25:59-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-063",
+        "defect": "Published container omitted operational D-Bus monitoring dependencies",
+        "fixed_commit": "7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "fixed_on": "2026-09-11T19:25:59-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "smoke_monitor.py session-bus assertion",
+          "file": "tests/smoke_monitor.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/smoke_monitor.py",
+          "introduced_commit": "7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+          "introduced_on": "2026-09-11T19:25:59-07:00",
+          "timing": "same_fix",
+          "assertion": "Run the packaged monitor against an isolated real session D-Bus and assert received event identity."
+        }
+      },
+      {
+        "id": "dbus-event-log-064",
+        "defect": "Release workflow had a malformed action hash",
+        "fixed_commit": "7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "fixed_on": "2026-09-11T19:25:59-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_actual_workflows_pass_without_optional_manifest",
+          "file": ".github/workflow-tests/test_action_pins.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/workflow-tests/test_action_pins.py#L52",
+          "introduced_commit": "2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+          "introduced_on": "2026-10-08T04:12:19-07:00",
+          "timing": "later_added"
+        }
+      },
+      {
+        "id": "dbus-event-log-065",
+        "defect": "Release image publication lacked registry login",
+        "fixed_commit": "7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "fixed_on": "2026-09-11T19:25:59-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/7439795ac5aca68b8a8f129c4f3ae3704709ed15",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-066",
+        "defect": "Malformed reusable-workflow path was not a valid reference",
+        "fixed_commit": "5621d090892e4a2e6ad6b98e7e221974e10adb2f",
+        "fixed_on": "2026-08-22T15:59:35-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/5621d090892e4a2e6ad6b98e7e221974e10adb2f",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_actual_workflows_pass_without_optional_manifest",
+          "file": ".github/workflow-tests/test_action_pins.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/workflow-tests/test_action_pins.py#L52",
+          "introduced_commit": "2c14902dff5361ad0fee62d8b2e8838b4191bab1",
+          "introduced_on": "2026-10-08T04:12:19-07:00",
+          "timing": "later_added"
+        }
+      },
+      {
+        "id": "dbus-event-log-067",
+        "defect": "Upstream reusable workflow contained an invalid description key",
+        "fixed_commit": "1b9411edf48f9f5e771fbe514eb67aa61f4bc3f3",
+        "fixed_on": "2026-08-22T13:25:49-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/1b9411edf48f9f5e771fbe514eb67aa61f4bc3f3",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-068",
+        "defect": "Forced action Node runtime broke auto-approval compatibility",
+        "fixed_commit": "ad73424465ac7eefe8f43f143718e6e97611f201",
+        "fixed_on": "2026-08-17T20:56:38-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/ad73424465ac7eefe8f43f143718e6e97611f201",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-069",
+        "defect": "Workflow specified reserved GITHUB_TOKEN as an input secret",
+        "fixed_commit": "b26286bb1ad3bc9932282d3925c50f46c08a5988",
+        "fixed_on": "2026-08-16T15:44:05-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/b26286bb1ad3bc9932282d3925c50f46c08a5988",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-070",
+        "defect": "Registry publishing lacked packages write permission",
+        "fixed_commit": "6565d6dd36cab3b89abd3690940c6255f1bb1d25",
+        "fixed_on": "2026-08-09T17:01:07-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/6565d6dd36cab3b89abd3690940c6255f1bb1d25",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-071",
+        "defect": "CI did not install the declared dev extra containing lint/test tools",
+        "fixed_commit": "c5b18a7b167ff272a48204d4109201f1789da247",
+        "fixed_on": "2026-08-01T18:10:32Z",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/c5b18a7b167ff272a48204d4109201f1789da247",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-072",
+        "defect": "Cleanup date subtraction failed at month boundaries",
+        "fixed_commit": "5109adfb0e0fbe515b3e205341c78998a93ec676",
+        "fixed_on": "2026-08-01T07:55:13-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/5109adfb0e0fbe515b3e205341c78998a93ec676",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_cleanup_deletes_using_configured_retention_and_reports_count",
+          "file": "tests/test_storage_operations.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_storage_operations.py#L683",
+          "introduced_commit": "1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+          "introduced_on": "2026-09-12T09:45:33-07:00",
+          "timing": "later_added"
+        }
+      },
+      {
+        "id": "dbus-event-log-073",
+        "defect": "Scorecard publication workflow violated the upstream allowed publishing steps",
+        "fixed_commit": "09f1ed1425cc7d266281fdd5dcf9800ca22abfa1",
+        "fixed_on": "2026-10-03T14:05:22-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/09f1ed1425cc7d266281fdd5dcf9800ca22abfa1",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_custom_run_in_publishing_job_is_rejected",
+          "file": ".github/workflow-tests/test_scorecard_workflow.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/.github/workflow-tests/test_scorecard_workflow.py#L72",
+          "introduced_commit": "09f1ed1425cc7d266281fdd5dcf9800ca22abfa1",
+          "introduced_on": "2026-10-03T14:05:22-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-074",
+        "defect": "Incomplete or failed Scorecard data could be uploaded as current results",
+        "fixed_commit": "09f1ed1425cc7d266281fdd5dcf9800ca22abfa1",
+        "fixed_on": "2026-10-03T14:05:22-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/09f1ed1425cc7d266281fdd5dcf9800ca22abfa1",
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_failed_guard_removes_stale_sarif",
+          "file": "tests/test_validate_scorecard_json.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_validate_scorecard_json.py#L162",
+          "introduced_commit": "09f1ed1425cc7d266281fdd5dcf9800ca22abfa1",
+          "introduced_on": "2026-10-03T14:05:22-07:00",
+          "timing": "same_or_earlier_fix_history"
+        }
+      },
+      {
+        "id": "dbus-event-log-075",
+        "defect": "CI jobs held write permissions outside the job needing them",
+        "fixed_commit": "09f1ed1425cc7d266281fdd5dcf9800ca22abfa1",
+        "fixed_on": "2026-10-03T14:05:22-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/09f1ed1425cc7d266281fdd5dcf9800ca22abfa1",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-076",
+        "defect": "Paths-ignore prevented required validation on workflow/configuration changes",
+        "fixed_commit": "588bc8fa6e764a3775c9d1c3e0666ae6668b3f3a",
+        "fixed_on": "2026-09-22T09:29:09-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/588bc8fa6e764a3775c9d1c3e0666ae6668b3f3a",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-077",
+        "defect": "Dependabot PR approval could not use the correct token context",
+        "fixed_commit": "1b74623b92682b5ee89c558d593d8e36cbd16119",
+        "fixed_on": "2026-09-22T08:26:13-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/1b74623b92682b5ee89c558d593d8e36cbd16119",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-078",
+        "defect": "Auto-approval passed a reserved token secret incorrectly",
+        "fixed_commit": "2ac6867bdaf5a615fc2fa778a151823b376aa42a",
+        "fixed_on": "2026-08-18T08:16:14-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/2ac6867bdaf5a615fc2fa778a151823b376aa42a",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-079",
+        "defect": "Unbounded pending signal events could consume memory without stopping incomplete capture",
+        "fixed_commit": "f55197f8f34e6e5801c310c993006afad8ca82d0",
+        "fixed_on": "2026-10-04T08:38:51-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/f55197f8f34e6e5801c310c993006afad8ca82d0",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-080",
+        "defect": "Signal-storage failure was only logged and not surfaced to the supervising capture",
+        "fixed_commit": "f55197f8f34e6e5801c310c993006afad8ca82d0",
+        "fixed_on": "2026-10-04T08:38:51-07:00",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/f55197f8f34e6e5801c310c993006afad8ca82d0",
+        "regression_status": "not_verified",
+        "regression": null
+      },
+      {
+        "id": "dbus-event-log-081",
+        "defect": "Failed TLS handshake fixture could hang or raise a transport finalizer error on Python 3.11",
+        "fixed_commit": "41969f701cff1e5bac62a9eba68abab865331797",
+        "fixed_on": "2026-10-12",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/41969f701cff1e5bac62a9eba68abab865331797",
+        "unmerged_at_review": true,
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_wrong_hostname_fails_before_credentials",
+          "file": "tests/test_timescale_tls.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_timescale_tls.py",
+          "introduced_commit": "41969f701cff1e5bac62a9eba68abab865331797",
+          "introduced_on": "2026-10-12",
+          "timing": "same_fix"
+        }
+      },
+      {
+        "id": "dbus-event-log-082",
+        "defect": "Compose used a known default database password",
+        "fixed_commit": "6d77605871b76147d0f5506486f8fe16b8aee444",
+        "fixed_on": "2026-10-12",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/6d77605871b76147d0f5506486f8fe16b8aee444",
+        "unmerged_at_review": true,
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_optional_database_requires_operator_password_and_scram",
+          "file": "tests/test_compose_config.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_compose_config.py",
+          "introduced_commit": "6d77605871b76147d0f5506486f8fe16b8aee444",
+          "introduced_on": "2026-10-12",
+          "timing": "same_fix"
+        }
+      },
+      {
+        "id": "dbus-event-log-083",
+        "defect": "Compose published anonymous demo broker and database ports on all host interfaces",
+        "fixed_commit": "6d77605871b76147d0f5506486f8fe16b8aee444",
+        "fixed_on": "2026-10-12",
+        "fix_url": "https://github.com/victron-venus/dbus-event-log/commit/6d77605871b76147d0f5506486f8fe16b8aee444",
+        "unmerged_at_review": true,
+        "regression_status": "verified_assertions",
+        "regression": {
+          "function": "test_optional_database_requires_operator_password_and_scram",
+          "file": "tests/test_compose_config.py",
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_compose_config.py",
+          "introduced_commit": "6d77605871b76147d0f5506486f8fe16b8aee444",
+          "introduced_on": "2026-10-12",
+          "timing": "same_fix"
+        }
+      }
+    ],
+    "excluded_groups": [
+      {
+        "sha": "cd3e98f0b4fc1af4b087492bac6749d612dee395",
+        "reason": "Ordinary dependency update; no project-specific fixed defect established."
+      },
+      {
+        "sha": "dfa2b9bad3f0f7b89c824e4a143fd51b12c444a8",
+        "reason": "Empty duplicate commit; no changed files."
+      },
+      {
+        "sha": "2efd386bcc6df1def963f7736b6ba3c53724a64a",
+        "reason": "Typing/import-annotation cleanup; no demonstrated runtime behavior fix."
+      }
+    ],
+    "summary": {
+      "identified_distinct_defects": 83,
+      "with_verified_regression_assertions": 64,
+      "without_verified_regression_assertions": 19,
+      "ratio": 0.7710843373493976,
+      "percentage": 77.11,
+      "review_conclusion": "The identified defect inventory exceeds 50% with linked automated regressions; rows without exact evidence remain in the denominator. Requires review and merge of the current PR before submission. This is a manual historical classification, not a guarantee that every undocumented defect is known."
+    },
+    "representative_replay": {
+      "fixed_commit": "c3cd9b6b21415cad36bfc61750866964d8b5a772",
+      "test": "tests/test_models.py::test_default_timestamp_is_timezone_aware",
+      "method": "Use the fix commit checkout and its exact test; substitute only affected source with the parent version. Run isolated pytest without coverage.",
+      "parent_result": "1 failed, exit 1",
+      "fixed_result": "1 passed, exit 0",
+      "assertion": "The parent default timestamp has tzinfo=None; the fixed version returns datetime.timezone.utc.",
+      "limitations": "Historical fix checkout uses its historical tests/configuration in the current interpreter. It is a controlled affected-source substitution, not a complete historical build environment."
+    }
+  }
 }

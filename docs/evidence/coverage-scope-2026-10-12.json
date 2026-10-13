@@ -6,11 +6,11 @@
     "binary_sha256": "b7c872db63553ccffc7253aba3ed7d4885a27d83f1ba567b1138c6315a5847e5",
     "source_url": "https://github.com/mvdan/sh/releases/tag/v3.14.1"
   },
-  "method": "Count every Bash AST Stmt node, including compound statements and nested command substitutions, across all tracked shell files (including extensionless shebang scripts) and every GitHub Actions run step. Replace Actions expressions with a non-executable placeholder before parsing. Recursively count heredoc shell, SSH/trap command strings, and count embedded Python heredoc/-c AST statements separately at zero coverage. Add conservative sed/awk expression units and all Docker instructions plus RUN shell. No non-Python execution credit is used.",
+  "method": "Count every Bash AST Stmt node, including compound statements and nested command substitutions, across all tracked shell files (including extensionless shebang scripts) and every GitHub Actions run step. Replace Actions expressions with a non-executable placeholder before parsing. Recursively count heredoc shell, SSH/trap command strings, and count embedded Python heredoc/-c AST statements separately at zero coverage. Add conservative sed/awk expression units and all Docker instructions plus RUN shell. Each declarative Compose command/entrypoint receives another zero-coverage unit. No non-Python execution credit is used.",
   "python_covered_statements": 5282,
   "python_statements": 5954,
-  "additional_zero_coverage_units": 409,
-  "aggregate_conservative_lower_bound_percent": 83.0112,
+  "additional_zero_coverage_units": 411,
+  "aggregate_conservative_lower_bound_percent": 82.9851,
   "records": [
     {
       "path": ".github/workflows/ci.yml:jobs.build.steps[4].run",
@@ -307,6 +307,18 @@
       "sha256": "0ac810340cb73d36706b770b273fa08b70672ae08f1d9f17ce90661b2a0a6457"
     },
     {
+      "path": "docker-compose.yml:services.dbus-event-log.command",
+      "language": "Compose declarative command allowance",
+      "zero_coverage_statements": 1,
+      "sha256": "169bc67818a95b1bdf1fb7b4367e53b09a0e87452fbdf09ed98a955047a63f13"
+    },
+    {
+      "path": "docker-compose.yml:services.timescaledb.command",
+      "language": "Compose declarative command allowance",
+      "zero_coverage_statements": 1,
+      "sha256": "8822aee90b305908f779edde0b495d3083bc4f3b1a095e2526bd70ce6efd0eb6"
+    },
+    {
       "path": "release.sh",
       "language": "Shell AST statements (including compound statements)",
       "zero_coverage_statements": 4,
@@ -390,5 +402,6 @@
     "External interpreters, installed libraries, tools and remote reusable workflows/actions are dependencies rather than project-maintained source. Test/fixture source and documentation examples are not production source.",
     "YAML/TOML/JSON configuration is data; executable workflow run steps and Docker RUN bodies are included. Docker instructions receive an extra zero-coverage allowance.",
     "Do not apply this bound to native dependency memory safety or branch coverage."
-  ]
+  ],
+  "reproduction": "coverage-scope-method.md"
 }

@@ -4054,10 +4054,13 @@
         "regression": {
           "function": "test_cleanup_deletes_using_configured_retention_and_reports_count",
           "file": "tests/test_storage_operations.py",
-          "url": "https://github.com/victron-venus/dbus-event-log/blob/6d77605871b76147d0f5506486f8fe16b8aee444/tests/test_storage_operations.py#L683",
-          "introduced_commit": "1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
-          "introduced_on": "2026-09-12T09:45:33-07:00",
-          "timing": "later_added"
+          "url": "https://github.com/victron-venus/dbus-event-log/blob/9188cf42b084cb50b20a6936382160462ba69b77/tests/test_storage_operations.py#L683",
+          "introduced_commit": "9188cf42b084cb50b20a6936382160462ba69b77",
+          "introduced_on": "2026-10-12T18:53:58-07:00",
+          "timing": "later_added",
+          "original_test_introduced_commit": "1bea198cc2fd2fa7d9a130c025a5d7f92f48fc99",
+          "original_test_introduced_on": "2026-09-12T09:45:33-07:00",
+          "strengthening_note": "On 2026-10-12 the existing cleanup test was strengthened with a frozen 2024-03-01 clock and February records on either side of a seven-day cutoff. The prior moving clock did not guarantee a month boundary."
         }
       },
       {

@@ -8,6 +8,10 @@ The combined pytest invocation includes `tests/`, `.github/workflow-tests/` and 
 
 [Machine-readable measurement](evidence/coverage-2026-10-12.json) records the measured source hashes, executable/covered statements, test result and environment. Those hashes bind the result to the tested source, without a circular commit hash in the evidence file. A local run is not hosted CI: inspect the pull request's actual required checks before merging or submitting a badge assessment. The [regression ledger](evidence/regressions-2026-10-12.json) records recent fix/test links and gaps; a test count is not a bugfix ratio.
 
+## Coverage across maintained source languages
+
+The [source-scope inventory](evidence/coverage-scope-2026-10-12.json) counts tracked shell scripts, workflow `run` steps, embedded Python and shell programs, and Docker build instructions where present. It uses language-appropriate AST statement units and conservative allowances for text-tool expressions and Docker instructions. All 409 additional units receive **zero execution credit**. Combined with measured Python coverage, the conservative bound is 5282 / (5954 + 409) = **83.0112%**. This is not a measurement of shell or native-library coverage. Dependencies, declarative configuration, tests and documentation examples are distinguished explicitly in the inventory. Repeat this review when maintained source languages or embedded scripts change.
+
 ## Repeating the build
 
 Use Python 3.11, uv 0.12.18 and the committed lock. The build dependencies are pinned separately and installed before the editable project so a second build resolver cannot select newer tools:
@@ -21,7 +25,7 @@ export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
 cmp dist/*.whl /tmp/dbus-event-log-repeat/*.whl
 ```
 
-Choose a fresh repeat-build output directory. CI runs the equivalent commands and runs the extracted source distribution's application tests, catching missing fixtures. [The local build record](evidence/build-2026-10-12.json) records two identical wheels and 241 passing extracted-source tests (48 subtests). The byte comparison establishes repeatability for the wheel in the tested environment; it does not claim bit-identical containers or source tarballs across platforms/toolchain versions. Locked native dependency wheels can differ by supported platform.
+Choose a fresh repeat-build output directory. CI runs the equivalent commands and runs the extracted source distribution's application tests, catching missing fixtures. [The local build record](evidence/build-2026-10-12.json) records two identical wheels and 272 passing extracted-source tests (48 subtests). The byte comparison establishes repeatability for the wheel in the tested environment; it does not claim bit-identical containers or source tarballs across platforms/toolchain versions. Locked native dependency wheels can differ by supported platform.
 
 The wheel supports standard Python installation destinations. For example, stage with a prepared pip environment using `python -m pip install --no-deps --root "$DESTDIR" --prefix /usr dist/*.whl`, or install into a disposable virtual environment. This does not configure or start a capture service. Standard pip uninstall tracks package-owned installed files; protect operator configuration and captured data separately.
 

@@ -1,15 +1,15 @@
 {
-  "measured_on": "2026-10-13T01:51:12.154287+00:00",
-  "source_base_commit": "41969f701cff1e5bac62a9eba68abab865331797",
+  "measured_on": "2026-10-13T01:56:47.179959+00:00",
+  "source_base_commit": "e45bd2ccca328873ceada1cc98fb9d68c3822568",
   "source_state": "PR working tree; exact production source content is bound by per-file SHA-256 hashes below. Review/merge commit is supplied by the PR.",
   "command": "bash scripts/ci.sh --install && bash scripts/ci.sh",
   "interpreter": "Python 3.11.16",
   "host": "macOS-26.7-arm64-arm-64bit-Mach-O",
-  "covered_statements": 5233,
-  "statements": 5904,
-  "statement_percent": 88.6348,
+  "covered_statements": 5282,
+  "statements": 5954,
+  "statement_percent": 88.7135,
   "threshold_percent": 80,
-  "test_result": "834 passed, 1 skipped in 89.79s (0:01:29)",
+  "test_result": "865 passed, 1 skipped in 86.32s (0:01:26)",
   "limitations": [
     "Python statements only, not branch coverage.",
     "Excluded tests, virtual environments and generated build/distribution output; native dependencies and shell are not Python statement coverage.",
@@ -169,9 +169,15 @@
     },
     {
       "path": "src/dbus_event_log/config.py",
-      "sha256": "51cddd30e1329b0279dd4b9989f9dd7078d42ce4947bacf4a36140acd0ef9399",
-      "statements": 58,
-      "covered_statements": 58
+      "sha256": "780e5564e84219b2f4a587646b9394d490d7da119e1a9af9707b1f305b60ba72",
+      "statements": 60,
+      "covered_statements": 60
+    },
+    {
+      "path": "src/dbus_event_log/credentials.py",
+      "sha256": "e1ceda220b03b33865c3e2f18f266d4e49c6ca083f822fc9b785b5ad10b22b0c",
+      "statements": 24,
+      "covered_statements": 23
     },
     {
       "path": "src/dbus_event_log/method_capture.py",
@@ -193,15 +199,15 @@
     },
     {
       "path": "src/dbus_event_log/mqtt_publisher.py",
-      "sha256": "e4118a41657b721f96140549bbdf6b738a4a702dc3e88c35d5548378d2cd388a",
-      "statements": 109,
-      "covered_statements": 103
+      "sha256": "af154a910483539e551f7e4852e64c5da75bf3cf886c724efce1ad7b67f295b3",
+      "statements": 117,
+      "covered_statements": 111
     },
     {
       "path": "src/dbus_event_log/storage.py",
-      "sha256": "f54d3aad9f5216a015e8b0f8d6288a5add4c050cef0973f7a24d03c37633a392",
-      "statements": 315,
-      "covered_statements": 307
+      "sha256": "1662dcef361ece9f83c8969cd4c807cac97d6ef192b35d76e43e54cce40755c2",
+      "statements": 331,
+      "covered_statements": 323
     }
   ]
 }

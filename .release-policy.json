@@ -78,6 +78,6 @@
   },
   "single_entry_ci": true,
   "release_notes": "CHANGELOG.md",
-  "toolkit_revision": "8d9a8326eaaa9eccf4de38043134212b3c2fac8e",
+  "toolkit_revision": "7282a18bd5975975ec323ac765557cf0aec6e11d",
   "sign_releases": true
 }

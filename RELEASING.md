@@ -49,9 +49,16 @@ Nightly and beta are previews; neither is directly promotable to stable. An RC
 may be requested without a previous beta. Channel order is a workflow policy,
 not a comparison of tag strings. Declared adapters map the saved full version to each package format. Native OS fields may retain the numeric base while the application embeds its full identity. RC packages under promote-bytes already use the final base; their original candidate identity remains provenance.
 
+
+
+Once the committed base has a stable tag, automatic push betas report
+`version-required`: quality and security checks still run, while packaging and
+publication are skipped. Prepare the next committed base through a reviewed PR.
+Explicit beta/RC requests still reject an occupied base; nightlies are unchanged.
+
 ## Required validation and evidence
 
-1. The aggregate **CI gate** requires every workflow declared in the policy to
+1. The aggregate **CI gate** requires every workflow selected by the source policy to
    succeed. Failed, missing, canceled or skipped required checks block the gate.
 2. Candidate publication additionally requires the complete platform build matrix
    and **Release gate**. Artifacts from a partially successful matrix are not a

@@ -16,6 +16,7 @@ class StorageConfig(BaseSettings):
     backend: Literal["sqlite", "timescaledb"] = "sqlite"
     sqlite_path: Path = Field(default=Path("/var/lib/dbus-event-log/events.db"))
     timescaledb_dsn: str | None = None
+    timescaledb_password_file: Path | None = None
     timescaledb_tls: Literal["verify-full", "trusted-local"] = "verify-full"
     retention_days: int = Field(default=30, ge=0)
     rotation_size_mb: int = Field(default=100, ge=0)
@@ -35,6 +36,7 @@ class MQTTConfig(BaseSettings):
     port: int = 1883
     username: str | None = None
     password: str | None = None
+    password_file: Path | None = None
     topic_prefix: str = "victron/dbus/events"
     qos: int = 1
     retain: bool = False

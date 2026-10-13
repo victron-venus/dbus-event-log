@@ -1,0 +1,407 @@
+{
+  "measured_on": "2026-10-12",
+  "parser": {
+    "name": "shfmt",
+    "version": "3.14.1",
+    "binary_sha256": "b7c872db63553ccffc7253aba3ed7d4885a27d83f1ba567b1138c6315a5847e5",
+    "source_url": "https://github.com/mvdan/sh/releases/tag/v3.14.1"
+  },
+  "method": "Count every Bash AST Stmt node, including compound statements and nested command substitutions, across all tracked shell files (including extensionless shebang scripts) and every GitHub Actions run step. Replace Actions expressions with a non-executable placeholder before parsing. Recursively count heredoc shell, SSH/trap command strings, and count embedded Python heredoc/-c AST statements separately at zero coverage. Add conservative sed/awk expression units and all Docker instructions plus RUN shell. Each declarative Compose command/entrypoint receives another zero-coverage unit. No non-Python execution credit is used.",
+  "python_covered_statements": 5282,
+  "python_statements": 5954,
+  "additional_zero_coverage_units": 412,
+  "aggregate_conservative_lower_bound_percent": 82.972,
+  "records": [
+    {
+      "path": ".github/workflows/ci.yml:jobs.build.steps[4].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 2,
+      "sha256": "5773d6a7a2ec551adf257ebc6a18e818db73d8920966328fd21da748c5313c6c"
+    },
+    {
+      "path": ".github/workflows/ci.yml:jobs.build.steps[5].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 6,
+      "sha256": "7181cbcfb7779372463fd960f5da3ffff1ea1af27ac9d0e6bf84b01924da116d"
+    },
+    {
+      "path": ".github/workflows/ci.yml:jobs.build.steps[6].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "7a0034b8022491448d4b0606a8ee567bb14a977ddc79cedcdf488d12b4a91961"
+    },
+    {
+      "path": ".github/workflows/ci.yml:jobs.build.steps[6].run:heredoc@2",
+      "language": "embedded Python AST statements",
+      "zero_coverage_statements": 15,
+      "sha256": "2c5026816d3df8b3f5f75a69d5918d899cd684c25cec4e21db443302e4893cb0"
+    },
+    {
+      "path": ".github/workflows/dependency-review.yml:jobs.dependency-review.steps[3].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "e5b5a57306e6b75ea4652a4ef50376ca9ed386e37dd8a7172c3eeb5f80e747ea"
+    },
+    {
+      "path": ".github/workflows/native-container-check.yml:jobs.plan.steps[3].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "64b33d00b724f7725fec89bee8646d56b0ebb7eb367d6d9942950752976b5639"
+    },
+    {
+      "path": ".github/workflows/native-container-check.yml:jobs.plan.steps[3].run:heredoc@2",
+      "language": "embedded Python AST statements",
+      "zero_coverage_statements": 21,
+      "sha256": "0042a4efe905bcb01ae8472c57bf0748fb998069fbf8f176b645526b8973f293"
+    },
+    {
+      "path": ".github/workflows/quality-gate.yml:jobs.scope.steps[2].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 5,
+      "sha256": "b06186b05812a160139a4d1e3849f2e0573ed0d1e1cf0fd1e5cfde62d8384cbe"
+    },
+    {
+      "path": ".github/workflows/quality-gate.yml:jobs.workflow-contracts.steps[3].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "9cdf8a41bfd3cac66ff11516b1d2198f9e515df681ab071b2c54c668a7ae24e2"
+    },
+    {
+      "path": ".github/workflows/quality-gate.yml:jobs.workflow-contracts.steps[4].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "15a1332d9bc232395a28b2f1e25dcd1cea3c09d4439ec537f258459228af43bd"
+    },
+    {
+      "path": ".github/workflows/quality-gate.yml:jobs.workflow-contracts.steps[5].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "c2adee5ddc6ddd37053cc5619db9487df6898d78c455b366414341e7fa3b4a7a"
+    },
+    {
+      "path": ".github/workflows/quality-gate.yml:jobs.release-contracts.steps[3].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "9cdf8a41bfd3cac66ff11516b1d2198f9e515df681ab071b2c54c668a7ae24e2"
+    },
+    {
+      "path": ".github/workflows/quality-gate.yml:jobs.release-contracts.steps[4].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "024882addae63e21953eddfa3f5fb5569d74bf9a30286b391eaae9d7713aff7e"
+    },
+    {
+      "path": ".github/workflows/quality-gate.yml:jobs.release-contracts.steps[5].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "d8baa32bc451cffb29e8b071eb160e7588589559be71e3ee31551127e9a6f329"
+    },
+    {
+      "path": ".github/workflows/quality-gate.yml:jobs.gate.steps[1].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "5c7c81b4ba272edddecfcaa756b3189dfb33de6d719036ff2272d5e952daf9a0"
+    },
+    {
+      "path": ".github/workflows/quality-gate.yml:jobs.gate.steps[1].run:heredoc@2",
+      "language": "embedded Python AST statements",
+      "zero_coverage_statements": 21,
+      "sha256": "ef155a82735770ce3d312d0b98507290ae43fe60ab792ff641a2bc3d414e2148"
+    },
+    {
+      "path": ".github/workflows/release-build.yml:jobs.native-container.steps[4].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "a159cb044ce263efe7b918c6238e7bdabeadd3fba3d33e07d7dea6c448124f37"
+    },
+    {
+      "path": ".github/workflows/release-build.yml:jobs.native-container.steps[6].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "6b1f3b07f59ae5131b55372445fdb0f999d1dba9cae28981f4244eb1218326de"
+    },
+    {
+      "path": ".github/workflows/release-build.yml:jobs.package.steps[4].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "a159cb044ce263efe7b918c6238e7bdabeadd3fba3d33e07d7dea6c448124f37"
+    },
+    {
+      "path": ".github/workflows/release-build.yml:jobs.package.steps[5].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "bcb30a358a878dc7f0f9dbb1c2e3011cb1a292b327bc5337dd53b9cdbf6c58ee"
+    },
+    {
+      "path": ".github/workflows/release-build.yml:jobs.package.steps[6].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "7b3c7de2909c3c7c5801772bd45cbd37e654bbc86ad83e04ff8648d116d997d1"
+    },
+    {
+      "path": ".github/workflows/release-build.yml:jobs.package.steps[9].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "e7a06d9bf8ed54b0ff7f20ede83c9b9cab815b3eecb300ae2844b4cbe679c0ad"
+    },
+    {
+      "path": ".github/workflows/release-build.yml:jobs.package.steps[10].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "7afa5b38bc2ed29826a4ef691f2a76b7c7d5fa1cdf57d812875366a84ef6b54a"
+    },
+    {
+      "path": ".github/workflows/release-build.yml:jobs.package.steps[11].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "523698d35cf86360f3d781eec81ece2bd1239ee7aa9cee3da75d08247305201e"
+    },
+    {
+      "path": ".github/workflows/release-pipeline.yml:jobs.scope.steps[2].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 5,
+      "sha256": "b06186b05812a160139a4d1e3849f2e0573ed0d1e1cf0fd1e5cfde62d8384cbe"
+    },
+    {
+      "path": ".github/workflows/release-pipeline.yml:jobs.prepare.steps[2].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "919b5613f4224b58f1fcc18ed96e639c8af815f3a2ccd406d0a91389f187ccc6"
+    },
+    {
+      "path": ".github/workflows/release-pipeline.yml:jobs.gate.steps[1].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "2c8a5f8012fac37c568f74b4cb888aa584dd9a5a2311d01830bc341d34835df8"
+    },
+    {
+      "path": ".github/workflows/release-pipeline.yml:jobs.gate.steps[1].run:heredoc@2",
+      "language": "embedded Python AST statements",
+      "zero_coverage_statements": 9,
+      "sha256": "8f7a9ae2de9a15feb6e527e2c99c605f8855e100840850f42892859cb910a958"
+    },
+    {
+      "path": ".github/workflows/release-pipeline.yml:jobs.candidate.steps[5].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "fe66a0dac433d11edded64ce7eb76fab93c3980001b8758dd3bb78746f9ded87"
+    },
+    {
+      "path": ".github/workflows/release-pipeline.yml:jobs.candidate.steps[6].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "2877de722294d01eeeab81d37fed3140af62f8595514a81156f36a047e385825"
+    },
+    {
+      "path": ".github/workflows/release-pipeline.yml:jobs.stable.steps[3].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "62a6a4c00fb728461a757fbc65fdf96652dfb1e94ab71ed2eea7b59028956977"
+    },
+    {
+      "path": ".github/workflows/release-pipeline.yml:jobs.final.steps[5].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "fe66a0dac433d11edded64ce7eb76fab93c3980001b8758dd3bb78746f9ded87"
+    },
+    {
+      "path": ".github/workflows/release-pipeline.yml:jobs.final.steps[6].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "2877de722294d01eeeab81d37fed3140af62f8595514a81156f36a047e385825"
+    },
+    {
+      "path": ".github/workflows/release-pipeline.yml:jobs.sign.steps[5].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "a159cb044ce263efe7b918c6238e7bdabeadd3fba3d33e07d7dea6c448124f37"
+    },
+    {
+      "path": ".github/workflows/release-pipeline.yml:jobs.sign.steps[7].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 2,
+      "sha256": "43fcd3aa5bfeb1db5409fbe00ab99b0fde8ccea3181e1cac88558e956abc25c6"
+    },
+    {
+      "path": ".github/workflows/release-pipeline.yml:jobs.sign.steps[8].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "6550389bc507dac8ae7ec923a25eaece698233c3800ce079fc391e6cab650859"
+    },
+    {
+      "path": ".github/workflows/release-pipeline.yml:jobs.sign.steps[9].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "1ab9c6bb03644f75c4a5b914764eb28c61977a7f2ce26149f4a7e7e122338e5a"
+    },
+    {
+      "path": ".github/workflows/release-pipeline.yml:jobs.sign.steps[10].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "bfba462852c70a91e150fc174088c46b3b360e3f8667e5b69ee642016b5f6ef4"
+    },
+    {
+      "path": ".github/workflows/release-pipeline.yml:jobs.sign.steps[11].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 4,
+      "sha256": "e6de3e06abb423ddac6743cce7983ddd2ac465200be525ee1870b0abf7200e9b"
+    },
+    {
+      "path": ".github/workflows/release-pipeline.yml:jobs.sign.steps[12].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "bd8b9b9b1d05550aff09fbd43a1dee9f6772c9c7d7989daef1f774648fe6b599"
+    },
+    {
+      "path": ".github/workflows/release-security.yml:jobs.security.steps[3].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "3a22eef3a106be6ac948e8d491cccb5c58515e4cbd08b9a51d5b1cea8bef132b"
+    },
+    {
+      "path": ".github/workflows/release-security.yml:jobs.security.steps[4].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "36fd64990e0777049caf677d325be0c5cb8adf74ce3fb3c34d843ece2775e6b7"
+    },
+    {
+      "path": ".github/workflows/release-security.yml:jobs.security.steps[5].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "ef7c82d1668ada299bbf27db4e5bd0bc48da671216b7e802a19ef46318d564d1"
+    },
+    {
+      "path": ".github/workflows/scorecards.yml:jobs.analysis.steps[3].run",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 2,
+      "sha256": "d23067205670500a88e6340932f20e6bdc6827e22893402e78e2bc7771a188a2"
+    },
+    {
+      "path": "Dockerfile",
+      "language": "Docker declarative instruction allowance (in addition to RUN shell)",
+      "zero_coverage_statements": 12,
+      "sha256": "35b6bb51fb39d9cc19b2ed339119e13fd1b0d94c53e683319ad1d55a9a6dc5c0"
+    },
+    {
+      "path": "Dockerfile:RUN[3]",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 5,
+      "sha256": "5a4c5a53aa34d08717c20b83e282964ee7d0d1bb73a35b6033044f5df530f858"
+    },
+    {
+      "path": "Dockerfile:RUN[7]",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 9,
+      "sha256": "75fe54e140468aad4686c46bcbd601d7f87095c75166e86a0f3a2e22bc53f19a"
+    },
+    {
+      "path": "Dockerfile:RUN[7]:command@1:python-c",
+      "language": "embedded Python AST statements",
+      "zero_coverage_statements": 2,
+      "sha256": "7c1d9b3cff457d6b3bd159e32458df9218240fa0611f8ac45ff683874415971d"
+    },
+    {
+      "path": "Dockerfile:RUN[8]",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 5,
+      "sha256": "0ac810340cb73d36706b770b273fa08b70672ae08f1d9f17ce90661b2a0a6457"
+    },
+    {
+      "path": "docker-compose.yml:services.dbus-event-log.command",
+      "language": "Compose declarative command allowance",
+      "zero_coverage_statements": 1,
+      "sha256": "169bc67818a95b1bdf1fb7b4367e53b09a0e87452fbdf09ed98a955047a63f13"
+    },
+    {
+      "path": "docker-compose.yml:services.timescaledb.command",
+      "language": "Compose declarative command allowance",
+      "zero_coverage_statements": 1,
+      "sha256": "8822aee90b305908f779edde0b495d3083bc4f3b1a095e2526bd70ce6efd0eb6"
+    },
+    {
+      "path": "release.sh",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 4,
+      "sha256": "18c32118fd9e7748ea2bb6b673588b23f5bbe59205317b56a4bcb158e04c4cc6"
+    },
+    {
+      "path": "scripts/build-native-container.sh",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 70,
+      "sha256": "8e2b877f6f91f94b9ecb9b7866f8f82e8accec05e15fd9b87276624f6f67ff04"
+    },
+    {
+      "path": "scripts/build-native-container.sh:heredoc@31",
+      "language": "embedded Python AST statements",
+      "zero_coverage_statements": 7,
+      "sha256": "fb9cfda4b2d299652c2b065ad5a22af0e2b13fa80d72a92919f509474f28145e"
+    },
+    {
+      "path": "scripts/build-native-container.sh:command@45:trap",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 1,
+      "sha256": "5440a05559951a8f5c5ea61da0b8fcf8a4589909a4bf559e8eddfc66164a6ede"
+    },
+    {
+      "path": "scripts/build-native-container.sh:heredoc@59",
+      "language": "embedded Python AST statements",
+      "zero_coverage_statements": 21,
+      "sha256": "6c4d0f175ab70f0ce3b803ab2c887602083852f2b335e3391847ec42a602cb9d"
+    },
+    {
+      "path": "scripts/build-native-container.sh:command@84:python-c",
+      "language": "embedded Python AST statements",
+      "zero_coverage_statements": 7,
+      "sha256": "775333c901e0c9a40d778f5cdada60cbfc913b5d6dd5d3428c83064c8192d28b"
+    },
+    {
+      "path": "scripts/build-native-container.sh:heredoc@101",
+      "language": "embedded Python AST statements",
+      "zero_coverage_statements": 13,
+      "sha256": "b48a71e64f30bbef2cd863996392cdfcded02b0058331070816c53ab39d524e9"
+    },
+    {
+      "path": "scripts/cerbo-manual.sh",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 57,
+      "sha256": "142c5212b350334b9a76344653acf1af388e0dd9a72b0dc692105817e50e6aab"
+    },
+    {
+      "path": "scripts/cerbo-manual.sh:command@40:python-c",
+      "language": "embedded Python AST statements",
+      "zero_coverage_statements": 2,
+      "sha256": "962051a46565b26848c3c0a65773e10a476efd5265d9afc5f8f2488ca121621c"
+    },
+    {
+      "path": "scripts/ci.sh",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 28,
+      "sha256": "52e33df96d51c40eb5e1033a1c90dd4e424065ec4d33cbb9889b160c0401291d"
+    },
+    {
+      "path": "scripts/package-container.sh",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 22,
+      "sha256": "ded44241685d9984ef90a3a5ad85d8aeb1656b3047859cb4ac5e647368330256"
+    },
+    {
+      "path": "scripts/package-container.sh:heredoc@16",
+      "language": "embedded Python AST statements",
+      "zero_coverage_statements": 15,
+      "sha256": "1eda7d8a8af71ab857ce1105aa687c8778a4ab7b97900a96dd57c3cde65bb44d"
+    },
+    {
+      "path": "scripts/package-release.sh",
+      "language": "Shell AST statements (including compound statements)",
+      "zero_coverage_statements": 5,
+      "sha256": "602f3edc2f807a9884aaf062b551fcaf323743875314a51e1cf6da724a8a322a"
+    }
+  ],
+  "limitations": [
+    "Coverage.py executable source statements and shell AST statements use different language-appropriate units; this is an explicitly conservative portfolio scope calculation, not a shell-coverage measurement.",
+    "External interpreters, installed libraries, tools and remote reusable workflows/actions are dependencies rather than project-maintained source. Test/fixture source and documentation examples are not production source.",
+    "YAML/TOML/JSON configuration is data; executable workflow run steps and Docker RUN bodies are included. Docker instructions receive an extra zero-coverage allowance.",
+    "Do not apply this bound to native dependency memory safety or branch coverage."
+  ],
+  "reproduction": "coverage-scope-method.md"
+}

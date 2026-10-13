@@ -13,6 +13,7 @@ from paho.mqtt.properties import Properties
 from paho.mqtt.reasoncodes import ReasonCode
 
 from dbus_event_log.config import MQTTConfig
+from dbus_event_log.credentials import read_password_file
 from dbus_event_log.models import DBusEvent, EventType
 
 logger = logging.getLogger(__name__)
@@ -45,13 +46,21 @@ class MQTTPublisher:
         if self._client is not None:
             return
 
+        password = self.config.password
+        if self.config.password_file is not None:
+            if password is not None:
+                raise ValueError("Configure only one of MQTT password and password_file")
+            if not self.config.username:
+                raise ValueError("MQTT password_file requires a username")
+            password = read_password_file(self.config.password_file)
+
         self._client = mqtt.Client(
             client_id=self.config.client_id,
             callback_api_version=CallbackAPIVersion.VERSION2,
         )
 
-        if self.config.username and self.config.password:
-            self._client.username_pw_set(self.config.username, self.config.password)
+        if self.config.username and password:
+            self._client.username_pw_set(self.config.username, password)
 
         self._client.on_connect = self._on_connect
         self._client.on_disconnect = self._on_disconnect
@@ -63,8 +72,9 @@ class MQTTPublisher:
             self._client.loop_start()
             logger.info("MQTT client connecting to %s:%s", self.config.host, self.config.port)
         except Exception as e:  # pylint: disable=broad-exception-caught
-            # A broker failure must not terminate the independent D-Bus event recorder.
-            logger.error("Failed to connect to MQTT broker: %s", e)
+            # Broker failure must not terminate the recorder. Exception prose may
+            # include credentials or payloads, so log only its type.
+            logger.error("Failed to connect to MQTT broker (%s)", type(e).__name__)
             self.disconnect()
 
     def disconnect(self) -> None:
@@ -74,11 +84,11 @@ class MQTTPublisher:
             try:
                 client.disconnect()
             except Exception as e:  # pylint: disable=broad-exception-caught
-                logger.error("Failed to disconnect MQTT client cleanly: %s", e)
+                logger.error("Failed to disconnect MQTT client cleanly (%s)", type(e).__name__)
             try:
                 client.loop_stop()
             except Exception as e:  # pylint: disable=broad-exception-caught
-                logger.error("Failed to stop MQTT client loop cleanly: %s", e)
+                logger.error("Failed to stop MQTT client loop cleanly (%s)", type(e).__name__)
             finally:
                 self._client = None
                 self._connected = False
@@ -147,7 +157,7 @@ class MQTTPublisher:
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             # A broker failure must not terminate the independent D-Bus event recorder.
-            logger.error("Failed to publish MQTT message: %s", e)
+            logger.error("Failed to publish MQTT message (%s)", type(e).__name__)
 
     def publish_batch(self, events: list[DBusEvent]) -> None:
         """Publish multiple events to MQTT."""

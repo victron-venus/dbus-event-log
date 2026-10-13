@@ -1,5 +1,8 @@
 # D-Bus Event Log
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15436/badge)](https://www.bestpractices.dev/projects/15436)
+
+
 **A temporary troubleshooting recorder, not a continuously running monitoring service.**
 Start it for a specific incident, reproduce the problem, export the evidence,
 and **stop it when the investigation is finished**. The CLI stops capture after
@@ -160,7 +163,8 @@ Create `config.yaml`:
 storage:
   backend: sqlite  # or "timescaledb"
   sqlite_path: /var/lib/dbus-event-log/events.db
-  timescaledb_dsn: "postgresql://user:pass@host/db?sslrootcert=/path/to/database-ca.pem"
+  timescaledb_dsn: "postgresql://user@host/db?sslrootcert=/path/to/database-ca.pem"
+  timescaledb_password_file: /run/secrets/database_password
   timescaledb_tls: verify-full
   retention_days: 30
   rotation_size_mb: 100
@@ -174,6 +178,7 @@ mqtt:
   port: 1883
   username: null
   password: null
+  password_file: null
   topic_prefix: "victron/dbus/events"
   qos: 1
   retain: false
@@ -207,6 +212,39 @@ export DBUS_EVENT_LOG_MQTT_HOST=mosquitto
 export DBUS_EVENT_LOG_DBUS_SERVICES='["com.victronenergy.*"]'
 ```
 
+### Password files and rotation
+
+MQTT accepts `mqtt.password_file`; PostgreSQL accepts
+`storage.timescaledb_password_file`. Set the path in YAML or use
+`DBUS_EVENT_LOG_MQTT_PASSWORD_FILE` and
+`DBUS_EVENT_LOG_STORAGE_TIMESCALEDB_PASSWORD_FILE`. This keeps password contents
+out of the application configuration, environment and command line. Mount or
+create a private regular file (recommended mode `0600`, readable by the service)
+in an operator-controlled directory. The final path must not be a symlink.
+Files must contain one nonempty UTF-8 line, at most 4096 bytes including an
+optional final LF or CRLF. Spaces are significant; NUL and other line breaks are
+rejected. FIFOs, directories, unreadable files and oversized files fail closed.
+Errors do not include file contents or paths.
+
+MQTT requires a username and rejects simultaneous `password` and `password_file`,
+including an explicitly empty inline password. PostgreSQL rejects a DSN containing
+`password` (userinfo or query) or `passfile` when `timescaledb_password_file` is
+set. Its explicit password argument takes precedence over ambient `PGPASSWORD`,
+`PGPASSFILE`, default `.pgpass` and service-file passwords, as defined by
+[asyncpg's connection API](https://magicstack.github.io/asyncpg/current/api/index.html#asyncpg.connection.connect).
+When the dedicated field is unset, existing inline/native credential behavior
+is preserved. TLS private keys continue to use PostgreSQL's separate `sslkey`
+file option.
+
+Replace the file atomically in its private directory to rotate a password,
+then restart the service (or explicitly disconnect/reconnect MQTT and close/reopen
+the database pool). Each new client/pool reads the file again; existing automatic
+retries and connections retain their original credentials. The application does
+not write secret contents back to its configuration. MQTT operational failures
+log exception types rather than potentially sensitive exception text; database
+connection failures using the dedicated file return a generic diagnostic.
+Never commit real credential files or disable TLS to work around authentication.
+
 ### TimescaleDB transport
 
 SQLite remains the default backend. When selecting TimescaleDB, TCP connections
@@ -217,7 +255,15 @@ the DSN's `sslrootcert=/path/to/database-ca.pem`, or use asyncpg's standard
 other asyncpg DSN options retain their native meaning; private client keys remain
 operator-owned files. This native `verify-full` path does not automatically use
 the operating system CA bundle. The DSN hostname must match the server certificate.
-Configure PostgreSQL to use SCRAM-SHA-256 for password authentication.
+The supported PostgreSQL deployment uses SCRAM-SHA-256 password authentication
+with verified TLS. Set `password_encryption = 'scram-sha-256'`, rotate existing
+role passwords, and use `hostssl ... scram-sha-256` rules in `pg_hba.conf`.
+[PostgreSQL's migration instructions](https://www.postgresql.org/docs/16/auth-password.html)
+explain why changing the setting alone does not replace existing MD5 verifiers.
+The server chooses its authentication mechanism: asyncpg can still accept legacy
+MD5 if an operator configures that server policy. The client does not enforce
+SCRAM, and TLS verification alone does not upgrade database password storage.
+Do not deploy MD5 authentication as the supported secure configuration.
 
 Verified mode requires an explicit TCP host in the DSN authority or `host` query
 parameter. Hostless DSNs that rely on `PGHOST`, a service file or asyncpg's default
@@ -252,6 +298,16 @@ trust boundary, not an automatic check that a host or private IP is safe. Use it
 only for an isolated trusted transport. A DSN `sslmode` may be omitted in this
 mode, but if supplied it must be `disable`. Keep credentials outside version
 control. No connection automatically switches between the two modes.
+
+The optional Compose database requires `TIMESCALEDB_PASSWORD` on first startup;
+there is no sample password fallback. Its new database initialization selects
+SCRAM. These initialization variables do not modify an existing data volume:
+rotate its password and migrate its `pg_hba.conf` separately. Database and demo
+broker ports bind only to host loopback; the recorder reaches the broker through
+the private Compose network. The demo broker is anonymous plaintext for this
+local trust boundary, not a public broker. Remote deployments must provide an
+authenticated broker and protected transport; do not publish these demo ports
+on untrusted interfaces.
 
 ## Usage
 
@@ -622,3 +678,7 @@ MIT - Victron Energy BV
 See [CONTRIBUTING.md](CONTRIBUTING.md) for reports, development checks and pull requests,
 [SECURITY.md](SECURITY.md) for private vulnerability reporting and deployment trust boundaries,
 and the [OpenSSF evidence index](docs/openssf-evidence.md) for assessment references and remaining verification.
+
+## Project maintenance and assurance
+
+See [contributing and local checks](CONTRIBUTING.md), [governance and continuity](GOVERNANCE.md), [code of conduct](CODE_OF_CONDUCT.md), [maintenance roadmap](ROADMAP.md), [security reporting](SECURITY.md), [security assurance](docs/security-assurance.md), and [quality/build evidence](docs/quality-and-build.md). The [OpenSSF evidence index](docs/openssf-evidence.md) distinguishes verified evidence from remaining requirements.

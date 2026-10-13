@@ -61,7 +61,8 @@ class ScorecardWorkflowTests(unittest.TestCase):
     """Exercise the checked-in workflow and the known unsafe arrangements."""
 
     def setUp(self):
-        self.workflow = yaml.load(
+        # BaseLoader yields basic strings/collections, never Python objects.
+        self.workflow = yaml.load(  # nosec B506
             (ROOT / ".github/workflows/scorecards.yml").read_text(),
             Loader=yaml.BaseLoader,
         )

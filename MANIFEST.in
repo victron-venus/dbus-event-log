@@ -5,3 +5,9 @@ include docker-compose.yml
 include Dockerfile
 include config.yaml.example
 include mosquitto.conf
+include CONTRIBUTING.md
+include GOVERNANCE.md
+include CODE_OF_CONDUCT.md
+include ROADMAP.md
+include SECURITY.md
+recursive-include docs *.md *.json

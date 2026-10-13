@@ -298,7 +298,14 @@ def _identity(base, channel, sequence):
     return f"{base}-{channel}.{sequence}"
 
 
-def create_plan(base: str, channel: str, sequence: int | str | None, source_sha: str, policy: dict[str, object], build_number: int | None = None) -> dict[str, object]:  # pylint: disable=too-many-arguments
+def create_plan(
+    base: str,
+    channel: str,
+    sequence: int | str | None,
+    source_sha: str,
+    policy: dict[str, object],
+    build_number: int | None = None,
+) -> dict[str, object]:  # pylint: disable=too-many-arguments
     """Create a deterministic identity from already allocated release decisions."""
     config = validate_policy(policy)
     version = _identity(base, channel, sequence)
@@ -332,7 +339,9 @@ def create_plan(base: str, channel: str, sequence: int | str | None, source_sha:
     return plan
 
 
-def validate_plan(plan: object, policy: dict[str, object] | None = None, source_sha: str | None = None) -> dict[str, object]:
+def validate_plan(
+    plan: object, policy: dict[str, object] | None = None, source_sha: str | None = None
+) -> dict[str, object]:
     """Validate an exact immutable plan and optional source/policy binding."""
     require(isinstance(plan, dict), "Release plan must be an object")
     keys = {
@@ -421,7 +430,9 @@ def effective_inputs_digest(evidence: list[dict[str, object]]) -> str:
     return digest(json_bytes(sorted(entries, key=lambda item: item["path"])))
 
 
-def projections(plan: dict[str, object], ecosystem: str = "semver") -> dict[str, str | int | None]:
+def projections(
+    plan: dict[str, object], ecosystem: str = "semver"
+) -> dict[str, str | int | None]:
     """Map identity into package and numeric platform representations."""
     require(ecosystem in {"semver", "pep440"}, "Unsupported package ecosystem")
     package = plan["version"]
@@ -462,7 +473,9 @@ def projections(plan: dict[str, object], ecosystem: str = "semver") -> dict[str,
     }
 
 
-def projected_value(plan: dict[str, object], declaration: dict[str, object]) -> str | int:
+def projected_value(
+    plan: dict[str, object], declaration: dict[str, object]
+) -> str | int:
     """Compute the one explicitly declared field projection."""
     kind = declaration.get("value", "package")
     result = projections(plan, declaration.get("ecosystem", "semver"))[kind]
@@ -1004,7 +1017,12 @@ def _edit(raw, declaration, value):
     raise VersionError(f"Unsupported version format: {kind}")
 
 
-def sync_versions(root: str | Path, policy: dict[str, object], plan: dict[str, object], check: bool = False) -> list[dict[str, object]]:  # pylint: disable=too-many-locals
+def sync_versions(
+    root: str | Path,
+    policy: dict[str, object],
+    plan: dict[str, object],
+    check: bool = False,
+) -> list[dict[str, object]]:  # pylint: disable=too-many-locals
     """Validate all edits first; return one digest record per declared input file."""
     validate_plan(plan, policy)
     root = Path(root).resolve(strict=True)
@@ -1123,7 +1141,9 @@ def read_base_version(root: str | Path, policy: dict[str, object]) -> str:
     return value
 
 
-def check_base_versions(root: str | Path, policy: dict[str, object], base: str | None = None) -> list[dict[str, object]]:
+def check_base_versions(
+    root: str | Path, policy: dict[str, object], base: str | None = None
+) -> list[dict[str, object]]:
     """Check committed base fields, excluding allocated native build counters."""
     validate_policy(policy)
     base = base or read_base_version(root, policy)
@@ -1140,7 +1160,9 @@ def check_base_versions(root: str | Path, policy: dict[str, object], base: str |
     return sync_versions(root, filtered, plan, check=True)
 
 
-def verify_checkout(root: str | Path, policy: dict[str, object], plan: dict[str, object]) -> None:
+def verify_checkout(
+    root: str | Path, policy: dict[str, object], plan: dict[str, object]
+) -> None:
     """Bind CLI overlays to a commit and reject other edits in owned input files.
 
     Pure adapter tests and source exports need no Git checkout. Release orchestration
@@ -1694,7 +1716,9 @@ def _field_artifact(path, declaration, expected):
     return raw, result
 
 
-def verify_artifact(path: str | Path, declaration: dict[str, object], plan: dict[str, object]) -> dict[str, object]:  # pylint: disable=too-many-statements
+def verify_artifact(
+    path: str | Path, declaration: dict[str, object], plan: dict[str, object]
+) -> dict[str, object]:  # pylint: disable=too-many-statements
     """Inspect real metadata without extracting archives or executing payloads."""
     validate_plan(plan)
     _declaration(declaration, artifact=True)

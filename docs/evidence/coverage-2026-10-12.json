@@ -1,0 +1,213 @@
+{
+  "measured_on": "2026-10-13T01:56:47.179959+00:00",
+  "source_base_commit": "e45bd2ccca328873ceada1cc98fb9d68c3822568",
+  "source_state": "PR working tree; exact production source content is bound by per-file SHA-256 hashes below. Review/merge commit is supplied by the PR.",
+  "command": "bash scripts/ci.sh --install && bash scripts/ci.sh",
+  "interpreter": "Python 3.11.16",
+  "host": "macOS-26.7-arm64-arm-64bit-Mach-O",
+  "covered_statements": 5282,
+  "statements": 5954,
+  "statement_percent": 88.7135,
+  "threshold_percent": 80,
+  "test_result": "865 passed, 1 skipped in 86.32s (0:01:26)",
+  "limitations": [
+    "Python statements only, not branch coverage.",
+    "Excluded tests, virtual environments and generated build/distribution output; native dependencies and shell are not Python statement coverage.",
+    "Local validation is not a hosted CI result; check the PR required checks.",
+    "One Zstandard OCI test is skipped because the standard-library Zstandard module is unavailable in Python 3.11."
+  ],
+  "files": [
+    {
+      "path": "scripts/assemble_native_container.py",
+      "sha256": "c1ce903c244e676a8ac8722f2270b1de1d8599d3f09493ce04d4637168466c81",
+      "statements": 123,
+      "covered_statements": 110
+    },
+    {
+      "path": "scripts/change_scope.py",
+      "sha256": "174e460603f2efe87cf6e5cde1b8682f0a0f2d35c4c129aafe3cde8801299be8",
+      "statements": 160,
+      "covered_statements": 118
+    },
+    {
+      "path": "scripts/merge_oci_archives.py",
+      "sha256": "7c2cdd1e933365ae922f7eb38108736ee6ef35801a8f574c262aeef75f2c3b10",
+      "statements": 330,
+      "covered_statements": 297
+    },
+    {
+      "path": "scripts/package_release.py",
+      "sha256": "dc1aac185f6292a712f37a9e41c90f03a90ea14fe5b93f5ace25ee2bc30ce005",
+      "statements": 117,
+      "covered_statements": 0
+    },
+    {
+      "path": "scripts/prepare_version.py",
+      "sha256": "6e9c4a9c2fe4e3c7e4954d9725ed02fb2f179c5771ef843a653ef4f065fae0e2",
+      "statements": 213,
+      "covered_statements": 182
+    },
+    {
+      "path": "scripts/publish_verified.py",
+      "sha256": "764d512dd78a26a348eedfd50e37fa4ffddb31c5010f1c8d634e930dce070f8d",
+      "statements": 109,
+      "covered_statements": 102
+    },
+    {
+      "path": "scripts/release.py",
+      "sha256": "2584b05d01ef82b48f2ef75dc5d8e649de09df591fc6121097b2388f65a7b4eb",
+      "statements": 187,
+      "covered_statements": 138
+    },
+    {
+      "path": "scripts/release_container_labels.py",
+      "sha256": "8030cb28474e577a97ff9f406acfe75bf6b1d423dc144173667becc0605bec9f",
+      "statements": 35,
+      "covered_statements": 17
+    },
+    {
+      "path": "scripts/release_control.py",
+      "sha256": "1700427ea38864763ca223bca4f3074456ad80d52cc1bf3e63ed6929ff29a7ff",
+      "statements": 922,
+      "covered_statements": 859
+    },
+    {
+      "path": "scripts/release_signing.py",
+      "sha256": "29a4cb3d1e6deb913d501965292664b2b3a7b44a3f6fe297b121c87eb73f0d4b",
+      "statements": 111,
+      "covered_statements": 98
+    },
+    {
+      "path": "scripts/release_state.py",
+      "sha256": "7c9717ce50dd10695dbc74f4fa876a5143c83f49e4f9a6bca77190916fef3641",
+      "statements": 120,
+      "covered_statements": 120
+    },
+    {
+      "path": "scripts/release_validation.py",
+      "sha256": "d87f110445cd6618aff991ff126218de47154afc7a878aa9ba37621b800ece42",
+      "statements": 75,
+      "covered_statements": 53
+    },
+    {
+      "path": "scripts/release_version_adapter.py",
+      "sha256": "2a520b4333d681cfda32437c8f5f00050839dabdcdd29527d1b1346f43fd5792",
+      "statements": 48,
+      "covered_statements": 36
+    },
+    {
+      "path": "scripts/release_versioned.py",
+      "sha256": "9461377600faf2010804eaa943b6283674457b0d5c9a55db6b2f11d0156acb75",
+      "statements": 295,
+      "covered_statements": 273
+    },
+    {
+      "path": "scripts/runner_preflight.py",
+      "sha256": "c0460d162e83d2fa515615452c59567186d05f3ef26dddaa68735352bbcedf80",
+      "statements": 197,
+      "covered_statements": 195
+    },
+    {
+      "path": "scripts/stage_release_assets.py",
+      "sha256": "ec308cd5346b5e55860336dba0352e426284b674d9f6f4ae7f5bd80e11dd9003",
+      "statements": 106,
+      "covered_statements": 95
+    },
+    {
+      "path": "scripts/validate_scorecard_json.py",
+      "sha256": "c16cc6d3e21e253de6ea690795253d14ef1882f0c761f832a1a093d63e772b03",
+      "statements": 48,
+      "covered_statements": 47
+    },
+    {
+      "path": "scripts/verified_images.py",
+      "sha256": "16e66685364277555dd246b072c679546c361929be3efe45f5b6ff47b92f77b0",
+      "statements": 97,
+      "covered_statements": 95
+    },
+    {
+      "path": "scripts/version_plan.py",
+      "sha256": "5ab44b0750a135f291417825b18536e0256938d8b36f87918ab5e35ce1b49a39",
+      "statements": 954,
+      "covered_statements": 930
+    },
+    {
+      "path": "scripts/version_receipt.py",
+      "sha256": "da2d97f686d8d41ae73715fdbfbcbafc31f23389152006cc2519fb9d56902169",
+      "statements": 192,
+      "covered_statements": 175
+    },
+    {
+      "path": "scripts/workflow_contracts.py",
+      "sha256": "5332b472b01df64077e7a474b7e5171ba48d8cfa2ae1b0b4d7572024effd248d",
+      "statements": 216,
+      "covered_statements": 134
+    },
+    {
+      "path": "scripts/write_binary_build_metadata.py",
+      "sha256": "d09d1642bb675b585ab3a69384efb87ff48dc3a37b2c04cadedb693cf5113c41",
+      "statements": 18,
+      "covered_statements": 16
+    },
+    {
+      "path": "scripts/write_web_build_metadata.py",
+      "sha256": "1d962dfedb82feada5a062f2e075e895deb687d79ad982596d915ad6bef668f0",
+      "statements": 24,
+      "covered_statements": 0
+    },
+    {
+      "path": "src/dbus_event_log/__init__.py",
+      "sha256": "b0257fa49c49882409c31f784b79bd22a8d87cb6231d0d055f938656f2d4e246",
+      "statements": 6,
+      "covered_statements": 6
+    },
+    {
+      "path": "src/dbus_event_log/cli.py",
+      "sha256": "2a2d8c57dea546c624e1cead7b2d8fc3521cf7cf2404374ce6efbe7ba6c4bdf8",
+      "statements": 226,
+      "covered_statements": 210
+    },
+    {
+      "path": "src/dbus_event_log/config.py",
+      "sha256": "780e5564e84219b2f4a587646b9394d490d7da119e1a9af9707b1f305b60ba72",
+      "statements": 60,
+      "covered_statements": 60
+    },
+    {
+      "path": "src/dbus_event_log/credentials.py",
+      "sha256": "e1ceda220b03b33865c3e2f18f266d4e49c6ca083f822fc9b785b5ad10b22b0c",
+      "statements": 24,
+      "covered_statements": 23
+    },
+    {
+      "path": "src/dbus_event_log/method_capture.py",
+      "sha256": "b9723202c7e99d32e4e02b2784a1ce502c2d6fabea3dde7f220604d47c7325fa",
+      "statements": 225,
+      "covered_statements": 207
+    },
+    {
+      "path": "src/dbus_event_log/models.py",
+      "sha256": "6816341fe94fa7e74b252c28cad85843420930036aa72523ac796bbaab2a96f5",
+      "statements": 51,
+      "covered_statements": 51
+    },
+    {
+      "path": "src/dbus_event_log/monitor.py",
+      "sha256": "1741dc59fad30b3be6df9c1726983846919279bf827e7beb4b90b2016b03da01",
+      "statements": 217,
+      "covered_statements": 201
+    },
+    {
+      "path": "src/dbus_event_log/mqtt_publisher.py",
+      "sha256": "af154a910483539e551f7e4852e64c5da75bf3cf886c724efce1ad7b67f295b3",
+      "statements": 117,
+      "covered_statements": 111
+    },
+    {
+      "path": "src/dbus_event_log/storage.py",
+      "sha256": "1662dcef361ece9f83c8969cd4c807cac97d6ef192b35d76e43e54cce40755c2",
+      "statements": 331,
+      "covered_statements": 323
+    }
+  ]
+}

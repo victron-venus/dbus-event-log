@@ -1,3 +1,8 @@
+# Vendored release toolkit; change the toolkit source, then render again.
+# ruff: noqa
+# mypy: ignore-errors
+# pylint: skip-file
+# fmt: off
 """Keep human release notes bound to the source used to build the package."""
 
 import base64
@@ -5,7 +10,7 @@ import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 _SPEC = importlib.util.spec_from_file_location(
     "notes_release_control", Path(__file__).parents[2] / "scripts/release_control.py"
@@ -19,7 +24,6 @@ class StrictGitHub:
     """Permit only the expected source read and reject all remote mutation."""
 
     def __init__(self, response: dict | None = None):
-        """Queue the allowed read while recording any attempted mutation."""
         self.responses = [] if response is None else [response]
         self.calls = []
         self.writes = []
@@ -42,7 +46,6 @@ class StrictGitHub:
 
 
 def contents(text):
-    """Model a GitHub file response with its original blob identity."""
     raw = text.encode()
     return {
         "type": "file",
@@ -72,7 +75,6 @@ Do not copy older notes either.
 
 
 def render(text=NOTES, tag="v1.2.3-beta.8", response_change=None):
-    """Render a candidate body using an isolated API fixture."""
     response = contents(text)
     response.update(response_change or {})
     github = StrictGitHub(response)
@@ -81,7 +83,9 @@ def render(text=NOTES, tag="v1.2.3-beta.8", response_change=None):
         "source_policy_snapshot",
         return_value={"data": {"release_notes": "CHANGELOG.md"}},
     ):
-        body = release.release_notes(github, tag, SOURCE, "Original source and validation links.")
+        body = release.release_notes(
+            github, tag, SOURCE, "Original source and validation links."
+        )
     assert github.calls == [("GET", f"contents/CHANGELOG.md?ref={SOURCE}", None)]
     assert not github.responses
     assert not github.writes
@@ -89,14 +93,13 @@ def render(text=NOTES, tag="v1.2.3-beta.8", response_change=None):
 
 
 class ClosingReleaseHeadingsTests(unittest.TestCase):
-    """Accept closing hashes without accepting literal or duplicate headings."""
-
     def test_closing_hashes_select_version_and_required_guidance(self):
         for suffix in (" #", " ### \t", "\t########"):
             for newline in ("\n", "\r\n"):
                 text = NOTES.replace("[1.2.3] - 2026-10-07", "[1.2.3]")
                 text = newline.join(
-                    line + suffix if line.startswith("#") else line for line in text.split("\n")
+                    line + suffix if line.startswith("#") else line
+                    for line in text.split("\n")
                 )
                 with self.subTest(suffix=suffix, newline=newline):
                     body = render(text)
@@ -125,7 +128,201 @@ class ClosingReleaseHeadingsTests(unittest.TestCase):
 
 
 class ReleaseNotesTests(unittest.TestCase):
-    """Verify source-bound notes before publication."""
+    def test_separator_or_subheading_alone_is_not_release_guidance(self):
+        for section in ("Upgrade", "Security"):
+            for content in (
+                "\n---\n",
+                "\n* * *\n",
+                "\n___\n",
+                "\n   -\t-\t-\n",
+                "#### Migration\n",
+                "######\n",
+                "<!-- hidden instructions -->\n\n---\n",
+                "#### Migration\n\n***\n",
+            ):
+                original = (
+                    "Review optional site settings before enabling the feature."
+                    if section == "Upgrade"
+                    else "Reject malformed requests before issuing hardware commands."
+                )
+                text = NOTES.replace(original, content)
+                with (
+                    self.subTest(section=section, content=content),
+                    self.assertRaisesRegex(release.ReleaseError, section + " guidance"),
+                ):
+                    render(text)
+
+    def test_empty_markdown_containers_are_not_release_guidance(self):
+        for section in ("Upgrade", "Security"):
+            for content in (
+                "-",
+                "+",
+                "*",
+                "1.",
+                "2)",
+                "123456789.",
+                ">",
+                "> >",
+                ">>",
+                ">>>",
+                ">---",
+                ">#### Details",
+                "> -",
+                "- >",
+                "1. > -",
+                "> - [ ]",
+                "- [x]",
+                "- [X]",
+                "> ---",
+                "> #### Details",
+                "-\n+\n1.",
+                "   >\t- ",
+                "> \t-",
+            ):
+                original = (
+                    "Review optional site settings before enabling the feature."
+                    if section == "Upgrade"
+                    else "Reject malformed requests before issuing hardware commands."
+                )
+                text = NOTES.replace(original, content)
+                with (
+                    self.subTest(section=section, content=content),
+                    self.assertRaisesRegex(release.ReleaseError, section + " guidance"),
+                ):
+                    render(text)
+
+    def test_markdown_containers_preserve_actual_guidance_and_literals(self):
+        for content in (
+            "- Restart the service.",
+            "1. Restart the service.",
+            "> Restart the service.",
+            ">Restart the service.",
+            "> - Restart the service.",
+            "- [ ] Restart the service.",
+            "`-`",
+            "```text\n-\n```",
+            "    -",
+            "\\-",
+            "_",
+            "1234567890.",
+            "١.",
+            ">     -",
+            "-     +",
+            ">     ---",
+            "-     ####",
+            "> `-`",
+            "- > Restart the service.",
+            "> [ ]",
+            "- > [ ]",
+        ):
+            text = NOTES.replace(
+                "Review optional site settings before enabling the feature.", content
+            )
+            with self.subTest(content=content):
+                self.assertIn(content.strip(), render(text))
+
+    def test_tabbed_containers_preserve_literal_code(self):
+        for content in (">\t\t-", "-\t\t+", "> >\t\t---", ">\t\t####"):
+            text = NOTES.replace(
+                "Review optional site settings before enabling the feature.", content
+            )
+            with self.subTest(content=content):
+                self.assertIn(content, render(text))
+
+    def test_guidance_after_separator_and_subheading_is_preserved(self):
+        content = "#### Migration\n\n---\n\n- Restart the worker after upgrading."
+        text = NOTES.replace("Review optional site settings before enabling the feature.", content)
+        self.assertIn(content, render(text))
+
+    def test_literal_markers_in_code_remain_guidance(self):
+        for content in ("```sh\n---\n```", "    ---", "`---`", "\\- - -", "***Restart***"):
+            text = NOTES.replace(
+                "Review optional site settings before enabling the feature.", content
+            )
+            with self.subTest(content=content):
+                self.assertIn(content.strip(), render(text))
+
+    def _assert_notes_rejected_before_publication(self, text):
+        github = StrictGitHub(contents(text))
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(
+                release,
+                "source_policy_snapshot",
+                return_value={"data": {"release_notes": "CHANGELOG.md"}},
+            ),
+            self.assertRaisesRegex(release.ReleaseError, "Upgrade guidance"),
+        ):
+            release.publish(
+                github, "v1.2.3", SOURCE, Path(directory), False, "provenance"
+            )
+        self.assertEqual(
+            github.calls, [("GET", f"contents/CHANGELOG.md?ref={SOURCE}", None)]
+        )
+        self.assertEqual(github.writes, [])
+
+    def test_indented_version_and_guidance_headings_are_supported(self):
+        for indentation in (" ", "  ", "   "):
+            text = "\n".join(
+                indentation + line if line.startswith(("## ", "### ")) else line
+                for line in NOTES.split("\n")
+            )
+            with self.subTest(indentation=indentation):
+                body = render(text)
+                self.assertIn("## Changes in 1.2.3", body)
+                self.assertIn(
+                    "Preserve unavailable telemetry instead of reporting zero.", body
+                )
+                self.assertNotIn("Do not copy older notes either.", body)
+
+    def test_comments_between_text_and_setext_underlines_do_not_hide_ambiguity(self):
+        text = (
+            "## [1.2.3]\nAppendix\n<!-- comment -->\n===\n"
+            "### Upgrade\nRead migration.\n### Security\nNo changes.\n"
+        )
+        with self.assertRaisesRegex(release.ReleaseError, "ATX"):
+            render(text)
+
+    def test_setext_appendices_cannot_supply_release_guidance(self):
+        for underline in ("=", "===", "-", "---", "   ===", "   ---"):
+            text = (
+                "## [1.2.3]\nAppendix\n" + underline + "\n"
+                "### Upgrade\nRead migration.\n### Security\nNo changes.\n"
+            )
+            with (
+                self.subTest(underline=underline),
+                self.assertRaisesRegex(release.ReleaseError, "ATX"),
+            ):
+                render(text)
+            crlf = text.replace("\n", "\r\n")
+            with (
+                self.subTest(underline=underline, newline="CRLF"),
+                self.assertRaisesRegex(release.ReleaseError, "ATX"),
+            ):
+                render(crlf)
+
+    def test_setext_heading_inside_guidance_is_rejected(self):
+        text = NOTES.replace("### Security", "Underlined appendix\n---\n### Security")
+        with self.assertRaisesRegex(release.ReleaseError, "ATX"):
+            render(text)
+
+    def test_thematic_breaks_and_literal_setext_examples_remain_supported(self):
+        for example in (
+            "\n---\n",
+            "\n===\n",
+            "```markdown\nAppendix\n===\n```",
+            "~~~markdown\nAppendix\n---\n~~~",
+            "    Appendix\n    ===",
+            "<!--\nAppendix\n===\n-->",
+        ):
+            text = NOTES.replace("### Upgrade", example + "\n### Upgrade")
+            with self.subTest(example=example):
+                self.assertIn(example.strip(), render(text))
+        text = NOTES.replace("### Upgrade\n", "### Upgrade\n---\n")
+        self.assertIn("### Upgrade\n---\n", render(text))
+
+    def test_setext_outside_selected_release_does_not_change_body(self):
+        self.assertEqual(render("Changelog\n===\n" + NOTES), render(NOTES))
 
     def test_empty_higher_level_atx_headings_end_sections(self):
         for heading in ("#", "##"):
@@ -136,7 +333,9 @@ class ReleaseNotesTests(unittest.TestCase):
                     self.assertEqual(
                         (title, raw, visible.strip()), ("Upgrade", "Before.", "Before.")
                     )
-        text = "## [1.2.3]\n#\n### Upgrade\nRead migration.\n### Security\nNo changes.\n"
+        text = (
+            "## [1.2.3]\n#\n### Upgrade\nRead migration.\n### Security\nNo changes.\n"
+        )
         with self.assertRaises(release.ReleaseError):
             render(text)
 
@@ -156,7 +355,11 @@ class ReleaseNotesTests(unittest.TestCase):
 
     def test_higher_level_headings_end_raw_and_visible_guidance_sections(self):
         for heading in ("# Appendix", "## [1.2.4]"):
-            text = "### Upgrade\nBefore <!-- hidden --> after.\n" + heading + "\nUnrelated.\n"
+            text = (
+                "### Upgrade\nBefore <!-- hidden --> after.\n"
+                + heading
+                + "\nUnrelated.\n"
+            )
             [(title, raw, visible)] = list(release._release_sections(text, 3))
             self.assertEqual(title, "Upgrade")
             self.assertEqual(raw, "Before <!-- hidden --> after.")
@@ -182,6 +385,115 @@ class ReleaseNotesTests(unittest.TestCase):
             text = NOTES.replace("### Upgrade", example + "\n### Upgrade")
             with self.subTest(example=example):
                 self.assertIn(example, render(text))
+
+    def test_comment_only_guidance_is_rejected(self):
+        for heading in ("Upgrade", "Security"):
+            for comment in (
+                "<!-- placeholder -->",
+                "<!-- first --> \t <!-- second -->",
+                "<!-- first\nsecond\n-->",
+                "<!-- unclosed",
+            ):
+                text = (
+                    "## [1.2.3]\n### Upgrade\nRead migration instructions.\n"
+                    "### Security\nNo security change.\n"
+                )
+                if heading == "Upgrade":
+                    text = text.replace("Read migration instructions.", comment)
+                else:
+                    text = text.replace("No security change.", comment)
+                with (
+                    self.subTest(heading=heading, comment=comment),
+                    self.assertRaisesRegex(release.ReleaseError, "guidance"),
+                ):
+                    render(text)
+
+    def test_commented_headings_do_not_select_or_split_sections(self):
+        hidden = (
+            "<!--\n## [1.2.3]\n### Upgrade\nHidden migration.\n"
+            "### Security\nHidden security.\n-->\n"
+        )
+        self.assertEqual(render(hidden + NOTES), render(NOTES))
+        text = NOTES.replace(
+            "### Upgrade", "<!--\n## [9.9.9]\n### Upgrade\n-->\n### Upgrade"
+        )
+        self.assertIn("<!--\n## [9.9.9]", render(text))
+        for heading in ("Upgrade", "Security"):
+            with self.subTest(heading=heading):
+                text = NOTES.replace("### " + heading, "<!-- ### " + heading + " -->")
+                with self.assertRaisesRegex(
+                    release.ReleaseError, heading + " guidance"
+                ):
+                    render(text)
+
+    def test_comments_started_on_headings_keep_following_content_hidden(self):
+        for heading in ("## [1.2.3]", "### Upgrade", "### Security"):
+            text = "## [1.2.3]\n### Upgrade\nRead migration.\n### Security\nNo security change.\n"
+            text = text.replace(heading, heading + " <!--")
+            with (
+                self.subTest(heading=heading),
+                self.assertRaisesRegex(release.ReleaseError, "guidance"),
+            ):
+                render(text)
+
+    def test_visible_text_survives_inline_multiline_and_unclosed_comments(self):
+        guidance = "Read <!-- hidden\nprivate --> the migration guide. <!-- another -->"
+        text = NOTES.replace(
+            "Review optional site settings before enabling the feature.", guidance
+        )
+        self.assertIn(guidance, render(text))
+        self.assertEqual(render(text.replace("\n", "\r\n")), render(text))
+        text = (
+            "## [1.2.3]\n### Upgrade\nRead migration.\n"
+            "### Security\nNo security change. <!-- unfinished"
+        )
+        self.assertIn("No security change. <!-- unfinished", render(text))
+
+    def test_comments_do_not_open_fences_or_hide_literal_code(self):
+        hidden_fence = "<!--\n```\n-->\n"
+        self.assertEqual(render(hidden_fence + NOTES), render(NOTES))
+        for guidance in (
+            "```html\n<!-- literal comment -->\n```",
+            "~~~html\n<!-- literal comment -->\n~~~",
+            "`<!-- literal inline comment -->`",
+            "``an embedded ` and <!-- literal comment -->``",
+            "    <!-- literal indented comment -->",
+        ):
+            with self.subTest(guidance=guidance):
+                text = NOTES.replace(
+                    "Review optional site settings before enabling the feature.",
+                    guidance,
+                )
+                self.assertIn(guidance.strip(), render(text))
+
+    def test_empty_fences_are_not_visible_guidance(self):
+        for marker in ("```", "~~~"):
+            text = NOTES.replace(
+                "Review optional site settings before enabling the feature.",
+                marker + "\n\n" + marker,
+            )
+            with (
+                self.subTest(marker=marker),
+                self.assertRaisesRegex(release.ReleaseError, "Upgrade guidance"),
+            ):
+                render(text)
+
+    def test_many_inline_comments_keep_linear_scanning_and_offsets(self):
+        comments = "<!-- x -->" * 10000
+        text = NOTES.replace(
+            "Review optional site settings before enabling the feature.", comments
+        )
+        with self.assertRaisesRegex(release.ReleaseError, "Upgrade guidance"):
+            render(text)
+        text = NOTES.replace(
+            "Review optional site settings before enabling the feature.",
+            comments + "Read migration.",
+        )
+        self.assertIn(comments + "Read migration.", render(text))
+
+    def test_comment_only_notes_fail_before_any_remote_mutation(self):
+        text = "## [1.2.3]\n### Upgrade\n<!-- todo -->\n### Security\nNo security change.\n"
+        self._assert_notes_rejected_before_publication(text)
 
     def test_fenced_guidance_cannot_satisfy_real_sections(self):
         for marker in ("```", "````", "~~~", "~~~~~"):
@@ -270,19 +582,7 @@ class ReleaseNotesTests(unittest.TestCase):
 
     def test_fenced_only_notes_fail_before_any_remote_mutation(self):
         text = "## [1.2.3]\n```\n### Upgrade\nExample.\n### Security\nExample.\n```\n"
-        github = StrictGitHub(contents(text))
-        with (
-            tempfile.TemporaryDirectory() as directory,
-            patch.object(
-                release,
-                "source_policy_snapshot",
-                return_value={"data": {"release_notes": "CHANGELOG.md"}},
-            ),
-            self.assertRaisesRegex(release.ReleaseError, "Upgrade guidance"),
-        ):
-            release.publish(github, "v1.2.3", SOURCE, Path(directory), False, "provenance")
-        self.assertEqual(github.calls, [("GET", f"contents/CHANGELOG.md?ref={SOURCE}", None)])
-        self.assertEqual(github.writes, [])
+        self._assert_notes_rejected_before_publication(text)
 
     def test_exact_base_and_provenance(self):
         for tag in ("v1.2.3", "v1.2.3-rc.1", "v1.2.3-beta.8"):
@@ -350,7 +650,9 @@ class ReleaseNotesTests(unittest.TestCase):
             ),
             self.assertRaisesRegex(release.ReleaseError, "missing notes"),
         ):
-            release.publish(github, "v1.2.3", SOURCE, Path(directory), False, "provenance")
+            release.publish(
+                github, "v1.2.3", SOURCE, Path(directory), False, "provenance"
+            )
         self.assertEqual(github.calls, [])
         self.assertEqual(github.writes, [])
 
@@ -363,345 +665,7 @@ class ReleaseNotesTests(unittest.TestCase):
         )
         for ref in ("main", "v1.2.3", "a" * 39, "../main"):
             self.assertFalse(
-                any(re.fullmatch(p, f"contents/CHANGELOG.md?ref={ref}") for p in allowed)
-            )
-
-    def test_unsupported_policy_and_invalid_tag_abort_before_content_request(self):
-        for policy, tag, message in (
-            ({"release_notes": "OTHER.md"}, "v1.2.3", "Unsupported release notes source"),
-            ({"release_notes": "CHANGELOG.md"}, "v1.2.3/bad", "Invalid release notes tag"),
-        ):
-            github = Mock()
-            with (
-                self.subTest(policy=policy, tag=tag),
-                patch.object(release, "source_policy_snapshot", return_value={"data": policy}),
-                self.assertRaisesRegex(release.ReleaseError, message),
-            ):
-                release.release_notes(github, tag, SOURCE, "provenance")
-            github.api.assert_not_called()
-
-    def test_publish_sends_rendered_notes_with_original_provenance(self):
-        github = Mock()
-        tag = "v1.2.3"
-
-        def api(path, method="GET", data=None):
-            if path == f"contents/CHANGELOG.md?ref={SOURCE}" and method == "GET":
-                return contents(NOTES)
-            if path == "git/refs" and method == "POST":
-                return {}
-            if path == "releases" and method == "POST":
-                return {"id": 17, "tag_name": tag, "draft": True}
-            if path == "releases/17" and method == "PATCH":
-                return {"id": 17, "tag_name": tag, "draft": False, "prerelease": False}
-            raise AssertionError(f"Unexpected request: {method} {path}")
-
-        github.api.side_effect = api
-        github.pages.return_value = []
-        with (
-            tempfile.TemporaryDirectory() as directory,
-            patch.object(
-                release,
-                "source_policy_snapshot",
-                return_value={"data": {"release_notes": "CHANGELOG.md"}},
-            ),
-            patch.object(release, "ensure_absent"),
-            patch.object(release, "check_workflow_publication"),
-        ):
-            result = release.publish(
-                github, tag, SOURCE, Path(directory), False, "Original provenance."
-            )
-        self.assertFalse(result["draft"])
-        requests = [call.args for call in github.api.call_args_list]
-        self.assertEqual(requests[0], (f"contents/CHANGELOG.md?ref={SOURCE}",))
-        payload = next(args[2] for args in requests if args[:2] == ("releases", "POST"))
-        self.assertIn("Preserve unavailable telemetry", payload["body"])
-        self.assertNotIn("Do not publish", payload["body"])
-        self.assertTrue(payload["body"].endswith("Original provenance."))
-        self.assertTrue(payload["draft"])
-
-    def test_comment_only_guidance_is_rejected(self):
-        for heading in ("Upgrade", "Security"):
-            for comment in (
-                "<!-- placeholder -->",
-                "<!-- first --> \t <!-- second -->",
-                "<!-- first\nsecond\n-->",
-                "<!-- unclosed",
-            ):
-                text = (
-                    "## [1.2.3]\n### Upgrade\nRead migration instructions.\n"
-                    "### Security\nNo security change.\n"
+                any(
+                    re.fullmatch(p, f"contents/CHANGELOG.md?ref={ref}") for p in allowed
                 )
-                if heading == "Upgrade":
-                    text = text.replace("Read migration instructions.", comment)
-                else:
-                    text = text.replace("No security change.", comment)
-                with (
-                    self.subTest(heading=heading, comment=comment),
-                    self.assertRaisesRegex(release.ReleaseError, "guidance"),
-                ):
-                    render(text)
-
-    def test_commented_headings_do_not_select_or_split_sections(self):
-        hidden = (
-            "<!--\n## [1.2.3]\n### Upgrade\nHidden migration.\n"
-            "### Security\nHidden security.\n-->\n"
-        )
-        self.assertEqual(render(hidden + NOTES), render(NOTES))
-        text = NOTES.replace("### Upgrade", "<!--\n## [9.9.9]\n### Upgrade\n-->\n### Upgrade")
-        self.assertIn("<!--\n## [9.9.9]", render(text))
-        for heading in ("Upgrade", "Security"):
-            with self.subTest(heading=heading):
-                text = NOTES.replace("### " + heading, "<!-- ### " + heading + " -->")
-                with self.assertRaisesRegex(release.ReleaseError, heading + " guidance"):
-                    render(text)
-
-    def test_comments_started_on_headings_keep_following_content_hidden(self):
-        for heading in ("## [1.2.3]", "### Upgrade", "### Security"):
-            text = "## [1.2.3]\n### Upgrade\nRead migration.\n### Security\nNo security change.\n"
-            text = text.replace(heading, heading + " <!--")
-            with (
-                self.subTest(heading=heading),
-                self.assertRaisesRegex(release.ReleaseError, "guidance"),
-            ):
-                render(text)
-
-    def test_visible_text_survives_inline_multiline_and_unclosed_comments(self):
-        guidance = "Read <!-- hidden\nprivate --> the migration guide. <!-- another -->"
-        text = NOTES.replace("Review optional site settings before enabling the feature.", guidance)
-        self.assertIn(guidance, render(text))
-        self.assertEqual(render(text.replace("\n", "\r\n")), render(text))
-        text = (
-            "## [1.2.3]\n### Upgrade\nRead migration.\n"
-            "### Security\nNo security change. <!-- unfinished"
-        )
-        self.assertIn("No security change. <!-- unfinished", render(text))
-
-    def test_comments_do_not_open_fences_or_hide_literal_code(self):
-        hidden_fence = "<!--\n```\n-->\n"
-        self.assertEqual(render(hidden_fence + NOTES), render(NOTES))
-        for guidance in (
-            "```html\n<!-- literal comment -->\n```",
-            "~~~html\n<!-- literal comment -->\n~~~",
-            "`<!-- literal inline comment -->`",
-            "``an embedded ` and <!-- literal comment -->``",
-            "    <!-- literal indented comment -->",
-        ):
-            with self.subTest(guidance=guidance):
-                text = NOTES.replace(
-                    "Review optional site settings before enabling the feature.", guidance
-                )
-                self.assertIn(guidance.strip(), render(text))
-
-    def test_empty_fences_are_not_visible_guidance(self):
-        for marker in ("```", "~~~"):
-            text = NOTES.replace(
-                "Review optional site settings before enabling the feature.",
-                marker + "\n\n" + marker,
             )
-            with (
-                self.subTest(marker=marker),
-                self.assertRaisesRegex(release.ReleaseError, "Upgrade guidance"),
-            ):
-                render(text)
-
-    def test_many_inline_comments_keep_linear_scanning_and_offsets(self):
-        comments = "<!-- x -->" * 10000
-        text = NOTES.replace("Review optional site settings before enabling the feature.", comments)
-        with self.assertRaisesRegex(release.ReleaseError, "Upgrade guidance"):
-            render(text)
-        text = NOTES.replace(
-            "Review optional site settings before enabling the feature.",
-            comments + "Read migration.",
-        )
-        self.assertIn(comments + "Read migration.", render(text))
-
-    def test_comment_only_notes_fail_before_any_remote_mutation(self):
-        text = "## [1.2.3]\n### Upgrade\n<!-- todo -->\n### Security\nNo security change.\n"
-        github = StrictGitHub(contents(text))
-        with (
-            tempfile.TemporaryDirectory() as directory,
-            patch.object(
-                release,
-                "source_policy_snapshot",
-                return_value={"data": {"release_notes": "CHANGELOG.md"}},
-            ),
-            self.assertRaisesRegex(release.ReleaseError, "Upgrade guidance"),
-        ):
-            release.publish(github, "v1.2.3", SOURCE, Path(directory), False, "provenance")
-        self.assertEqual(github.calls, [("GET", f"contents/CHANGELOG.md?ref={SOURCE}", None)])
-        self.assertEqual(github.writes, [])
-
-    def test_indented_version_and_guidance_headings_are_supported(self):
-        for indentation in (" ", "  ", "   "):
-            text = "\n".join(
-                indentation + line if line.startswith(("## ", "### ")) else line
-                for line in NOTES.split("\n")
-            )
-            with self.subTest(indentation=indentation):
-                body = render(text)
-                self.assertIn("## Changes in 1.2.3", body)
-                self.assertIn("Preserve unavailable telemetry instead of reporting zero.", body)
-                self.assertNotIn("Do not copy older notes either.", body)
-
-    def test_comments_between_text_and_setext_underlines_do_not_hide_ambiguity(self):
-        text = (
-            "## [1.2.3]\nAppendix\n<!-- comment -->\n===\n"
-            "### Upgrade\nRead migration.\n### Security\nNo changes.\n"
-        )
-        with self.assertRaisesRegex(release.ReleaseError, "ATX"):
-            render(text)
-
-    def test_setext_appendices_cannot_supply_release_guidance(self):
-        for underline in ("=", "===", "-", "---", "   ===", "   ---"):
-            text = (
-                "## [1.2.3]\nAppendix\n" + underline + "\n"
-                "### Upgrade\nRead migration.\n### Security\nNo changes.\n"
-            )
-            with (
-                self.subTest(underline=underline),
-                self.assertRaisesRegex(release.ReleaseError, "ATX"),
-            ):
-                render(text)
-            crlf = text.replace("\n", "\r\n")
-            with (
-                self.subTest(underline=underline, newline="CRLF"),
-                self.assertRaisesRegex(release.ReleaseError, "ATX"),
-            ):
-                render(crlf)
-
-    def test_setext_heading_inside_guidance_is_rejected(self):
-        text = NOTES.replace("### Security", "Underlined appendix\n---\n### Security")
-        with self.assertRaisesRegex(release.ReleaseError, "ATX"):
-            render(text)
-
-    def test_thematic_breaks_and_literal_setext_examples_remain_supported(self):
-        for example in (
-            "\n---\n",
-            "\n===\n",
-            "```markdown\nAppendix\n===\n```",
-            "~~~markdown\nAppendix\n---\n~~~",
-            "    Appendix\n    ===",
-            "<!--\nAppendix\n===\n-->",
-        ):
-            text = NOTES.replace("### Upgrade", example + "\n### Upgrade")
-            with self.subTest(example=example):
-                self.assertIn(example.strip(), render(text))
-        text = NOTES.replace("### Upgrade\n", "### Upgrade\n---\n")
-        self.assertIn("### Upgrade\n---\n", render(text))
-
-    def test_setext_outside_selected_release_does_not_change_body(self):
-        self.assertEqual(render("Changelog\n===\n" + NOTES), render(NOTES))
-
-    def test_separator_or_subheading_alone_is_not_release_guidance(self):
-        for section in ("Upgrade", "Security"):
-            for content in (
-                "\n---\n",
-                "\n* * *\n",
-                "\n___\n",
-                "\n   -\t-\t-\n",
-                "#### Migration\n",
-                "######\n",
-                "<!-- hidden instructions -->\n\n---\n",
-                "#### Migration\n\n***\n",
-            ):
-                original = (
-                    "Review optional site settings before enabling the feature."
-                    if section == "Upgrade"
-                    else "Reject malformed requests before issuing hardware commands."
-                )
-                text = NOTES.replace(original, content)
-                with (
-                    self.subTest(section=section, content=content),
-                    self.assertRaisesRegex(release.ReleaseError, section + " guidance"),
-                ):
-                    render(text)
-
-    def test_guidance_after_separator_and_subheading_is_preserved(self):
-        content = "#### Migration\n\n---\n\n- Restart the worker after upgrading."
-        text = NOTES.replace("Review optional site settings before enabling the feature.", content)
-        self.assertIn(content, render(text))
-
-    def test_literal_markers_in_code_remain_guidance(self):
-        for content in ("```sh\n---\n```", "    ---", "`---`", "\\- - -", "***Restart***"):
-            text = NOTES.replace(
-                "Review optional site settings before enabling the feature.", content
-            )
-            with self.subTest(content=content):
-                self.assertIn(content.strip(), render(text))
-
-    def test_empty_markdown_containers_are_not_release_guidance(self):
-        for section in ("Upgrade", "Security"):
-            for content in (
-                "-",
-                "+",
-                "*",
-                "1.",
-                "2)",
-                "123456789.",
-                ">",
-                "> >",
-                ">>",
-                ">>>",
-                ">---",
-                ">#### Details",
-                "> -",
-                "- >",
-                "1. > -",
-                "> - [ ]",
-                "- [x]",
-                "- [X]",
-                "> ---",
-                "> #### Details",
-                "-\n+\n1.",
-                "   >\t- ",
-                "> \t-",
-            ):
-                original = (
-                    "Review optional site settings before enabling the feature."
-                    if section == "Upgrade"
-                    else "Reject malformed requests before issuing hardware commands."
-                )
-                text = NOTES.replace(original, content)
-                with (
-                    self.subTest(section=section, content=content),
-                    self.assertRaisesRegex(release.ReleaseError, section + " guidance"),
-                ):
-                    render(text)
-
-    def test_markdown_containers_preserve_actual_guidance_and_literals(self):
-        for content in (
-            "- Restart the service.",
-            "1. Restart the service.",
-            "> Restart the service.",
-            ">Restart the service.",
-            "> - Restart the service.",
-            "- [ ] Restart the service.",
-            "`-`",
-            "```text\n-\n```",
-            "    -",
-            "\\-",
-            "_",
-            "1234567890.",
-            "١.",
-            ">     -",
-            "-     +",
-            ">     ---",
-            "-     ####",
-            "> `-`",
-            "- > Restart the service.",
-            "> [ ]",
-            "- > [ ]",
-        ):
-            text = NOTES.replace(
-                "Review optional site settings before enabling the feature.", content
-            )
-            with self.subTest(content=content):
-                self.assertIn(content.strip(), render(text))
-
-    def test_tabbed_containers_preserve_literal_code(self):
-        for content in (">\t\t-", "-\t\t+", "> >\t\t---", ">\t\t####"):
-            text = NOTES.replace(
-                "Review optional site settings before enabling the feature.", content
-            )
-            with self.subTest(content=content):
-                self.assertIn(content, render(text))

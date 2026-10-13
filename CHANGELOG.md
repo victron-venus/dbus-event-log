@@ -10,6 +10,12 @@ Captures D-Bus signals, method calls and replies for temporary troubleshooting. 
 
 ### Maintenance
 
+- Use pinned, locked build dependencies without build isolation, compare repeated wheel bytes in CI, and retain the extracted-source test.
+- Preserve timestamp wire formatting using supported Pydantic serializers and make TLS rejection fixtures robust to the Python 3.11 transport-close race.
+- Measure application, packaging and release-tooling Python coverage together with the unchanged 80% gate.
+- Document governance, remaining continuity requirements, security assurance, build/test boundaries and dated regression evidence.
+
+
 - Refresh shared CI workflow pins and align the Scorecard output contract with the updated action.
 
 - Record test and build dependencies in `uv.lock` for reproducible Python checks, preserving the existing locked runtime versions.

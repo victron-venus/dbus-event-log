@@ -102,3 +102,16 @@ def test_example_yaml_logging_key_is_effective(
     path = tmp_path / "config.yaml"
     path.write_text(yaml.safe_dump(example))
     assert Config.from_yaml(path).model_dump()["logging"]["level"] == "DEBUG"
+
+
+def test_optional_database_requires_operator_password_and_scram() -> None:
+    """The demo must not provision a remotely exposed database with a known password."""
+    compose = yaml.safe_load(COMPOSE_PATH.read_text())
+    database = compose["services"]["timescaledb"]
+    environment = dict(value.split("=", 1) for value in database["environment"])
+    assert environment["POSTGRES_PASSWORD"] == "${TIMESCALEDB_PASSWORD:-}"
+    assert environment["POSTGRES_INITDB_ARGS"] == "--auth-host=scram-sha-256"
+    assert environment["POSTGRES_HOST_AUTH_METHOD"] == "scram-sha-256"
+    assert database["command"] == ["postgres", "-c", "password_encryption=scram-sha-256"]
+    for name in ("timescaledb", "mosquitto"):
+        assert all(port.startswith("127.0.0.1:") for port in compose["services"][name]["ports"])

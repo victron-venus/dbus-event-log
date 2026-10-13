@@ -4,8 +4,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 python_bin="${CI_PYTHON:-$PWD/.venv-ci/bin/python}"
 if [[ "${1:-}" == --install ]]; then
-  uv venv .venv-ci --python 3.11
-  uv pip install --python "$python_bin" -e ".[dev,test]" ruff mypy pytest-cov bandit==1.9.2 build==1.2.2.post1 twine==6.1.0
+  UV_PROJECT_ENVIRONMENT=.venv-ci uv sync --locked --only-group build --no-install-workspace --no-install-local --no-build --python 3.11
+  UV_PROJECT_ENVIRONMENT=.venv-ci uv sync --locked --extra dev --group build --no-build-isolation --python 3.11
+  uv pip install --python "$python_bin" --require-hashes --only-binary=:all: -r .github/requirements-bandit-1.9.2.txt
   exit 0
 fi
 if [[ ! -x "$python_bin" ]]; then
@@ -21,4 +22,4 @@ fi
 "$python_bin" -m ruff check .
 "$python_bin" -m ruff format --check .
 "$python_bin" -m mypy .
-"$python_bin" -m pytest tests/ --cov=. --cov-report=term-missing --cov-fail-under=80
+"$python_bin" -m pytest tests/ .github/workflow-tests/ .github/release-tests/ --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=80

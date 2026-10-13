@@ -71,7 +71,7 @@ def run_native_probe(target: str, output: Path) -> None:
         (
             "invalid-linker-flag",
             {"LDFLAGS": "-Wl,--openssf-invalid-option"},
-            r"(?:unrecognized option|unknown argument)[^\n]*--openssf-invalid-option",
+            r"ERROR: Compiler cc cannot compile programs\.",
         ),
     )
     results = []
@@ -145,7 +145,50 @@ def run_native_probe(target: str, output: Path) -> None:
                     ],
                     check=True,
                 )
-            results.append({"case": name, "returncode": result.returncode, "verified": True})
+            case_result: dict[str, str | int | bool] = {
+                "case": name,
+                "returncode": result.returncode,
+                "verified": True,
+            }
+            if name == "invalid-linker-flag":
+                # Meson hides the sanity-check stderr; independently retain ld's exact rejection.
+                rejection = subprocess.run(
+                    [
+                        "docker",
+                        "run",
+                        "--rm",
+                        "--network",
+                        "none",
+                        "--platform",
+                        target,
+                        "--interactive",
+                        "--entrypoint",
+                        "cc",
+                        image,
+                        "-x",
+                        "c",
+                        "-",
+                        "-o",
+                        "/tmp/openssf-flag-probe",
+                        "-Wl,--openssf-invalid-option",
+                    ],
+                    input="int main(void) { return 0; }\n",
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                (output / "invalid-linker-toolchain.log").write_text(
+                    f"returncode={rejection.returncode}\n" + rejection.stdout + rejection.stderr
+                )
+                if rejection.returncode == 0 or not re.search(
+                    r"(?:unrecognized option|unknown argument)[^\n]*--openssf-invalid-option",
+                    rejection.stderr,
+                ):
+                    raise RuntimeError("Native linker did not reject the exact invalid option")
+                case_result["toolchain_returncode"] = rejection.returncode
+                case_result["toolchain_log"] = "invalid-linker-toolchain.log"
+                case_result["build_diagnostic"] = "Meson compiler sanity failure (ld stderr hidden)"
+            results.append(case_result)
     finally:
         # Remove only this probe's unique image; never prune the runner's image store.
         subprocess.run(["docker", "image", "rm", "--force", image], check=False)

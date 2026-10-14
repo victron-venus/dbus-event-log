@@ -71,3 +71,9 @@ native-inputs/
 # Independent container repeatability evidence
 cold-*/
 container-repeatability.json
+
+# Isolated RC fuzz runtime and local libFuzzer diagnostics
+.fuzz-venv/
+crash-*
+timeout-*
+oom-*

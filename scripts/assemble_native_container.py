@@ -13,15 +13,22 @@ import hashlib
 import os
 import re
 import stat
-import subprocess
+# Only a fixed read-only Git query is executed, with no shell.
+import subprocess  # nosec B404
 import tempfile
 from contextlib import ExitStack, suppress
 from pathlib import Path
 
-import merge_oci_archives
-import version_plan
-import version_receipt
-from release_control import stream_identity
+if __package__:
+    from . import merge_oci_archives
+    from . import version_plan
+    from . import version_receipt
+    from .release_control import stream_identity
+else:
+    import merge_oci_archives
+    import version_plan
+    import version_receipt
+    from release_control import stream_identity
 
 PLATFORMS = {
     "linux/amd64": {"machine": "x86_64", "runner_arch": "X64"},
@@ -213,6 +220,40 @@ def discard_staging(temporary: tempfile.TemporaryDirectory) -> None:
         temporary.cleanup()
 
 
+def verify_assembled_inputs(merged, builds):
+    """Bind the assembled archive back to receipts, attestations and smoke tests."""
+    for archive in merged["inputs"]:
+        receipt_assets = builds[archive["platform"]]["receipt"]["inputs"]["artifacts"]
+        require(
+            {key: archive[key] for key in ("name", "size", "sha256")}
+            in receipt_assets,
+            "OCI input changed after native receipt verification",
+        )
+    for platform, build in builds.items():
+        require(
+            merged["images"][platform]["attestation_digests"],
+            "Native OCI input lost its build attestations",
+        )
+        require(
+            merged["images"][platform].get("provenance_digests"),
+            "Native OCI input lacks SLSA build provenance",
+        )
+        require(
+            merged["images"][platform]["config_digest"]
+            == build["build"]["image_config_digest"],
+            "Native smoke tested a different image from the OCI payload",
+        )
+
+
+def provenance_module():
+    """Load the optional provenance implementation in CLI and package imports."""
+    if __package__:
+        from . import release_provenance  # pylint: disable=import-outside-toplevel
+    else:
+        import release_provenance  # pylint: disable=import-outside-toplevel
+    return release_provenance
+
+
 def assemble(root: Path, directories: dict[str, Path], output: Path, evidence: Path):
     """Validate both native builds before preserving their blobs in a final archive."""
     root = root.resolve(strict=True)
@@ -221,7 +262,8 @@ def assemble(root: Path, directories: dict[str, Path], output: Path, evidence: P
     evidence = version_receipt.confined_cli_path(root, evidence, "new")
     require(output != evidence, "OCI and evidence destinations must differ")
     policy = document(root / ".release-policy.json")
-    source = subprocess.check_output(
+    # Fixed read-only Git query using the runner's selected toolchain.
+    source = subprocess.check_output(  # nosec B603, B607
         ["git", "rev-parse", "HEAD"], cwd=root, text=True
     ).strip()
     plan = version_plan.validate_plan(
@@ -252,8 +294,7 @@ def assemble(root: Path, directories: dict[str, Path], output: Path, evidence: P
     # explicitly opts into the signed detached-provenance contract.
     sidecar = None
     if policy.get("detached_provenance"):
-        import release_provenance  # pylint: disable=import-outside-toplevel
-
+        release_provenance = provenance_module()
         pairs = release_provenance.policy_pairs(policy)
         pair = next((item for item in pairs if item["image"] == output.name), None)
         if pair is not None:
@@ -299,29 +340,7 @@ def assemble(root: Path, directories: dict[str, Path], output: Path, evidence: P
             )
 
         try:
-            for archive in merged["inputs"]:
-                receipt_assets = builds[archive["platform"]]["receipt"]["inputs"][
-                    "artifacts"
-                ]
-                require(
-                    {key: archive[key] for key in ("name", "size", "sha256")}
-                    in receipt_assets,
-                    "OCI input changed after native receipt verification",
-                )
-            for platform, build in builds.items():
-                require(
-                    merged["images"][platform]["attestation_digests"],
-                    "Native OCI input lost its build attestations",
-                )
-                require(
-                    merged["images"][platform].get("provenance_digests"),
-                    "Native OCI input lacks SLSA build provenance",
-                )
-                require(
-                    merged["images"][platform]["config_digest"]
-                    == build["build"]["image_config_digest"],
-                    "Native smoke tested a different image from the OCI payload",
-                )
+            verify_assembled_inputs(merged, builds)
             result = {
                 "schema_version": 1,
                 "source_sha": source,

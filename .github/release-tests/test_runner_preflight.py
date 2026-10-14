@@ -530,15 +530,17 @@ class BoundedDownloadTests(unittest.TestCase):
     def test_headers_do_not_reduce_or_bypass_the_payload_limit(self):
         payload = b"x" * 64
         self.assertEqual(self.fetch(self.program(self.http_bytes(payload))), payload)
+        program = self.program(self.http_bytes(payload + b"x"))
         with self.assertRaisesRegex(rc.ReleaseError, "exceeds limit"):
-            self.fetch(self.program(self.http_bytes(payload + b"x")))
+            self.fetch(program)
 
     def test_protocol_overhead_is_bounded(self):
         wire = b"HTTP/2.0 200\r\nX-Pad: " + b"x" * (
             preflight.MAX_HTTP_HEADER_BYTES + 64
         )
+        program = self.program(wire + b"\r\n\r\n")
         with self.assertRaisesRegex(rc.ReleaseError, "exceeds limit"):
-            self.fetch(self.program(wire + b"\r\n\r\n"))
+            self.fetch(program)
 
     def test_binary_payload_is_not_parsed_as_another_response(self):
         payload = b"\x00\xffHTTP/2.0 404\r\n\r\nbody\n"
@@ -556,8 +558,9 @@ class BoundedDownloadTests(unittest.TestCase):
 
     def test_failed_page_discards_the_partial_result(self):
         wire = self.http_bytes(b"[1]") + b"\n" + self.http_bytes(b"secret", 502)
+        program = self.program(wire, b"gh: HTTP 404", 1)
         with self.assertRaises(rc.GitHubError) as error:
-            self.fetch(self.program(wire, b"gh: HTTP 404", 1), "releases", "pages")
+            self.fetch(program, "releases", "pages")
         self.assertFalse(error.exception.not_found)
         self.assertNotIn("secret", str(error.exception))
         self.assertEqual(len(self.calls), 1)
@@ -603,9 +606,10 @@ class BoundedDownloadTests(unittest.TestCase):
             )
 
     def test_404_remains_distinguishable_without_raw_error(self):
+        program = self.program(self.http_bytes(b"secret", 404), b"secret HTTP 403", 1)
         with self.assertRaises(rc.GitHubError) as error:
             self.fetch(
-                self.program(self.http_bytes(b"secret", 404), b"secret HTTP 403", 1),
+                program,
                 preflight.state.READ_PATH,
                 "json",
             )
@@ -620,19 +624,19 @@ class BoundedDownloadTests(unittest.TestCase):
             (b"HTTP/2.0 404\r\n", b"gh: HTTP 404"),
         ):
             with self.subTest(stdout=stdout, stderr=stderr):
+                program = self.program(stdout, stderr, 1)
                 with self.assertRaises(rc.GitHubError) as error:
-                    self.fetch(self.program(stdout, stderr, 1), "releases", "json")
+                    self.fetch(program, "releases", "json")
                 self.assertFalse(error.exception.not_found)
                 self.assertEqual(len(self.calls), 1)
 
     def test_http_status_and_cli_exit_must_agree(self):
         for status, exit_code in ((200, 1), (404, 0)):
             with self.subTest(status=status, exit_code=exit_code):
+                program = self.program(self.http_bytes(b"secret", status), b"secret", exit_code)
                 with self.assertRaisesRegex(rc.GitHubError, "disagree") as error:
                     self.fetch(
-                        self.program(
-                            self.http_bytes(b"secret", status), b"secret", exit_code
-                        ),
+                        program,
                         "releases",
                         "json",
                     )

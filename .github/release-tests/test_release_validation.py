@@ -54,6 +54,7 @@ class ReleaseValidationTests(unittest.TestCase):
             )
 
     def test_every_bad_result_and_missing_or_extra_job_is_rejected(self):
+        config = policy()
         for channel in ("beta", "rc"):
             original = self.results(channel)
             for name, row in original.items():
@@ -64,16 +65,17 @@ class ReleaseValidationTests(unittest.TestCase):
                         rows = copy.deepcopy(original)
                         rows[name]["result"] = result
                         with self.assertRaises(ValueError):
-                            validation.check_results(policy(), channel, rows)
+                            validation.check_results(config, channel, rows)
                 rows = copy.deepcopy(original)
                 del rows[name]
                 with self.assertRaises(ValueError):
-                    validation.check_results(policy(), channel, rows)
+                    validation.check_results(config, channel, rows)
             original["unexpected"] = {"result": "success"}
             with self.assertRaises(ValueError):
-                validation.check_results(policy(), channel, original)
+                validation.check_results(config, channel, original)
 
     def test_bad_policy_cannot_reduce_rc_or_hide_validators(self):
+        base = policy()
         for config in (
             None,
             {},
@@ -87,7 +89,7 @@ class ReleaseValidationTests(unittest.TestCase):
         ):
             with self.subTest(config=config), self.assertRaises(ValueError):
                 validation.channel_workflows(
-                    {**policy(), "channel_validation_workflows": config}
+                    {**base, "channel_validation_workflows": config}
                 )
         for key, value in (
             ("mode", "validation-only"),
@@ -96,9 +98,9 @@ class ReleaseValidationTests(unittest.TestCase):
             ("versioning", None),
         ):
             with self.subTest(key=key), self.assertRaises(ValueError):
-                validation.channel_workflows({**policy(), key: value})
+                validation.channel_workflows({**base, key: value})
         with self.assertRaises(ValueError):
-            validation.profile(policy(), "unknown")
+            validation.profile(base, "unknown")
 
     def test_old_manifest_is_unchanged_but_new_profile_cannot_be_omitted_or_relabelled(
         self,
@@ -135,8 +137,9 @@ class ReleaseValidationTests(unittest.TestCase):
             "tag": "v1.2.3-beta.1",
             "validation_profile": validation.profile(policy(), "beta"),
         }
+        raw = rc.json_bytes(manifest)
         with self.assertRaisesRegex(rc.ReleaseError, "Only release candidates"):
-            rc.validate_manifest(rc.json_bytes(manifest), "owner/repo", manifest["tag"])
+            rc.validate_manifest(raw, "owner/repo", manifest["tag"])
 
     def test_run_proof_requires_channel_marker_ci_success_and_exact_sha(self):
         sha = "a" * 40

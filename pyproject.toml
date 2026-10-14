@@ -1,6 +1,6 @@
 [project]
 name = "dbus-event-log"
-version = "0.2.1"
+version = "0.2.2"
 description = "Temporary D-Bus troubleshooting capture of signals, method calls and replies"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -36,6 +36,7 @@ monitor = [
     "PyGObject>=3.54.0",
 ]
 dev = [
+    "types-atheris>=3.1.0.20260630",
     "asyncpg>=0.29.0",
     "pytest>=8.2.0",
     "pytest-asyncio>=0.23.0",

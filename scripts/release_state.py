@@ -19,8 +19,12 @@ import subprocess  # nosec B404
 from datetime import datetime
 from typing import NotRequired, TypedDict, cast
 
-import release_control as rc
-import version_plan
+if __package__:
+    from . import release_control as rc
+    from . import version_plan
+else:
+    import release_control as rc
+    import version_plan
 
 BRANCH = "release-version-state"
 FILE = "release-version-state.json"

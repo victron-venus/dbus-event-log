@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import base64
-import binascii
 import hashlib
 import io
 import json
@@ -22,13 +21,19 @@ import tempfile
 from contextlib import ExitStack, suppress
 from pathlib import Path
 
-import merge_oci_archives as oci
-import version_plan
+if __package__:
+    from . import merge_oci_archives as oci
+    from . import version_plan
+else:
+    import merge_oci_archives as oci
+    import version_plan
 
 REQUIRED_PAIRS = ({'image': 'dbus-event-log-container.oci.tar', 'sidecar': 'dbus-event-log-container.provenance.json', 'platforms': ['linux/amd64', 'linux/arm64']},)
 MAX_SIDECAR = 48_000_000
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,199}\Z")
 SHA = re.compile(r"[0-9a-f]{64}\Z")
+INDEX_JSON = "index.json"
+SHA256_PREFIX = "sha256:"
 require = oci.require
 
 
@@ -110,16 +115,16 @@ def read_sidecar(path, expected=None):
     return document(raw)
 
 
-def decode(encoded, budget):
-    require(isinstance(encoded, str) and len(encoded) <= 4 * ((oci.MAX_JSON + 2) // 3),
+def decode(encoded, budget, *, max_bytes=oci.MAX_JSON):
+    require(isinstance(encoded, str) and len(encoded) <= 4 * ((max_bytes + 2) // 3),
             "Oversized encoded provenance blob")
     require(budget[0] + (len(encoded) // 4) * 3 - encoded.count("=") <= oci.MAX_JSON_TOTAL,
             "Too much decoded provenance metadata")
     try:
         raw = base64.b64decode(encoded, validate=True)
-    except (ValueError, binascii.Error) as error:
+    except ValueError as error:
         raise ValueError("Invalid provenance base64") from error
-    require(base64.b64encode(raw).decode() == encoded and 0 < len(raw) <= oci.MAX_JSON,
+    require(base64.b64encode(raw).decode() == encoded and 0 < len(raw) <= max_bytes,
             "Noncanonical or oversized provenance blob")
     budget[0] += len(raw)
     require(budget[0] <= oci.MAX_JSON_TOTAL, "Too much decoded provenance metadata")
@@ -131,9 +136,9 @@ def runtime_metadata(descriptors):
     inner = oci.canonical({"schemaVersion": 2, "mediaType": oci.INDEX, "manifests": leaves})
     digest = hashlib.sha256(inner).hexdigest()
     root = oci.canonical({"schemaVersion": 2, "mediaType": oci.INDEX, "manifests": [
-        {"mediaType": oci.INDEX, "digest": "sha256:" + digest, "size": len(inner)}]})
+        {"mediaType": oci.INDEX, "digest": SHA256_PREFIX + digest, "size": len(inner)}]})
     return {"oci-layout": oci.canonical({"imageLayoutVersion": "1.0.0"}),
-            "index.json": root, oci.BLOB_PREFIX + digest: inner}, digest
+            INDEX_JSON: root, oci.BLOB_PREFIX + digest: inner}, digest
 
 
 class RuntimeArchive(oci.Archive):
@@ -193,6 +198,7 @@ class EvidenceArchive(oci.Archive):
         self.leaves, self.images, self.attestations = [], [], []
         self.visited, self.metadata_bytes, self.rootfs_bytes = 0, 0, 0
         self.metadata_names, self.layer_identities = set(), {}
+        self.attestation_names = set()
         for name, raw in metadata.items():
             entry = tarfile.TarInfo(name)
             entry.size = len(raw)
@@ -201,7 +207,7 @@ class EvidenceArchive(oci.Archive):
                 self.blobs[name] = entry
         self.tar = OverlayTar(runtime, metadata)
         require(self.read_json("oci-layout").get("imageLayoutVersion") == "1.0.0", "Invalid original OCI layout")
-        self.walk_index(self.read_json("index.json"), 0)
+        self.walk_index(self.read_json(INDEX_JSON), 0)
         self.validate_complete_graph()
         require(self.images[0]["descriptor"] == oci.Archive.descriptor_key(runtime.descriptors[platform]),
                 "Provenance subject differs from runnable platform")
@@ -227,7 +233,9 @@ def verify_pair(directory, pair, plan, policy, expected=None):
     metadata, budget = {}, [0]
     for digest, encoded in data["blobs"].items():
         require(SHA.fullmatch(digest), "Invalid provenance blob digest")
-        raw = decode(encoded, budget)
+        # Blob roles are established by EvidenceArchive's graph replay below;
+        # it retains the smaller structural limit for every non-statement.
+        raw = decode(encoded, budget, max_bytes=oci.MAX_ATTESTATION_JSON)
         require(hashlib.sha256(raw).hexdigest() == digest, "Provenance blob digest mismatch")
         metadata[oci.BLOB_PREFIX + digest] = raw
     inputs = data["inputs"]
@@ -244,7 +252,7 @@ def verify_pair(directory, pair, plan, policy, expected=None):
                                    "index_sha256": runtime.index_digest}, "Detached provenance image binding mismatch")
         for item in inputs:
             require(set(item) == {"platform", "index", "layout"}, "Invalid original input fields")
-            overlay = {**metadata, "index.json": decode(item["index"], budget),
+            overlay = {**metadata, INDEX_JSON: decode(item["index"], budget),
                        "oci-layout": decode(item["layout"], budget)}
             checked = EvidenceArchive(runtime, overlay, item["platform"], runtime.version, plan["source_sha"])
             used.update(checked.metadata_names & set(metadata))
@@ -286,11 +294,53 @@ def verify_staged(directory, policy, plan):
 
 def read_raw(archive, name):
     entry = archive.members[name]
-    require(entry.size <= oci.MAX_JSON, "Oversized original metadata")
+    limit = oci.MAX_ATTESTATION_JSON if name in archive.attestation_names else oci.MAX_JSON
+    require(entry.size <= limit, "Oversized original metadata")
     with archive.tar.extractfile(entry) as stream:
-        raw = stream.read(oci.MAX_JSON + 1)
+        raw = stream.read(limit + 1)
     require(len(raw) == entry.size, "Truncated original metadata")
     return raw
+
+
+def collect_runtime_inputs(archives):
+    """Separate runnable blobs from the exact original graph metadata."""
+    descriptors, runtime_blobs, metadata, originals = {}, {}, {}, []
+    for archive in archives:
+        require(any(oci.PROVENANCE_TYPES.intersection(item["predicate_types"]) for item in archive.attestations),
+                "Platform is missing BuildKit provenance")
+        image = next(item for item in archive.leaves if item["digest"] == archive.images[0]["descriptor"]["digest"])
+        descriptors[archive.platform] = image
+        image_name = oci.BLOB_PREFIX + image["digest"][7:]
+        manifest = archive.read_json(image_name)
+        names = {image_name, oci.BLOB_PREFIX + manifest["config"]["digest"][7:]}
+        names.update(oci.BLOB_PREFIX + item["digest"][7:] for item in manifest["layers"])
+        for name in names:
+            runtime_blobs[name] = (archive, archive.blobs[name])
+        for name in sorted(archive.metadata_names):
+            if name.startswith(oci.BLOB_PREFIX):
+                raw = read_raw(archive, name)
+                require(name not in metadata or metadata[name] == raw, "Conflicting original metadata")
+                metadata[name] = raw
+        originals.append({"platform": archive.platform,
+                          "index": base64.b64encode(read_raw(archive, INDEX_JSON)).decode(),
+                          "layout": base64.b64encode(read_raw(archive, "oci-layout")).decode()})
+    return descriptors, runtime_blobs, metadata, originals
+
+
+def write_runtime_archive(path, generated, runtime_blobs):
+    """Write deterministic metadata and stream the unchanged runnable payloads."""
+    with path.open("xb") as stream:
+        with tarfile.open(fileobj=stream, mode="w", format=tarfile.USTAR_FORMAT) as tar:
+            for name in sorted(set(generated) | set(runtime_blobs)):
+                if name in generated:
+                    raw = generated[name]
+                    oci.add_file(tar, name, len(raw), io.BytesIO(raw))
+                else:
+                    archive, entry = runtime_blobs[name]
+                    with archive.tar.extractfile(entry) as content:
+                        oci.add_file(tar, name, entry.size, content)
+        stream.flush()
+        os.fsync(stream.fileno())
 
 
 def detach(inputs, output, sidecar, policy, plan, expected_inputs=None):
@@ -309,35 +359,16 @@ def detach(inputs, output, sidecar, policy, plan, expected_inputs=None):
             require(set(expected_inputs) == set(oci.PLATFORMS), "Native input identities are incomplete")
             for archive in archives:
                 actual = {"name": archive.path.name, **archive.archive_identity,
-                          "config_digest": "sha256:" + archive.images[0]["config_sha256"]}
+                          "config_digest": SHA256_PREFIX + archive.images[0]["config_sha256"]}
                 require(actual == expected_inputs[archive.platform],
                         "Native OCI input differs from verified receipt or smoke image")
-        descriptors, runtime_blobs, metadata, originals = {}, {}, {}, []
-        for archive in archives:
-            require(any(oci.PROVENANCE_TYPES.intersection(item["predicate_types"]) for item in archive.attestations),
-                    "Platform is missing BuildKit provenance")
-            image = next(item for item in archive.leaves if item["digest"] == archive.images[0]["descriptor"]["digest"])
-            descriptors[archive.platform] = image
-            image_name = oci.BLOB_PREFIX + image["digest"][7:]
-            manifest = archive.read_json(image_name)
-            names = {image_name, oci.BLOB_PREFIX + manifest["config"]["digest"][7:]}
-            names.update(oci.BLOB_PREFIX + item["digest"][7:] for item in manifest["layers"])
-            for name in names:
-                runtime_blobs[name] = (archive, archive.blobs[name])
-            for name in sorted(archive.metadata_names):
-                if name.startswith(oci.BLOB_PREFIX):
-                    raw = read_raw(archive, name)
-                    require(name not in metadata or metadata[name] == raw, "Conflicting original metadata")
-                    metadata[name] = raw
-            originals.append({"platform": archive.platform,
-                              "index": base64.b64encode(read_raw(archive, "index.json")).decode(),
-                              "layout": base64.b64encode(read_raw(archive, "oci-layout")).decode()})
+        descriptors, runtime_blobs, metadata, originals = collect_runtime_inputs(archives)
         native_evidence = {
             "inputs": [{"platform": archive.platform, "name": archive.path.name,
                         **archive.archive_identity} for archive in archives],
             "images": {archive.platform: {
                 "platform": archive.platform,
-                "config_digest": "sha256:" + archive.images[0]["config_sha256"],
+                "config_digest": SHA256_PREFIX + archive.images[0]["config_sha256"],
                 "manifest_digest": archive.images[0]["descriptor"]["digest"],
                 "attestation_digests": [item["digest"] for item in archive.attestations],
                 "provenance_digests": [item["digest"] for item in archive.attestations
@@ -348,18 +379,7 @@ def detach(inputs, output, sidecar, policy, plan, expected_inputs=None):
         # Both files are prepared and semantically checked before either final name appears.
         temporary = stack.enter_context(tempfile.TemporaryDirectory(prefix=".detached-", dir=output.parent))
         staging = Path(temporary)
-        with (staging / output.name).open("xb") as stream:
-            with tarfile.open(fileobj=stream, mode="w", format=tarfile.USTAR_FORMAT) as tar:
-                for name in sorted(set(generated) | set(runtime_blobs)):
-                    if name in generated:
-                        raw = generated[name]
-                        oci.add_file(tar, name, len(raw), io.BytesIO(raw))
-                    else:
-                        archive, entry = runtime_blobs[name]
-                        with archive.tar.extractfile(entry) as content:
-                            oci.add_file(tar, name, entry.size, content)
-            stream.flush()
-            os.fsync(stream.fileno())
+        write_runtime_archive(staging / output.name, generated, runtime_blobs)
         for archive in archives:
             archive.unchanged()
         with (staging / output.name).open("rb") as stream:
@@ -383,7 +403,8 @@ def detach(inputs, output, sidecar, policy, plan, expected_inputs=None):
         except OSError:
             for path in linked:
                 with suppress(OSError):
-                    if os.path.samestat(path.stat(), (staging / path.name).stat()):
+                    staged_path = staging / path.name
+                    if os.path.samestat(path.stat(), staged_path.stat()):
                         path.unlink()
             raise
     return {"image": output.name, "sidecar": sidecar.name, "source_sha": revision,

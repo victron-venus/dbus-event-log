@@ -20,7 +20,10 @@ from collections.abc import Collection
 from pathlib import Path
 from typing import cast
 
-import version_plan
+if __package__:
+    from . import version_plan
+else:
+    import version_plan
 
 
 def run(root: Path, *args: str, capture: bool = True) -> str:

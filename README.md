@@ -1,5 +1,7 @@
 # D-Bus Event Log
 
+[![Fuzzing: RC only](https://img.shields.io/badge/Fuzzing-RC%20only-blue)](docs/fuzzing.md)
+
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15436/badge)](https://www.bestpractices.dev/projects/15436)
 
 
@@ -704,3 +706,9 @@ and the [OpenSSF evidence index](docs/openssf-evidence.md) for assessment refere
 ## Project maintenance and assurance
 
 See [contributing and local checks](CONTRIBUTING.md), [governance and continuity](GOVERNANCE.md), [code of conduct](CODE_OF_CONDUCT.md), [maintenance roadmap](ROADMAP.md), [security reporting](SECURITY.md), [security assurance](docs/security-assurance.md), and [quality/build evidence](docs/quality-and-build.md). The [OpenSSF evidence index](docs/openssf-evidence.md) distinguishes verified evidence from remaining requirements.
+
+## Release-candidate fuzzing
+
+The target calls the production DBusEvent model and both persistent and MQTT serializers. It checks normalization, event identity, service/path preservation and the schema marker with nested values and Unicode. The package namespace bypasses environment/config-file initialization while importing the real models module. No D-Bus capture, database connection or MQTT publishing occurs.
+
+[RC-only fuzzing policy, local reproduction and failure handling](docs/fuzzing.md).

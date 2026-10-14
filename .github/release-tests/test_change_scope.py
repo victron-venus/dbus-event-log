@@ -44,7 +44,8 @@ class ChangeScopeTests(unittest.TestCase):
 
     def git(self, *arguments):
         """Never invoke the workstation's signing key or repository hooks."""
-        return subprocess.check_output(  # nosec B603, B607 - fixed Git executable, isolated fixture
+        # Fixed Git executable in an isolated fixture, without hooks or signing.
+        return subprocess.check_output(  # nosec B603, B607
             [
                 "git",
                 "-c",

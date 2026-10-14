@@ -8,10 +8,13 @@ import hashlib
 import json
 import subprocess  # nosec B404
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import release_provenance
-import version_plan
+if TYPE_CHECKING or __package__:
+    from . import release_provenance, version_plan
+else:
+    import release_provenance
+    import version_plan
 
 IMAGE = "dbus-event-log-container.oci.tar"
 

@@ -23,8 +23,12 @@ import sys
 from pathlib import Path
 from typing import cast
 
-import version_plan
-from release_version_adapter import resolve_plan_path
+if __package__:
+    from . import version_plan
+    from .release_version_adapter import resolve_plan_path
+else:
+    import version_plan
+    from release_version_adapter import resolve_plan_path
 
 
 DETACHED_PROVENANCE_REQUIRED = True
@@ -122,7 +126,10 @@ def write_staged_files(
     for path in files.values():
         shutil.copy2(path, output / path.name)
     if DETACHED_PROVENANCE_REQUIRED or policy.get("detached_provenance"):
-        from release_provenance import verify_staged  # pylint: disable=import-outside-toplevel
+        if __package__:
+            from .release_provenance import verify_staged  # pylint: disable=import-outside-toplevel
+        else:
+            from release_provenance import verify_staged  # pylint: disable=import-outside-toplevel
 
         verify_staged(output, policy, identity)
     metadata = inspect_staged_artifacts(output, files, policy, identity)

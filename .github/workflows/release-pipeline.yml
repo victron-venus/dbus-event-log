@@ -133,6 +133,7 @@ jobs:
       - checks
       - build
       - sign
+      - fuzz
     if: ${{ always() && (needs.prepare.outputs.build == 'true' || needs.prepare.outputs.status == 'version-required')
       }}
     runs-on: ${{ fromJSON((vars.CI_RUNNER_MODE == 'self-hosted' || vars.CI_RUNNER_MODE == 'k3s') && (contains(fromJSON('["push","schedule","workflow_dispatch"]'),
@@ -146,6 +147,9 @@ jobs:
           egress-policy: audit
       - env:
           RESULTS: ${{ toJSON(needs) }}
+          FUZZ_REQUIRED: ${{ github.event.repository.private == false && github.event_name == 'workflow_dispatch'
+            && github.event.inputs.channel == 'rc' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+            }}
         run: |
           python3 - <<'PY'
           import json, os
@@ -154,6 +158,9 @@ jobs:
           if results.get('prepare', {}).get('outputs', {}).get('status') == 'version-required':
               expected['build'] = 'skipped'
               expected['sign'] = 'skipped'
+          expected['fuzz'] = 'success' if os.environ['FUZZ_REQUIRED'] == 'true' else 'skipped'
+          if set(results) != set(expected):
+              raise SystemExit('Release job inventory differs')
           failed = {name: results.get(name, {}).get('result') for name, result in expected.items() if results.get(name, {}).get('result') != result}
           if failed:
               raise SystemExit(f'Release blocked: {failed}')
@@ -162,8 +169,8 @@ jobs:
     needs:
       - prepare
       - gate
-    if: ${{ needs.prepare.outputs.build == 'true' && needs.prepare.outputs.channel != 'stable' && vars.RELEASE_CHANNELS_ENABLED
-      == 'true' }}
+    if: ${{ !cancelled() && needs.gate.result == 'success' && needs.prepare.outputs.build == 'true' && needs.prepare.outputs.channel
+      != 'stable' && vars.RELEASE_CHANNELS_ENABLED == 'true' }}
     runs-on: ${{ fromJSON((vars.CI_RUNNER_MODE == 'self-hosted' || vars.CI_RUNNER_MODE == 'k3s') && (contains(fromJSON('["push","schedule","workflow_dispatch"]'),
       github.event_name) && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) && (vars.CI_RUNNER_RELEASE_LABELS
       || '[]') || '["ubuntu-latest"]') }}
@@ -240,7 +247,8 @@ jobs:
     needs:
       - prepare
       - gate
-    if: ${{ needs.prepare.outputs.channel == 'stable' && needs.prepare.outputs.build == 'true' }}
+    if: ${{ !cancelled() && needs.gate.result == 'success' && needs.prepare.outputs.channel == 'stable' && needs.prepare.outputs.build
+      == 'true' }}
     runs-on: ${{ fromJSON((vars.CI_RUNNER_MODE == 'self-hosted' || vars.CI_RUNNER_MODE == 'k3s') && (contains(fromJSON('["push","schedule","workflow_dispatch"]'),
       github.event_name) && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) && (vars.CI_RUNNER_RELEASE_LABELS
       || '[]') || '["ubuntu-latest"]') }}
@@ -294,8 +302,11 @@ jobs:
       - prepare
       - checks
       - build
-    if: ${{ needs.prepare.outputs.build == 'true' && github.repository == 'victron-venus/dbus-event-log' && github.ref
-      == 'refs/heads/main' }}
+      - fuzz
+    if: ${{ !cancelled() && (needs.prepare.outputs.build == 'true' && github.repository == 'victron-venus/dbus-event-log'
+      && github.ref == 'refs/heads/main') && needs.prepare.result == 'success' && needs.checks.result == 'success'
+      && needs.build.result == 'success' && (needs.fuzz.result == 'success' || (needs.prepare.outputs.channel !=
+      'rc' && needs.fuzz.result == 'skipped')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -354,3 +365,14 @@ jobs:
           if-no-files-found: error
           retention-days: 30
           overwrite: true
+  fuzz:
+    needs: prepare
+    if: ${{ needs.prepare.outputs.build == 'true' && github.event.repository.private == false && github.event_name
+      == 'workflow_dispatch' && github.event.inputs.channel == 'rc' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      }}
+    uses: victron-venus/venus-os-ci-toolkit/.github/workflows/fuzz.yml@5e413f80a4353d328b4529eae57992ac3987e2dd # main
+    with:
+      toolkit-ref: 5e413f80a4353d328b4529eae57992ac3987e2dd
+      release-plan-artifact: ${{ needs.prepare.outputs.plan_artifact }}
+    permissions:
+      contents: read

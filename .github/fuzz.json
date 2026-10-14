@@ -29,7 +29,27 @@
         "-max_len=4096"
       ],
       "seconds": 60,
-      "corpus": "fuzz/corpus/event"
+      "corpus": "fuzz/corpus/event",
+      "instrumentation": [
+        {
+          "module": "dbus_event_log.models",
+          "functions": [
+            "DBusEvent.to_dict",
+            "DBusEvent.to_mqtt_payload"
+          ]
+        }
+      ]
     }
+  ],
+  "preflight-paths": [
+    ".github/requirements-fuzz.in",
+    "Dockerfile",
+    "fuzz",
+    "pyproject.toml",
+    "requirements-docker-build.txt",
+    "requirements-docker-cairo.txt",
+    "requirements-docker.txt",
+    "src",
+    "uv.lock"
   ]
 }

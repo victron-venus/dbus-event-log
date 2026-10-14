@@ -29,7 +29,10 @@ the frozen release plan used for both builds. The new assembler validates both
 original graphs with the existing native OCI checks. It copies runtime manifests,
 configs and layers unchanged into a canonical two-platform OCI archive. It copies
 all reachable original metadata, including every attestation predicate, as exact
-base64-encoded bytes into the bounded JSON sidecar. Original index and layout bytes
+base64-encoded bytes into the bounded JSON sidecar. In-toto statements retain their
+16 MiB limit, structural documents retain their 2,000,000-byte limit, and decoded
+sidecar metadata is limited to 32,000,000 bytes in total. Graph replay enforces the
+document-specific bounds after decoding. Original index and layout bytes
 remain available for graph reconstruction. No command executes extracted content.
 
 ```sh

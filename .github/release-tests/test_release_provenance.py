@@ -80,6 +80,49 @@ class DetachedProvenanceTests(unittest.TestCase):
         with self.assertRaises(OSError):
             self.verify()
 
+    def test_large_attestations_survive_detached_evidence_replay(self):
+        # Exercise the exact bound and a measured native-CI SBOM size.
+        sizes = (provenance.oci.MAX_ATTESTATION_JSON, 3_848_360)
+        entries = [self.helper.fixture(arch, attestation=kind, attestation_size=size)
+                   for (arch, kind), size in zip((("amd64", "artifact"), ("arm64", "legacy")), sizes)]
+        self.inputs = self.helper.inputs(*entries)
+        self.detach()
+        self.verify()
+        data = json.loads(self.sidecar.read_text())
+        for original, size in zip(entries, sizes):
+            name, raw = next((name, raw) for name, raw in original.items() if len(raw) == size)
+            self.assertEqual(base64.b64decode(data["blobs"][name.rsplit("/", 1)[1]]), raw)
+
+    def test_detached_structural_blob_keeps_smaller_limit(self):
+        self.detach()
+        data = json.loads(self.sidecar.read_text())
+        root = json.loads(base64.b64decode(data["inputs"][0]["index"]))
+        descriptor = root["manifests"][0]
+        old_digest = descriptor["digest"][7:]
+        raw = base64.b64decode(data["blobs"].pop(old_digest))
+        raw = raw.ljust(provenance.oci.MAX_JSON + 1, b" ")
+        digest = hashlib.sha256(raw).hexdigest()
+        data["blobs"][digest] = base64.b64encode(raw).decode()
+        descriptor.update(digest="sha256:" + digest, size=len(raw))
+        data["inputs"][0]["index"] = base64.b64encode(provenance.oci.canonical(root)).decode()
+        self.sidecar.write_text(json.dumps(data))
+        with self.assertRaisesRegex(ValueError, "oversized OCI metadata"):
+            self.verify()
+
+    def test_detached_attestation_decode_size_and_total_boundaries(self):
+        limit = provenance.oci.MAX_ATTESTATION_JSON
+        raw = b" " * limit
+        encoded = base64.b64encode(raw).decode()
+        self.assertEqual(provenance.decode(encoded, [0], max_bytes=limit), raw)
+        with self.assertRaisesRegex(ValueError, "oversized provenance blob"):
+            provenance.decode(base64.b64encode(raw + b" ").decode(), [0], max_bytes=limit)
+        encoded = base64.b64encode(b"{}").decode()
+        budget = [provenance.oci.MAX_JSON_TOTAL - 2]
+        self.assertEqual(provenance.decode(encoded, budget, max_bytes=limit), b"{}")
+        self.assertEqual(budget[0], provenance.oci.MAX_JSON_TOTAL)
+        with self.assertRaisesRegex(ValueError, "Too much decoded provenance metadata"):
+            provenance.decode(encoded, [provenance.oci.MAX_JSON_TOTAL - 1], max_bytes=limit)
+
     def test_sidecar_missing_or_wrong_source_plan_and_image_fail(self):
         self.detach()
         original = self.sidecar.read_bytes()

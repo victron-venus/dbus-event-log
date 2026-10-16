@@ -1,5 +1,9 @@
 # Release-candidate fuzz testing
 
+See the [illustrated RC fuzzing process and verified rollout results](https://github.com/victron-venus/venus-os-ci-toolkit/blob/main/docs/rc-fuzzing-results.md)
+for the shared release flow, evidence requirements and a dated cross-project
+snapshot. The project-specific scope and reproduction guidance below still apply.
+
 ## Scope and assertions
 
 **Event validation and serialization.** The target calls the production DBusEvent model and both persistent and MQTT serializers. It checks normalization, event identity, service/path preservation and the schema marker with nested values and Unicode. The package namespace bypasses environment/config-file initialization while importing the real models module. No D-Bus capture, database connection or MQTT publishing occurs.

@@ -285,7 +285,7 @@ jobs:
       - build
       - fuzz
     if: ${{ !cancelled() && (needs.prepare.outputs.build == 'true' && github.repository == 'victron-venus/dbus-event-log' && github.ref == 'refs/heads/main') && needs.prepare.result == 'success' && needs.checks.result == 'success' && needs.build.result == 'success' && (needs.fuzz.result == 'success' || (needs.prepare.outputs.channel != 'rc' && needs.fuzz.result == 'skipped')) }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON((vars.CI_RUNNER_MODE == 'self-hosted' || vars.CI_RUNNER_MODE == 'k3s') && (contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name) && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) && (vars.CI_RUNNER_RELEASE_LABELS || '[]') || '["ubuntu-latest"]') }}
     timeout-minutes: 20
     permissions:
       contents: read
@@ -345,9 +345,9 @@ jobs:
   fuzz:
     needs: prepare
     if: ${{ needs.prepare.outputs.build == 'true' && github.event.repository.private == false && github.event_name == 'workflow_dispatch' && github.event.inputs.channel == 'rc' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
-    uses: victron-venus/venus-os-ci-toolkit/.github/workflows/fuzz.yml@21a366f200f0371a10a6de7ad6ca263af230b842 # main
+    uses: victron-venus/venus-os-ci-toolkit/.github/workflows/fuzz.yml@6b2d99519d513d2b871d2a845ddd6134dea4af2c # main
     with:
-      toolkit-ref: 21a366f200f0371a10a6de7ad6ca263af230b842
+      toolkit-ref: 6b2d99519d513d2b871d2a845ddd6134dea4af2c
       release-plan-artifact: ${{ needs.prepare.outputs.plan_artifact }}
     permissions:
       contents: read

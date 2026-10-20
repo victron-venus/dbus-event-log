@@ -592,30 +592,49 @@ def test_timescale_requires_explicit_dsn() -> None:
         TimescaleDBStorage(StorageConfig(backend="timescaledb", timescaledb_dsn=None))
 
 
+@pytest.mark.parametrize("configured_level", ["INFO", "WARNING"])
+@pytest.mark.parametrize("verbose", [False, True])
 def test_cli_config_file_selects_real_database(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    configured_level: str,
+    verbose: bool,
 ) -> None:
-    """Load configuration through Click and resolve its actual configured SQLite backend."""
+    """Load the configured database and let verbose override only the current invocation."""
     database = tmp_path / "configured.db"
     configured = SQLiteStorage(StorageConfig(sqlite_path=database))
     configured.insert(event(1, "configured-battery"))
     config_path = tmp_path / "settings.yaml"
-    config_path.write_text(f"storage:\n  sqlite_path: {database}\nlogging:\n  format: console\n")
+    config_path.write_text(
+        f"storage:\n  sqlite_path: {database}\n"
+        f"logging:\n  format: console\n  level: {configured_level}\n"
+    )
     monkeypatch.setattr(cli_module, "config", cli_module.config)
     root = logging.getLogger()
-    monkeypatch.setattr(root, "handlers", list(root.handlers))
-    monkeypatch.setattr(root, "level", root.level)
+    original_handlers = root.handlers
+    original_level = root.level
     original_config = get_config()
     try:
-        result = CliRunner().invoke(
-            cli_module.cli, ["--config", str(config_path), "--verbose", "stats"]
+        runner = CliRunner()
+        args = ["--config", str(config_path)]
+        if verbose:
+            args.append("--verbose")
+        result = runner.invoke(cli_module.cli, [*args, "stats"])
+        assert result.exit_code == 0, result.output
+        assert "configured-battery (1)" in result.output
+        assert cli_module.config.storage.sqlite_path == database
+        assert root.getEffectiveLevel() == (
+            logging.DEBUG if verbose else getattr(logging, configured_level)
         )
+        assert cli_module.config.logging.level == configured_level
+
+        following_result = runner.invoke(cli_module.cli, ["stats"])
+        assert following_result.exit_code == 0, following_result.output
+        assert root.getEffectiveLevel() == getattr(logging, configured_level)
     finally:
         set_config(original_config)
-    assert result.exit_code == 0, result.output
-    assert "configured-battery (1)" in result.output
-    assert cli_module.config.storage.sqlite_path == database
+        root.handlers = original_handlers
+        root.setLevel(original_level)
 
 
 def test_storage_factory_selects_timescale_without_connecting(

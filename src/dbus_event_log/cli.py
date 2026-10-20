@@ -71,9 +71,9 @@ def cli(config_path: str | None, verbose: bool) -> None:
     if config_path:
         config = Config.from_yaml(Path(config_path))
         set_config(config)
+    setup_logging()
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
-    setup_logging()
 
 
 @cli.command()

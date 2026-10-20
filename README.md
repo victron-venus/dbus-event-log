@@ -327,6 +327,10 @@ umask 077
 dbus-event-log --config config.yaml monitor --duration 300
 ```
 
+Add `--verbose` (or `-v`) before the subcommand to use `DEBUG` logging for that
+invocation, overriding `logging.level` without changing the configuration file.
+For example: `dbus-event-log --config config.yaml --verbose monitor --duration 300`.
+
 The monitor dispatches GLib callbacks alongside asyncio and waits for pending storage operations during shutdown. Both SQLite writes and asynchronous TimescaleDB writes complete before an event is queued for MQTT. MQTT is a live feed; events captured while disconnected remain in storage and are not replayed automatically.
 
 ### Capture commands and identify their callers

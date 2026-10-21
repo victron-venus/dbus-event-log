@@ -32,11 +32,19 @@ def _utc_timestamp(value: str) -> str | None:
     """Compare legacy naive UTC and offset-aware timestamps at microsecond precision."""
     try:
         timestamp = datetime.fromisoformat(value)
-    except (TypeError, ValueError):
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=UTC)
+        return timestamp.astimezone(UTC).isoformat(timespec="microseconds")
+    except (TypeError, ValueError, OverflowError):
         return None  # Preserve malformed legacy rows rather than guessing their age.
-    if timestamp.tzinfo is None:
-        timestamp = timestamp.replace(tzinfo=UTC)
-    return timestamp.astimezone(UTC).isoformat(timespec="microseconds")
+
+
+def _sqlite_query_timestamp(value: str) -> str:
+    """Normalize a filter without silently accepting an unknown or unrepresentable instant."""
+    timestamp = _utc_timestamp(value)
+    if timestamp is None:
+        raise ValueError("Invalid timestamp: expected an ISO timestamp representable in UTC")
+    return timestamp
 
 
 def _query_timestamp(value: str) -> datetime:
@@ -234,11 +242,11 @@ class SQLiteStorage:
         params: list[str | int] = []
 
         if start_time:
-            conditions.append("timestamp >= ?")
-            params.append(start_time)
+            conditions.append("event_utc(timestamp) >= ?")
+            params.append(_sqlite_query_timestamp(start_time))
         if end_time:
-            conditions.append("timestamp <= ?")
-            params.append(end_time)
+            conditions.append("event_utc(timestamp) <= ?")
+            params.append(_sqlite_query_timestamp(end_time))
         if service:
             conditions.append("service_name LIKE ?")
             params.append(f"%{service}%")
@@ -251,7 +259,7 @@ class SQLiteStorage:
         query = f"""
             SELECT * FROM events
             {where_clause}
-            ORDER BY timestamp DESC
+            ORDER BY event_utc(timestamp) DESC, id DESC
             LIMIT ? OFFSET ?
         """  # nosec B608 - fixed SQL fragments; all external values are bound
         params.extend([limit, offset])
@@ -274,11 +282,11 @@ class SQLiteStorage:
         params: list[str] = []
 
         if start_time:
-            conditions.append("timestamp >= ?")
-            params.append(start_time)
+            conditions.append("event_utc(timestamp) >= ?")
+            params.append(_sqlite_query_timestamp(start_time))
         if end_time:
-            conditions.append("timestamp <= ?")
-            params.append(end_time)
+            conditions.append("event_utc(timestamp) <= ?")
+            params.append(_sqlite_query_timestamp(end_time))
         if service:
             conditions.append("service_name LIKE ?")
             params.append(f"%{service}%")

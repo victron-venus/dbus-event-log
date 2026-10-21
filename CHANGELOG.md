@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.6] - Unreleased
+
+### Fixed
+
+- Compare SQLite query/count time bounds and sort results by the actual UTC instant,
+  including mixed offsets, legacy naive UTC values and inclusive microsecond bounds.
+- Break equal-timestamp ties by event ID so pagination is deterministic. Preserve
+  original timestamp strings and keep unparseable legacy rows visible in unfiltered
+  queries without letting out-of-range offsets break valid queries.
+
+### Upgrade
+
+No database migration is required. Existing files, archives and indexes are preserved.
+SQLite normalizes timestamps at query time; time filtering and sorting scan candidate
+rows instead of relying on the raw timestamp index. Preserve local configuration and
+data, and keep the previous immutable release available for rollback.
+
+### Security
+
+Update the locked development dependency `virtualenv` to 21.14.9 and its required
+`packaging` dependency to 26.3 to address reported shell-injection vulnerabilities
+in generated environment scripts. This changes no credentials or access policy.
+Automated synthetic SQLite tests do not establish physical-device acceptance or
+deploy the service.
+
 ## [0.2.5] - 2026-10-18
 
 ### Changed

@@ -490,8 +490,15 @@ Recheck the firmware-provided Python and GI bindings after a Venus OS upgrade.
 ### Query Events
 
 `query` supports SQLite and TimescaleDB. TimescaleDB queries await the database
-response and close their connection pool before the command exits. For TimescaleDB
-time filters, timestamps without an offset mean UTC; explicit offsets are honoured.
+response and close their connection pool before the command exits. Both backends
+interpret timestamps without an offset as UTC and honour explicit offsets.
+SQLite compares event timestamps and inclusive time bounds at microsecond precision,
+then sorts newest first with event ID as the descending tie-breaker for stable pages.
+Original timestamp strings are preserved. Unparseable legacy timestamps appear last
+in unfiltered queries and are excluded by time filters; invalid filter timestamps
+raise an error. Normalizing legacy timestamps happens during each query, so the
+existing raw timestamp index cannot accelerate time range lookups or ordering. The
+database schema and indexes remain compatible with existing archives and SQLite readers.
 The `query --output` option supports both backends, while the separate `export`
 command and local maintenance commands remain SQLite-only.
 

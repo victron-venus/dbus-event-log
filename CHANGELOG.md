@@ -11,12 +11,21 @@ All notable changes to this project will be documented in this file.
 - Break equal-timestamp ties by event ID so pagination is deterministic. Preserve
   original timestamp strings and keep unparseable legacy rows visible in unfiltered
   queries without letting out-of-range offsets break valid queries.
+- Restore indexed SQLite pagination and time ranges with a transactionally migrated
+  derived time index. Capture writes normalize their rows before committing; SQL-only
+  triggers track older/external writers for bounded-batch reconciliation. Ordinary
+  counts do not need to refresh the index. Preserve positional raw inserts, original
+  query output, malformed timestamps, and legacy NULL-ID rows via a scan fallback.
 
 ### Upgrade
 
-No database migration is required. Existing files, archives and indexes are preserved.
-SQLite normalizes timestamps at query time; time filtering and sorting scan candidate
-rows instead of relying on the raw timestamp index. Preserve local configuration and
+The first open adds and fills a separate SQLite time-index table atomically. Allow
+time and extra disk/journal space proportional to the active capture size; keep a
+backup before upgrading. Existing event columns, raw timestamps and indexes remain
+unchanged, and old applications can continue writing through SQL-only invalidation
+triggers. Archives need no migration for retention cleanup. Subsequent reads repair
+only pending external changes, rather than reparsing the capture; substring filters
+and legacy NULL-ID captures still scan candidates. Preserve local configuration and
 data, and keep the previous immutable release available for rollback.
 
 ### Security

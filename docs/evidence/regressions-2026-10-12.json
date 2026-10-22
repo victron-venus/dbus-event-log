@@ -4232,5 +4232,19 @@
       "assertion": "The parent default timestamp has tzinfo=None; the fixed version returns datetime.timezone.utc.",
       "limitations": "Historical fix checkout uses its historical tests/configuration in the current interpreter. It is a controlled affected-source substitution, not a complete historical build environment."
     }
-  }
+  },
+  "post_review_regressions": [
+    {
+      "issue": "https://github.com/victron-venus/dbus-event-log/issues/165",
+      "added_on": "2026-10-22",
+      "defect": "UTC-normalized SQLite pagination and time filters reparsed every captured row and lost indexed access.",
+      "test_file": "tests/test_sqlite_time_index.py",
+      "representative_test": "test_ingested_latest_page_and_range_use_indexes",
+      "baseline_commit": "7277125f5c5935ca7ff72c2c18b05bb10c4ddedd",
+      "baseline_result": "7 failed, 1 passed",
+      "fixed_targeted_result": "8 passed",
+      "assertions": "Actual executed query plans use the UTC order/range index without a temporary sort; application ingestion leaves zero event timestamp normalizations for the next page. Tests also cover atomic migration rollback after a completed batch, raw writer changes, concurrent writer exclusion, legacy NULL IDs and archive rotation.",
+      "scope": "Synthetic temporary SQLite data; historical review window and ratio above remain unchanged."
+    }
+  ]
 }

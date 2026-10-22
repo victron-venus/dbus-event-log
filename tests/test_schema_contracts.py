@@ -283,6 +283,8 @@ class TestSQLiteSchemaContract:
                 ).fetchall()
             }
         expected = {
+            "idx_event_timestamps_dirty",
+            "idx_event_timestamps_order",
             "idx_events_timestamp",
             "idx_events_service",
             "idx_events_type",

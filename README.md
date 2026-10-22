@@ -496,9 +496,30 @@ SQLite compares event timestamps and inclusive time bounds at microsecond precis
 then sorts newest first with event ID as the descending tie-breaker for stable pages.
 Original timestamp strings are preserved. Unparseable legacy timestamps appear last
 in unfiltered queries and are excluded by time filters; invalid filter timestamps
-raise an error. Normalizing legacy timestamps happens during each query, so the
-existing raw timestamp index cannot accelerate time range lookups or ordering. The
-database schema and indexes remain compatible with existing archives and SQLite readers.
+raise an error. A derived SQLite time index serves newest-first pages and time
+ranges. Normal capture writes update this index in the same transaction, so reads
+do not repeatedly parse stored timestamps. Service substring filters still examine
+candidate rows, and large pagination offsets still require skipping earlier entries.
+
+On the first open after upgrading, an atomic migration creates and fills a separate
+`event_timestamps` table and its indexes. This one-time operation needs time, a write
+lock and extra disk space proportional to the capture size, including SQLite journal
+space. The original `events` columns, timestamps, raw indexes and query output stay
+unchanged. Keep a backup and enough free space before opening a large capture.
+Failure rolls back the new time index; opening the database again retries migration.
+Existing archives are migrated only if opened as an active storage database;
+retention cleanup continues to support archives without the index.
+
+SQL-only triggers track timestamp/ID changes made by older versions or external
+SQLite writers without requiring a Python SQL function. The next time-based read
+or capture write repairs only those pending entries, in the same transaction as
+its read or write. A large external import therefore has a one-time repair cost.
+Ordinary counts without time bounds do not need the index. Do not edit the derived
+table or remove its triggers independently of the application. Older application
+versions can still read and write the original table, and later upgrades reconcile
+their pending changes. For unusual legacy rows with a NULL ID (the event model
+requires a UUID), queries retain the original scan behavior to avoid dropping data;
+indexed reads resume after those rows are corrected or removed.
 The `query --output` option supports both backends, while the separate `export`
 command and local maintenance commands remain SQLite-only.
 

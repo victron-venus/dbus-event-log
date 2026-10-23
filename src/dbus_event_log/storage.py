@@ -112,6 +112,84 @@ class SQLiteStorage:
             # Keep a single current marker when reopening a version 1 database.
             conn.execute("DELETE FROM schema_version WHERE version < ?", (SCHEMA_VERSION,))
             conn.commit()
+            self._init_timestamp_index(conn)
+
+    def _init_timestamp_index(self, conn: sqlite3.Connection) -> None:
+        """Atomically add a rebuildable time index without changing the events table."""
+        conn.execute("BEGIN IMMEDIATE")
+        exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'event_timestamps'"
+        ).fetchone()
+        if not exists:
+            # Use individual statements: executescript would commit the migration early.
+            conn.execute("""
+                CREATE TABLE event_timestamps (
+                    event_id TEXT PRIMARY KEY NOT NULL,
+                    utc_timestamp TEXT,
+                    dirty INTEGER NOT NULL DEFAULT 1
+                )
+            """)
+            conn.execute("""
+                CREATE INDEX idx_event_timestamps_order
+                ON event_timestamps(utc_timestamp DESC, event_id DESC)
+            """)
+            conn.execute("""
+                CREATE INDEX idx_event_timestamps_dirty
+                ON event_timestamps(event_id) WHERE dirty = 1
+            """)
+            # SQL-only triggers let old versions and raw SQLite writers invalidate
+            # derived data without registering any application-defined function.
+            conn.execute("""
+                CREATE TRIGGER events_timestamp_insert AFTER INSERT ON events BEGIN
+                    DELETE FROM event_timestamps WHERE event_id = NEW.id;
+                    INSERT INTO event_timestamps(event_id)
+                        SELECT NEW.id WHERE NEW.id IS NOT NULL;
+                END
+            """)
+            conn.execute("""
+                CREATE TRIGGER events_timestamp_update AFTER UPDATE OF id, timestamp
+                ON events BEGIN
+                    DELETE FROM event_timestamps WHERE event_id = OLD.id OR event_id = NEW.id;
+                    INSERT INTO event_timestamps(event_id)
+                        SELECT NEW.id WHERE NEW.id IS NOT NULL;
+                END
+            """)
+            conn.execute("""
+                CREATE TRIGGER events_timestamp_delete AFTER DELETE ON events BEGIN
+                    DELETE FROM event_timestamps WHERE event_id = OLD.id;
+                END
+            """)
+            conn.execute("""
+                INSERT INTO event_timestamps(event_id) SELECT id FROM events WHERE id IS NOT NULL
+            """)
+        self._refresh_timestamps(conn)
+        conn.commit()
+
+    @staticmethod
+    def _refresh_timestamps(conn: sqlite3.Connection) -> None:
+        """Normalize only pending rows in bounded batches within the caller's transaction."""
+        while True:
+            rows = conn.execute("""
+                SELECT event_timestamps.event_id, events.timestamp
+                FROM event_timestamps JOIN events ON events.id = event_timestamps.event_id
+                WHERE event_timestamps.dirty = 1 LIMIT 512
+            """).fetchall()
+            if not rows:
+                return
+            conn.executemany(
+                "UPDATE event_timestamps SET utc_timestamp = ?, dirty = 0 WHERE event_id = ?",
+                [(_utc_timestamp(row["timestamp"]), row["event_id"]) for row in rows],
+            )
+
+    def _prepare_timestamp_query(self, conn: sqlite3.Connection) -> bool:
+        """Keep refresh and read atomic against external writers; preserve legacy NULL IDs."""
+        conn.execute("BEGIN IMMEDIATE")
+        if conn.execute("SELECT 1 FROM events WHERE id IS NULL LIMIT 1").fetchone():
+            # Model-generated IDs are UUIDs, but old raw writers could store NULL.
+            # Preserve these rows with the original scan rather than silently omit them.
+            return False
+        self._refresh_timestamps(conn)
+        return True
 
     @contextmanager
     def _locked(self) -> Generator[None, None, None]:
@@ -179,6 +257,7 @@ class SQLiteStorage:
                     event.state_to,
                 ),
             )
+            self._refresh_timestamps(conn)
             conn.commit()
 
     def insert_batch(self, events: list[DBusEvent]) -> None:
@@ -224,6 +303,7 @@ class SQLiteStorage:
                     for e in events
                 ],
             )
+            self._refresh_timestamps(conn)
             conn.commit()
 
     # Public query filters are shared by CLI and storage backends.
@@ -238,35 +318,61 @@ class SQLiteStorage:
         offset: int = 0,
     ) -> list[dict[str, Any]]:
         """Query events with filters."""
-        conditions = []
-        params: list[str | int] = []
+        start_time = _sqlite_query_timestamp(start_time) if start_time else None
+        end_time = _sqlite_query_timestamp(end_time) if end_time else None
+        with self._connection() as conn:
+            source, timestamp, event_id = self._timestamp_source(
+                self._prepare_timestamp_query(conn)
+            )
+            where_clause, params = self._filter_clause(
+                start_time, end_time, service, event_type, timestamp
+            )
+            # SQL fragments are fixed; all caller-supplied values use bound parameters.
+            query = f"""
+                SELECT events.* FROM {source}
+                {where_clause}
+                ORDER BY {timestamp} DESC, {event_id} DESC
+                LIMIT ? OFFSET ?
+            """  # nosec B608
+            rows = conn.execute(query, [*params, limit, offset]).fetchall()
+            conn.commit()
+            return [dict(row) for row in rows]
 
-        if start_time:
-            conditions.append("event_utc(timestamp) >= ?")
-            params.append(_sqlite_query_timestamp(start_time))
-        if end_time:
-            conditions.append("event_utc(timestamp) <= ?")
-            params.append(_sqlite_query_timestamp(end_time))
+    @staticmethod
+    def _timestamp_source(indexed: bool) -> tuple[str, str, str]:
+        """Use the time index as the outer loop, or preserve unsupported legacy NULL IDs."""
+        if indexed:
+            return (
+                "event_timestamps CROSS JOIN events ON events.id = event_timestamps.event_id",
+                "event_timestamps.utc_timestamp",
+                "event_timestamps.event_id",
+            )
+        return "events", "event_utc(timestamp)", "id"
+
+    @staticmethod
+    def _filter_clause(
+        start: str | None,
+        end: str | None,
+        service: str | None,
+        event_type: EventType | None,
+        timestamp: str,
+    ) -> tuple[str, list[str]]:
+        """Build shared fixed predicates for indexed and legacy query/count paths."""
+        conditions = []
+        params = []
+        if start:
+            conditions.append(f"{timestamp} >= ?")
+            params.append(start)
+        if end:
+            conditions.append(f"{timestamp} <= ?")
+            params.append(end)
         if service:
             conditions.append("service_name LIKE ?")
             params.append(f"%{service}%")
         if event_type:
             conditions.append("event_type = ?")
             params.append(event_type.value)
-
-        where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
-        # Only fixed predicates/placeholder indices are interpolated; values are bound.
-        query = f"""
-            SELECT * FROM events
-            {where_clause}
-            ORDER BY event_utc(timestamp) DESC, id DESC
-            LIMIT ? OFFSET ?
-        """  # nosec B608 - fixed SQL fragments; all external values are bound
-        params.extend([limit, offset])
-
-        with self._connection() as conn:
-            cursor = conn.execute(query, params)
-            return [dict(row) for row in cursor.fetchall()]
+        return " WHERE " + " AND ".join(conditions) if conditions else "", params
 
     # Keep identical explicit filter parameters across storage backends.
     # pylint: disable-next=too-many-arguments,too-many-positional-arguments
@@ -278,29 +384,18 @@ class SQLiteStorage:
         event_type: EventType | None = None,
     ) -> int:
         """Count events matching filters."""
-        conditions = []
-        params: list[str] = []
-
-        if start_time:
-            conditions.append("event_utc(timestamp) >= ?")
-            params.append(_sqlite_query_timestamp(start_time))
-        if end_time:
-            conditions.append("event_utc(timestamp) <= ?")
-            params.append(_sqlite_query_timestamp(end_time))
-        if service:
-            conditions.append("service_name LIKE ?")
-            params.append(f"%{service}%")
-        if event_type:
-            conditions.append("event_type = ?")
-            params.append(event_type.value)
-
-        where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
-        # Predicates are fixed strings above; all external values remain parameters.
-        query = f"SELECT COUNT(*) as count FROM events {where_clause}"  # nosec B608
-
+        start_time = _sqlite_query_timestamp(start_time) if start_time else None
+        end_time = _sqlite_query_timestamp(end_time) if end_time else None
         with self._connection() as conn:
-            cursor = conn.execute(query, params)
-            row = cursor.fetchone()
+            # Without a time predicate, count needs neither the cache nor its refresh.
+            indexed = self._prepare_timestamp_query(conn) if start_time or end_time else False
+            source, timestamp, _event_id = self._timestamp_source(indexed)
+            where_clause, params = self._filter_clause(
+                start_time, end_time, service, event_type, timestamp
+            )
+            query = f"SELECT COUNT(*) as count FROM {source} {where_clause}"  # nosec B608
+            row = conn.execute(query, params).fetchone()
+            conn.commit()
             return int(row["count"]) if row else 0
 
     def get_services(self) -> list[str]:

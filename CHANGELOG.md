@@ -30,9 +30,10 @@ data, and keep the previous immutable release available for rollback.
 
 ### Security
 
-Update the locked development dependency `virtualenv` to 21.14.9 and its required
-`packaging` dependency to 26.3 to address reported shell-injection vulnerabilities
-in generated environment scripts. This changes no credentials or access policy.
+Update locked development dependencies to `virtualenv` 21.14.13 and `filelock`
+4.2.1, addressing the Bash prompt-expansion regression (CVE-2026-115586) and
+unsafe lock-database path handling (CVE-2026-112940). These tools are used for
+development and validation; this changes no service credentials or access policy.
 Automated synthetic SQLite tests do not establish physical-device acceptance or
 deploy the service.
 

@@ -10,7 +10,7 @@ permissions:
 jobs:
   ci:
     name: CI
-    uses: victron-venus/venus-os-ci-toolkit/.github/workflows/python-ci.yml@cd07a77d4a069dd14fff57d07e47dafbda082ab6 # main
+    uses: victron-venus/venus-os-ci-toolkit/.github/workflows/python-ci.yml@e9d505643bc562d6f725a4d3183d9c67ac7e536b # main
     with:
       use-uv-lock: true
       dependency-extras: "dev"
@@ -25,7 +25,7 @@ jobs:
     needs: ci
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -34,7 +34,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install uv
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.13.4"
       - name: Install dependencies
@@ -106,7 +106,7 @@ jobs:
     steps:
       - name: Audit outbound calls on the supported community runner
         if: ${{ matrix.arch == 'amd64' }}
-        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

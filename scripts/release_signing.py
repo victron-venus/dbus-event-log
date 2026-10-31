@@ -94,10 +94,10 @@ def prepare(directory: Path, root: Path, source_sha: str) -> None:
     # Imports use the reviewed checkout containing this tool, not downloaded assets.
     if __package__:
         from .version_plan import validate_plan  # pylint: disable=import-outside-toplevel
-        from .version_receipt import verify_receipts  # pylint: disable=import-outside-toplevel
+        from .version_receipt import current_producer, verify_receipts  # pylint: disable=import-outside-toplevel
     else:
         from version_plan import validate_plan  # pylint: disable=import-outside-toplevel
-        from version_receipt import verify_receipts  # pylint: disable=import-outside-toplevel
+        from version_receipt import current_producer, verify_receipts  # pylint: disable=import-outside-toplevel
 
     policy = read_json(root / ".release-policy.json")
     repository, ref, _ = trust(policy, source_sha)
@@ -105,7 +105,8 @@ def prepare(directory: Path, root: Path, source_sha: str) -> None:
     entries = files(directory)
     if not entries or set(entries) & UNSIGNED_METADATA:
         raise ValueError("Expected only original, nonempty build assets")
-    verify_receipts(directory, plan, [digest(p) for p in entries.values()], policy)
+    verify_receipts(directory, plan, [digest(p) for p in entries.values()], policy,
+                    current_producer(source_sha))
     actual_sha = subprocess.check_output(  # nosec B603, B607
         ["git", "rev-parse", "HEAD"], cwd=root, text=True
     ).strip()

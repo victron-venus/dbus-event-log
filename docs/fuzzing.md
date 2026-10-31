@@ -106,3 +106,33 @@ Update these declarations when production functions move or are renamed.
 They prove that the selected code is instrumented; they do not prove
 exhaustive path coverage. Keep positive and rejected-input corpus cases
 and independent semantic assertions alongside the existing unit tests.
+
+## Release workflow retries
+
+Fresh release inputs are selected by the exact GitHub workflow run ID and run
+attempt. After a failed or partial run, choose **Re-run all jobs** so every
+required producer creates inputs for the same attempt. Retrying only failed jobs
+or an individual job can leave required inputs missing; earlier attempts are
+not used to fill those gaps.
+
+Artifacts from older attempts may remain available for diagnostics; they are not
+inputs to the new attempt and do not need to be deleted. Filtering artifact names
+alone does not prove package completeness or receipt identity. Complete package
+inventory and receipt identity checks remain separate release requirements.
+
+See the shared [package identity and retry contract](https://github.com/victron-venus/venus-os-ci-toolkit/blob/main/docs/VERSIONING.md#package-identity-across-reruns).
+
+### Package receipt identity
+
+Fresh publication verifies each staged package receipt against the independently
+supplied repository, source commit, workflow run and attempt. Receipts created
+before this migration, or offline without an Actions identity, cannot qualify a
+fresh publication. Run all required producers in one complete workflow attempt
+after migration; an earlier attempt cannot fill missing inputs.
+
+Historical promotion and retained-evidence validation keep their existing checks.
+Receipt coverage validates the staged files; the expected packages and platforms
+still require a separate completeness check. Existing release approval and device
+acceptance policies continue to apply.
+
+See the shared [receipt migration guide](https://github.com/victron-venus/venus-os-ci-toolkit/blob/main/docs/release-workflow.md#migrate-package-receipt-identity-without-replacing-the-release-engine).

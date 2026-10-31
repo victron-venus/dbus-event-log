@@ -110,10 +110,21 @@ and independent semantic assertions alongside the existing unit tests.
 ## Release workflow retries
 
 Fresh release inputs are selected by the exact GitHub workflow run ID and run
-attempt. After a failed or partial run, choose **Re-run all jobs** so every
-required producer creates inputs for the same attempt. Retrying only failed jobs
-or an individual job can leave required inputs missing; earlier attempts are
-not used to fill those gaps.
+attempt.
+
+Before publication starts, use **Re-run all jobs** only if the allocator and
+release policy permit reuse of that run's reservation. Recreate every required
+input in the same attempt; failed-only or individual retries can leave inputs
+missing, and older artifacts must not fill those gaps.
+
+For a fresh candidate or final build, once publication has started
+(`begin_publication`), or its external publication result is partial or uncertain,
+inspect the existing release, tags and assets before retrying. A consumed build
+number requires a new workflow run and reservation authorized by the release
+policy; an existing immutable tag may also require a new base version. Never
+reset the release ledger, overwrite assets or retag to force a retry. Historical
+byte promotion of an accepted RC keeps its reserved number and follows the
+existing promotion policy.
 
 Artifacts from older attempts may remain available for diagnostics; they are not
 inputs to the new attempt and do not need to be deleted. Filtering artifact names

@@ -175,6 +175,24 @@ class ReleaseSignatureTests(unittest.TestCase):
             with self.subTest(policy=policy, sha=sha), self.assertRaises(ValueError):
                 signing.trust(policy, sha)
 
+    def test_prepare_rejects_wrong_producer_before_source_and_signing_inventory(self):
+        """A prior-attempt receipt must fail before archive creation or signing inputs."""
+        receipt_path = self.assets / "release-inputs-package.json"
+        receipt = json.loads(receipt_path.read_text())
+        receipt["producer"] = version_receipt.producer_identity("example/project", 123, 1, self.sha)
+        receipt_path.write_text(json.dumps(receipt))
+        before = {path.name: path.read_bytes() for path in self.assets.iterdir()}
+        environment = {"GITHUB_ACTIONS": "true", "GITHUB_REPOSITORY": "example/project",
+                       "GITHUB_RUN_ID": "123", "GITHUB_RUN_ATTEMPT": "2"}
+        with patch.dict("os.environ", environment), \
+             patch.object(signing.subprocess, "check_output") as checkout, \
+             patch.object(signing.subprocess, "run") as process:
+            with self.assertRaisesRegex(ValueError, "different package producer attempt"):
+                signing.prepare(self.assets, self.root, self.sha)
+        checkout.assert_not_called()
+        process.assert_not_called()
+        self.assertEqual({path.name: path.read_bytes() for path in self.assets.iterdir()}, before)
+
     def test_prepare_rejects_modified_build_and_wrong_checkout(self):
         with patch.object(signing.subprocess, "check_output", return_value="b" * 40), \
              self.assertRaisesRegex(ValueError, "Checkout"):

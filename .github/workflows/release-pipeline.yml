@@ -185,7 +185,7 @@ jobs:
           path: .
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: release-assets*
+          pattern: release-assets*-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: .release-download
           merge-multiple: false
       - run: python3 scripts/release.py collect .release-download .release-assets
@@ -256,7 +256,7 @@ jobs:
           path: .
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: release-assets*
+          pattern: release-assets*-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: .release-download
           merge-multiple: false
       - run: python3 scripts/release.py collect .release-download .release-assets
@@ -313,13 +313,13 @@ jobs:
         run: python3 scripts/version_plan.py sync --root . --plan .release-plan.json
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: release-assets*
+          pattern: release-assets*-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: .release-download
           merge-multiple: false
       - name: Collect original build assets
         run: |
           # A retried signing job must not ingest its own previous output.
-          rm -rf .release-download/release-assets-signature
+          rm -rf ".release-download/release-assets-signature-run-$GITHUB_RUN_ID-attempt-$GITHUB_RUN_ATTEMPT"
           python3 scripts/release.py collect .release-download .release-assets
       - name: Verify build receipts and inventory reviewed source
         run: python3 scripts/release_signing.py prepare .release-assets --source-sha "$GITHUB_SHA"
@@ -337,7 +337,7 @@ jobs:
         run: python3 scripts/stage_release_assets.py --target signature --pattern .release-assets/release-signatures.json --pattern .release-assets/release-signatures.sigstore.json --pattern ".release-assets/source-$GITHUB_SHA.tar.gz"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: release-assets-signature
+          name: release-assets-signature-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: release-assets/signature/*
           if-no-files-found: error
           retention-days: 30

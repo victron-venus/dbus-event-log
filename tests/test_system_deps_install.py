@@ -230,10 +230,12 @@ class TestFetch(unittest.TestCase):
         self.sleep.assert_not_called()
 
     def test_commands_share_one_total_deadline(self) -> None:
-        self.clock.side_effect = [100, 100, 340, 580, 805]
+        self.clock.side_effect = [100, 100, 340, 580, 695]
         self.invoke.return_value = (0, "")
         INSTALLER.install(["dbus"])
-        self.assertEqual([item.args[1] for item in self.invoke.call_args_list], [240, 240, 240, 15])
+        self.assertEqual(
+            [item.args[1] for item in self.invoke.call_args_list], [240, 240, 120, 125]
+        )
 
     def test_no_new_command_or_sleep_after_budget_exhaustion(self) -> None:
         self.clock.return_value = 821
@@ -244,6 +246,14 @@ class TestFetch(unittest.TestCase):
         self.invoke.return_value = (100, TEMPORARY)
         with self.assertRaises(INSTALLER.AptError):
             INSTALLER.fetch(["update"], 104)
+        self.sleep.assert_not_called()
+
+    def test_terminal_transient_result_keeps_fallback_when_retry_time_expires(self) -> None:
+        self.invoke.return_value = (100, TEMPORARY)
+        with self.assertRaises(INSTALLER.TransientFetchExhaustedError) as caught:
+            INSTALLER.fetch(["--download-only", "install", "dbus"], 104)
+        self.assertEqual(caught.exception.output, TEMPORARY)
+        self.assertEqual(self.invoke.call_count, 1)
         self.sleep.assert_not_called()
 
     def test_bad_packages_and_unavailable_apt_fail_early(self) -> None:
@@ -380,9 +390,96 @@ class TestOfficialPoolFallback(unittest.TestCase):
             self.plan + "W: Unauthenticated package\n",
             self.plan.replace(" " + self.NAME + " ", " ../escape.deb "),
         ]
-        for plan in invalid:
-            with self.subTest(plan=plan), self.assertRaises(INSTALLER.AptError):
-                INSTALLER.parse_plan(plan, self.failed, "amd64")
+        for index, plan in enumerate(invalid):
+            if index < 8:
+                # Match the mutated URI so the final set comparison cannot mask
+                # missing per-line origin/path/architecture validation.
+                failed = self.failed.replace(self.URI, plan.split("'")[1])
+                with (
+                    self.subTest(plan=plan),
+                    self.assertRaisesRegex(INSTALLER.AptError, "Untrusted or ambiguous"),
+                ):
+                    INSTALLER.parse_plan(plan, failed, "amd64")
+            else:
+                with self.subTest(plan=plan), self.assertRaises(INSTALLER.AptError):
+                    INSTALLER.parse_plan(plan, self.failed, "amd64")
+
+    def timeout_output(self) -> str:
+        return (
+            "Err:1 "
+            + str(INSTALLER.SNAPSHOT).rstrip("/")
+            + " trixie/main amd64 libcc1-0 amd64 14.2.0-19\n"
+            "  TooManyRequests 503  No healthy backends [IP: 192.0.2.1 443]\n"
+        )
+
+    def test_package_timeout_recovers_once_from_verified_remaining_plan(self) -> None:
+        def timed_run(command: list[str], timeout: float) -> tuple[int, str]:
+            result = self.execute(command, timeout)
+            if "--download-only" in command and "--print-uris" not in command:
+                raise INSTALLER.CommandTimeoutError(self.timeout_output())
+            return result
+
+        with patch.object(INSTALLER, "run", side_effect=timed_run):
+            INSTALLER.install(["dbus"])
+        self.assertEqual(sum(c[0] == INSTALLER.APT_HELPER for c in self.commands), 1)
+        self.assertEqual(
+            sum("--download-only" in c and "--print-uris" not in c for c in self.commands), 1
+        )
+        self.assertIn("--no-download", self.commands[-1])
+        assert self.cache
+        self.assertFalse(self.cache.exists())
+
+    def test_timeout_plan_can_include_unattempted_but_authenticated_packages(self) -> None:
+        other = self.plan.replace("libcc1-0_", "libgomp1_")
+        result = INSTALLER.parse_plan(
+            self.plan + other, self.timeout_output(), "amd64", timed_out=True
+        )
+        self.assertEqual(len(result), 2)
+        with self.assertRaisesRegex(INSTALLER.AptError, "differ"):
+            INSTALLER.parse_plan(other, self.timeout_output(), "amd64", timed_out=True)
+
+    def test_timeout_requires_complete_snapshot_native_transient_package_evidence(self) -> None:
+        good = self.timeout_output()
+        proxy = good.replace(
+            "TooManyRequests 503  No healthy backends",
+            "Invalid response from proxy: HTTP/1.1 503 Service Unavailable",
+        )
+        self.assertEqual(INSTALLER.timed_out_packages(proxy, "amd64"), {self.NAME})
+        bad = [
+            "",
+            good.rstrip("\n"),
+            good.splitlines()[0],
+            good.replace("snapshot.debian.org", "evil.invalid"),
+            good.replace("20261012T", "20261013T"),
+            good.replace("trixie/main", "bookworm/main"),
+            good.replace("amd64", "arm64"),
+            good.replace("libcc1-0 amd64 14.2.0-19", "Packages"),
+            good.replace("503  No healthy backends", "404 Not Found"),
+            good.replace("503  No healthy backends", "503 Service Unavailable; unknown failure"),
+            good + "  404 Not Found\n",
+            good + "E: Unknown failure\n",
+            good + "W: Failed to fetch anything\n",
+            good + "WARNING: cannot be authenticated\n",
+            good + "Hash Sum mismatch\n",
+            good + "No space left on device\n",
+            good + good,
+        ]
+        for output in bad:
+            with self.subTest(output=output), self.assertRaises(INSTALLER.AptError):
+                INSTALLER.parse_plan(self.plan, output, "amd64", timed_out=True)
+
+    def test_index_timeout_never_reaches_package_fallback(self) -> None:
+        with (
+            patch.object(
+                INSTALLER,
+                "run",
+                side_effect=[(0, ""), INSTALLER.CommandTimeoutError(self.timeout_output())],
+            ),
+            patch.object(INSTALLER, "fallback_packages") as fallback,
+            self.assertRaises(INSTALLER.CommandTimeoutError),
+        ):
+            INSTALLER.install(["dbus"])
+        fallback.assert_not_called()
 
     def test_plan_must_match_all_and_only_terminal_failed_packages(self) -> None:
         for failed in [
@@ -433,6 +530,110 @@ class TestOfficialPoolFallback(unittest.TestCase):
                 )
 
 
+class TestConfiguredArchives(unittest.TestCase):
+    """The recovery allowlist covers exactly the configured signed archives."""
+
+    SECURITY = "https://snapshot.debian.org/archive/debian-security/20261012T000000Z/"
+    DIGEST = "SHA256:" + hashlib.sha256(b"test").hexdigest()
+
+    def test_archive_suites_match_the_committed_apt_sources(self) -> None:
+        source = Path(__file__).resolve().parents[1] / "docker/debian.sources"
+        configured: set[tuple[str, tuple[str, ...]]] = set()
+        for block in source.read_text().strip().split("\n\n"):
+            fields = dict(
+                line.split(": ", 1)
+                for line in block.splitlines()
+                if line and not line.startswith("#")
+            )
+            self.assertEqual(fields["Components"], "main")
+            self.assertEqual(fields["Signed-By"], "/usr/share/keyrings/debian-archive-keyring.gpg")
+            configured.add((fields["URIs"], tuple(fields["Suites"].split())))
+        self.assertEqual(configured, {(row[0], row[3]) for row in INSTALLER.ARCHIVES})
+
+    def test_each_configured_archive_and_suite_maps_to_its_own_pool(self) -> None:
+        for snapshot, pool, prefix, suites in INSTALLER.ARCHIVES:
+            for suite in suites:
+                for arch in ("amd64", "arm64"):
+                    with self.subTest(snapshot=snapshot, suite=suite, arch=arch):
+                        name = f"probe_1.0_{arch}.deb"
+                        relative = prefix + "p/probe/" + name
+                        uri = snapshot + relative
+                        plan = f"'{uri}' {name} 4 {self.DIGEST}\n"
+                        output = (
+                            f"Err:1 {snapshot.rstrip('/')} {suite}/main {arch} "
+                            f"probe {arch} 1.0\n  504 Gateway Timeout\n"
+                        )
+                        expected = [(pool + relative, name, 4, self.DIGEST)]
+                        self.assertEqual(
+                            INSTALLER.parse_plan(plan, output, arch, timed_out=True), expected
+                        )
+                        self.assertEqual(
+                            INSTALLER.parse_plan(
+                                plan, f"E: Failed to fetch {uri} 504 Gateway Timeout\n", arch
+                            ),
+                            expected,
+                        )
+
+    def test_observed_arm_security_timeout_is_recognized(self) -> None:
+        output = (
+            f"Err:93 {self.SECURITY.rstrip('/')} trixie-security/main arm64 "
+            "libpcre2-32-0 arm64 10.46-1~deb13u3\n"
+            "  504  Gateway Timeout [IP: 140.248.150.132 443]\n"
+        )
+        self.assertEqual(
+            INSTALLER.timed_out_packages(output, "arm64"),
+            {"libpcre2-32-0_10.46-1~deb13u3_arm64.deb"},
+        )
+
+    def test_archive_suite_host_time_and_component_cannot_be_mixed(self) -> None:
+        good = (
+            f"Err:1 {self.SECURITY.rstrip('/')} trixie-security/main arm64 "
+            "probe arm64 1.0\n  504 Gateway Timeout\n"
+        )
+        bad = [
+            good.replace("trixie-security/main", "trixie/main"),
+            good.replace("trixie-security/main", "trixie-updates/main"),
+            good.replace("/archive/debian-security/", "/archive/debian/"),
+            good.replace("/archive/debian-security/", "/archive/other/"),
+            good.replace("snapshot.debian.org", "evil.invalid"),
+            good.replace("snapshot.debian.org", "snapshot.debian.org:443"),
+            good.replace("20261012T", "20261013T"),
+            good.replace("trixie-security/main", "trixie-security/non-free"),
+        ]
+        for output in bad:
+            with self.subTest(output=output), self.assertRaises(INSTALLER.AptError):
+                INSTALLER.timed_out_packages(output, "arm64")
+
+    def test_security_and_main_package_paths_cannot_be_crossed(self) -> None:
+        name = "probe_1.0_arm64.deb"
+        paths = [
+            self.SECURITY + "pool/main/p/probe/" + name,
+            INSTALLER.SNAPSHOT + "pool/updates/main/p/probe/" + name,
+            self.SECURITY.replace("snapshot.debian.org", "evil.invalid")
+            + "pool/updates/main/p/probe/"
+            + name,
+            self.SECURITY.replace("20261012T", "20261013T") + "pool/updates/main/p/probe/" + name,
+        ]
+        for uri in paths:
+            plan = f"'{uri}' {name} 4 {self.DIGEST}\n"
+            failed = f"E: Failed to fetch {uri} 504 Gateway Timeout\n"
+            with self.subTest(uri=uri), self.assertRaises(INSTALLER.AptError):
+                INSTALLER.parse_plan(plan, failed, "arm64")
+
+    def test_mixed_archive_plan_preserves_each_authenticated_mapping(self) -> None:
+        plan: list[str] = []
+        failed: list[str] = []
+        expected: list[tuple[str, str, int, str]] = []
+        for index, (snapshot, pool, prefix, _) in enumerate(INSTALLER.ARCHIVES):
+            name = f"probe{index}_1.0_arm64.deb"
+            relative = prefix + "p/probe/" + name
+            uri = snapshot + relative
+            plan.append(f"'{uri}' {name} 4 {self.DIGEST}\n")
+            failed.append(f"E: Failed to fetch {uri} 504 Gateway Timeout\n")
+            expected.append((pool + relative, name, 4, self.DIGEST))
+        self.assertEqual(INSTALLER.parse_plan("".join(plan), "".join(failed), "arm64"), expected)
+
+
 class TestBoundedProcess(unittest.TestCase):
     """Check real child-process output and termination without invoking APT."""
 
@@ -446,10 +647,61 @@ class TestBoundedProcess(unittest.TestCase):
         started = time.monotonic()
         with (
             contextlib.redirect_stdout(io.StringIO()),
-            self.assertRaisesRegex(INSTALLER.AptError, "time budget"),
+            self.assertRaises(INSTALLER.CommandTimeoutError) as caught,
         ):
-            INSTALLER.run([sys.executable, "-c", "import time; time.sleep(30)"], 0.1)
+            INSTALLER.run(
+                [
+                    sys.executable,
+                    "-c",
+                    "import time; print('partial evidence', flush=True); time.sleep(30)",
+                ],
+                0.2,
+            )
+        self.assertEqual(caught.exception.output, "partial evidence\n")
         self.assertLess(time.monotonic() - started, 5)
+
+    def test_timeout_retains_buffered_fatal_diagnostics_before_recovery(self) -> None:
+        output = (
+            "Err:1 "
+            + str(INSTALLER.SNAPSHOT).rstrip("/")
+            + " trixie/main amd64 libcc1-0 amd64 14.2.0-19\n"
+            "  504 Gateway Timeout\nE: Hash Sum mismatch\n"
+        )
+        real_read, real_popen = os.read, INSTALLER.subprocess.Popen
+        stdout_fd: int | None = None
+        first = True
+
+        def spawn(*args: object, **kwargs: object) -> object:
+            nonlocal stdout_fd
+            process = real_popen(*args, **kwargs)
+            stdout_fd = process.stdout.fileno()
+            return process
+
+        def throttled_read(fd: int, size: int) -> bytes:
+            nonlocal first
+            data = real_read(fd, min(size, 32) if fd == stdout_fd else size)
+            if fd == stdout_fd and data and first:
+                first = False
+                time.sleep(0.3)
+            return data
+
+        with (
+            contextlib.redirect_stdout(io.StringIO()),
+            patch.object(INSTALLER.subprocess, "Popen", side_effect=spawn),
+            patch.object(INSTALLER.os, "read", side_effect=throttled_read),
+            self.assertRaises(INSTALLER.CommandTimeoutError) as caught,
+        ):
+            INSTALLER.run(
+                [
+                    sys.executable,
+                    "-c",
+                    "import time; print(" + repr(output) + ",end='',flush=True); time.sleep(30)",
+                ],
+                0.2,
+            )
+        self.assertEqual(caught.exception.output, output)
+        with self.assertRaises(INSTALLER.AptError):
+            INSTALLER.timed_out_packages(caught.exception.output, "amd64")
 
     def test_output_flood_is_bounded(self) -> None:
         captured = io.StringIO()

@@ -37,24 +37,43 @@ Native container builders can set standard compiler and linker inputs as describ
 The installer authenticates the fixed Debian Snapshot indices before resolving
 packages. It uses a fresh private archive cache and permits three bounded
 transport attempts. If only package downloads still fail transiently, it may
-fetch those exact `pool/main` files from `https://deb.debian.org/debian/` using
-APT's native helper. The SHA256 and size come from the authenticated Snapshot
+fetch those exact files using APT's native helper. The configured `debian`
+archive (`trixie` and `trixie-updates`) maps only `pool/main/` paths to
+`https://deb.debian.org/debian/`. The configured `debian-security` archive
+(`trixie-security`) maps only `pool/updates/main/` paths to
+`https://deb.debian.org/debian-security/`. Both keep the configured
+`20261012T000000Z` snapshot and `main` component; archive, suite and package-path
+pairs cannot be mixed. The SHA256 and size come from the authenticated Snapshot
 selection; no current mirror indices or replacement versions are used. Index,
 authentication, integrity and unknown failures stop the build.
+
+If an authenticated package fetch reaches its command deadline before APT emits
+its final summary, recovery requires complete transient 503/504 package error
+records for a configured Snapshot archive/suite and native architecture. The installer
+terminates the entire fetch process group, validates the remaining native
+SHA256 plan, and requires every reported failed package to appear in that plan.
+Unattempted missing packages may also use the same exact-byte official-pool
+path; successfully cached packages remain untouched. Index timeouts, incomplete
+or unknown diagnostics, and authentication or integrity errors cannot enter
+this recovery path.
 
 The fallback disables redirects and verifies each file's exact size and SHA256
 before publishing it into the private cache. The complete missing-package plan
 is limited to 256 files, 128 MiB per file and 512 MiB in total. The native helper
 also receives the expected size, although its streaming limit can overshoot by
 a buffered write before rejecting a response. It shares the original 12-minute
-operation deadline and four-minute command limit. The final installation uses
+operation deadline and four-minute command limit. Package fetching reserves the
+last two minutes of that original operation budget for recovery and installation;
+neither deadline is increased. The final installation uses
 `--no-download`; all temporary archive data is removed on success or failure.
 
 `tests/native_apt_fallback.py` runs in the pinned disposable base image in each
 existing native compiler job. It requires native helper rejection of wrong
 hashes, oversized responses and redirects, then uses real signed Snapshot
 metadata and a controlled transport failure to exercise official-pool fallback.
-A successfully prefetched package must remain unchanged, and the final install
+A second case actually interrupts a two-package fetch after one 503 and one
+stalled connection, then requires the same verified recovery. A successfully
+prefetched package must remain unchanged, and the final install
 must complete offline with no private cache left behind. This test does not run
 on the operator's host or change application services.
 This transport fallback does not establish release acceptance: the required

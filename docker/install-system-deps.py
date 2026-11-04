@@ -27,20 +27,21 @@ OPTIONS = [
 ]
 TRANSIENT = re.compile(
     r"\b(?:408\s+Request Timeout|429\s+Too Many Requests|500\s+Internal Server Error|"
-    r"502\s+Bad Gateway|503\s+(?:Service Unavailable|No healthy backends)|"
+    r"502\s+Bad Gateway|503\s+(?:Service Unavailable|No healthy backends|first byte timeout)|"
     r"504\s+Gateway Timeout)\b|Temporary failure resolving|"
     r"Could not (?:resolve|connect)|Connection (?:timed out|failed|reset)|"
     r"TLS connection was non-properly terminated",
     re.IGNORECASE,
 )
 PERMANENT = re.compile(
-    r"\b(?:401|403|404|NO_PUBKEY|EXPKEYSIG|BADSIG)\b|Hash Sum mismatch|"
+    r"\b(?:NO_PUBKEY|EXPKEYSIG|BADSIG)\b|Hash Sum mismatch|"
     r"not signed|invalid signature|signatures? (?:couldn't|could not|cannot) be verified|"
     r"does not have a Release file|Release file .* (?:expired|not valid)|"
     r"Unable to locate package|unmet dependencies|held broken packages|"
     r"not enough free space|No space left on device",
     re.IGNORECASE,
 )
+PERMANENT_STATUS = re.compile(r"\b(?:401|403|404)\b")
 
 
 class AptError(RuntimeError):
@@ -87,7 +88,7 @@ def run(command: list[str], timeout: float) -> tuple[int, str]:
 
 
 def transient_failure(output: str) -> bool:
-    """Require every APT error diagnostic to describe a temporary fetch failure."""
+    """Require every terminal APT diagnostic to describe a temporary fetch failure."""
     if PERMANENT.search(output):
         return False
     errors = [line[3:] for line in output.splitlines() if line.startswith(("E: ", "W: "))]
@@ -97,8 +98,17 @@ def transient_failure(output: str) -> bool:
         "Some index files failed to download. They have been ignored, or old ones used instead.",
         "Some files failed to download",
     )
-    return bool(fetch_errors) and all(
-        TRANSIENT.search(line) if line.startswith("Failed to fetch ") else line in summaries
+    # APT can print several transport responses before its terminal E:/W: reason.
+    # Do not mistake intermediate status codes, package sizes or URL paths for
+    # that final reason. Authentication, integrity and disk errors remain fatal.
+    reasons = [line.removeprefix("Failed to fetch ").split(maxsplit=1) for line in fetch_errors]
+    return bool(reasons) and all(
+        len(parts) == 2
+        and not PERMANENT_STATUS.search(parts[1])
+        and TRANSIENT.search(parts[1])
+        for parts in reasons
+    ) and all(
+        line.startswith("Failed to fetch ") or line in summaries
         for line in errors
     )
 

@@ -79,6 +79,54 @@ class TestFetch(unittest.TestCase):
         self.assertEqual(self.invoke.call_count, 4)
         self.assertEqual(self.sleep.call_args_list, [call(5), call(10)])
 
+    def test_snapshot_first_byte_timeout_retries_download(self) -> None:
+        output = (
+            "E: Failed to fetch https://snapshot.debian.org/example.deb "
+            "TooManyRequests 503  first byte timeout [IP: 192.0.2.1 443]\n"
+            "E: Some files failed to download\n"
+        )
+        self.invoke.side_effect = [(100, output), (0, "")]
+        INSTALLER.fetch(["--download-only", "install", "dbus"], 820)
+        self.assertEqual(self.invoke.call_count, 2)
+        self.sleep.assert_called_once_with(5)
+
+    def test_index_retry_uses_terminal_fetch_reason(self) -> None:
+        output = (
+            "Err:5 https://snapshot.debian.org/ trixie-updates/main arm64 Packages\n"
+            "  TooManyRequests 503  No healthy backends [IP: 192.0.2.1 443]\n"
+            "  404  NOT FOUND [IP: 192.0.2.1 443]\n"
+            "  504  Gateway Timeout [IP: 192.0.2.1 443]\n"
+            "E: Failed to fetch https://snapshot.debian.org/Packages "
+            "504  Gateway Timeout [IP: 192.0.2.1 443]\n"
+            "E: Some index files failed to download. "
+            "They have been ignored, or old ones used instead.\n"
+        )
+        self.invoke.side_effect = [(100, output), (0, "")]
+        INSTALLER.fetch(["update", "--error-on=any"], 820)
+        self.assertEqual(self.invoke.call_count, 2)
+        self.sleep.assert_called_once_with(5)
+        for reason in ("401 Unauthorized", "403 Forbidden", "404 Not Found"):
+            with self.subTest(reason=reason):
+                self.assertFalse(INSTALLER.transient_failure(output + (
+                    "E: Failed to fetch https://snapshot.debian.org/other " + reason + "\n"
+                )))
+                self.assertFalse(INSTALLER.transient_failure(output.replace(
+                    "Packages 504  Gateway Timeout", "Packages " + reason
+                )))
+        self.assertFalse(INSTALLER.transient_failure(output + "Hash Sum mismatch\n"))
+
+    def test_progress_and_url_numbers_are_not_http_statuses(self) -> None:
+        self.assertTrue(INSTALLER.transient_failure(
+            "Get:1 https://snapshot.debian.org/ package [404 kB]\n"
+            "E: Failed to fetch https://snapshot.debian.org/401/403/404/example.deb "
+            "503 Service Unavailable\n"
+        ))
+        self.assertFalse(INSTALLER.transient_failure(
+            "E: Failed to fetch https://snapshot.debian.org/503/Service_Unavailable "
+            "unknown error\n"
+        ))
+        self.assertFalse(INSTALLER.transient_failure("E: Failed to fetch missing-reason\n"))
+
     def test_permanent_and_unknown_errors_do_not_retry_even_with_503(self) -> None:
         diagnostics = [
             "E: Hash Sum mismatch",

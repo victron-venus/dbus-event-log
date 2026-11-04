@@ -32,6 +32,34 @@ The wheel supports standard Python installation destinations. For example, stage
 
 Native container builders can set standard compiler and linker inputs as described in [Native build flags](native-build-flags.md). The dedicated native CI proof inspects the resulting extension binaries and checks that invalid flags fail the build; it does not establish bit-identical container builds.
 
+### Debian package transport during container builds
+
+The installer authenticates the fixed Debian Snapshot indices before resolving
+packages. It uses a fresh private archive cache and permits three bounded
+transport attempts. If only package downloads still fail transiently, it may
+fetch those exact `pool/main` files from `https://deb.debian.org/debian/` using
+APT's native helper. The SHA256 and size come from the authenticated Snapshot
+selection; no current mirror indices or replacement versions are used. Index,
+authentication, integrity and unknown failures stop the build.
+
+The fallback disables redirects and verifies each file's exact size and SHA256
+before publishing it into the private cache. The complete missing-package plan
+is limited to 256 files, 128 MiB per file and 512 MiB in total. The native helper
+also receives the expected size, although its streaming limit can overshoot by
+a buffered write before rejecting a response. It shares the original 12-minute
+operation deadline and four-minute command limit. The final installation uses
+`--no-download`; all temporary archive data is removed on success or failure.
+
+`tests/native_apt_fallback.py` runs in the pinned disposable base image in each
+existing native compiler job. It requires native helper rejection of wrong
+hashes, oversized responses and redirects, then uses real signed Snapshot
+metadata and a controlled transport failure to exercise official-pool fallback.
+A successfully prefetched package must remain unchanged, and the final install
+must complete offline with no private cache left behind. This test does not run
+on the operator's host or change application services.
+This transport fallback does not establish release acceptance: the required
+native compiler, cold-build and complete-archive comparisons must still pass.
+
 ## Review policy and limits
 
 Contributions must resolve new warnings, preserve enforced checks, test important success and failure paths, and explain untested behavior. Keep bug-regression evidence current for the preceding six months. No local result here is a physical-device acceptance test or a security certification. See [CONTRIBUTING.md](../CONTRIBUTING.md) for review requirements and [the assurance case](security-assurance.md) for security-specific evidence.

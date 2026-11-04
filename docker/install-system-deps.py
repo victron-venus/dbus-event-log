@@ -49,12 +49,21 @@ OPTIONS = [
     "-o",
     "Acquire::https::Timeout=30",
 ]
-TRANSIENT = re.compile(
-    r"\b(?:408\s+Request Timeout|429\s+Too Many Requests|500\s+Internal Server Error|"
-    r"502\s+Bad Gateway|503\s+(?:Service Unavailable|No healthy backends|first byte timeout)|"
-    r"504\s+Gateway Timeout)\b|Temporary failure resolving|"
+TRANSIENT_HTTP_STATUSES = {408, 429, 500, 502, 503, 504}
+HTTP_IP_SUFFIX = re.compile(r"\[IP: [0-9a-fA-F:.]+ [0-9]+\]")
+HTTP_TOKEN = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+")
+# APT 3 emits this errno-bearing form separately from TLS verification errors.
+# Match the complete observed ECONNRESET diagnostic, not arbitrary SSL failures.
+OPENSSL_CONNECTION_RESET = re.compile(
+    r"(?:TooManyRequests )?OpenSSL system call error: "
+    r"error:00000000:lib\(0\)::reason\(0\) +- openssl "
+    r"\(104: Connection reset by peer\)"
+    r"(?: \[IP: [0-9a-fA-F:.]+ [0-9]+\])?"
+)
+TRANSIENT_NETWORK = re.compile(
+    r"(?:Temporary failure resolving|"
     r"Could not (?:resolve|connect)|Connection (?:timed out|failed|reset)|"
-    r"TLS connection was non-properly terminated",
+    r"TLS connection was non-properly terminated)\b",
     re.IGNORECASE,
 )
 PERMANENT = re.compile(
@@ -150,11 +159,94 @@ def run(command: list[str], timeout: float) -> tuple[int, str]:
             raise
 
 
+def proxy_content_type_parameters(phrase: str) -> bool:
+    """Allow semicolons only in a flattened proxy Content-Type header."""
+    # APT includes the CONNECT response headers and flattens each CRLF into
+    # two spaces. Token-valued MIME parameters cover the native proxy fixture;
+    # unrecognized syntax remains fatal rather than widening all reason text.
+    fields = phrase.split("  ")
+    if ";" in fields[0]:
+        return False
+    for field in fields[1:]:
+        if ";" not in field:
+            continue
+        name, separator, value = field.strip().partition(":")
+        if not separator or name.lower() != "content-type":
+            return False
+        media, *parameters = value.split(";")
+        media_parts = media.strip().split("/")
+        if len(media_parts) != 2 or not all(HTTP_TOKEN.fullmatch(p) for p in media_parts):
+            return False
+        for parameter in parameters:
+            key, equals, item = parameter.strip().partition("=")
+            item = item.strip()
+            if len(item) >= 2 and item.startswith('"') and item.endswith('"'):
+                item = item[1:-1]
+            if (
+                not equals
+                or not HTTP_TOKEN.fullmatch(key.strip())
+                or not HTTP_TOKEN.fullmatch(item)
+            ):
+                return False
+    return True
+
+
+def http_status(reason: str) -> int | None:
+    """Parse a complete APT HTTP reason without relying on server wording."""
+    # HTTP reason phrases are optional and server-defined. Parse the fixed
+    # prefix/token separately to avoid backtracking over a long error body.
+    proxy_response = False
+    for prefix in (
+        "Invalid response from proxy: HTTP/1.0 ",
+        "Invalid response from proxy: HTTP/1.1 ",
+    ):
+        if reason.startswith(prefix):
+            reason = reason.removeprefix(prefix)
+            proxy_response = True
+            break
+    reason = reason.removeprefix("TooManyRequests ")
+    if re.fullmatch(r"[1-5][0-9]{2}", reason[:3]) is None:
+        return None
+    status, phrase = int(reason[:3]), reason[3:]
+    if not phrase:
+        return status
+    if phrase[0] not in " \t":
+        return None
+    phrase = phrase.lstrip(" \t")
+    if "[" in phrase or "]" in phrase:
+        text, marker, address = phrase.rpartition("[IP: ")
+        if (
+            not marker
+            or (text and text[-1] not in " \t")
+            or HTTP_IP_SUFFIX.fullmatch(marker + address) is None
+        ):
+            return None
+        phrase = text.rstrip(" \t")
+    if re.search(r"[\x00-\x1f\x7f\[\]]", phrase):
+        return None
+    if ";" in phrase and (not proxy_response or not proxy_content_type_parameters(phrase)):
+        return None
+    return status
+
+
+def transient_reason(reason: str) -> bool:
+    """Accept explicit temporary HTTP or network failures, not incidental text."""
+    if PERMANENT_STATUS.search(reason) or re.search(r"[\x00-\x08\x0a-\x1f\x7f]", reason):
+        return False
+    status = http_status(reason)
+    if status is not None:
+        return status in TRANSIENT_HTTP_STATUSES
+    return (
+        OPENSSL_CONNECTION_RESET.fullmatch(reason) is not None
+        or TRANSIENT_NETWORK.match(reason) is not None
+    )
+
+
 def transient_failure(output: str) -> bool:
     """Require every terminal APT diagnostic to describe a temporary fetch failure."""
     if PERMANENT.search(output):
         return False
-    errors = [line[3:] for line in output.splitlines() if line.startswith(("E: ", "W: "))]
+    errors = [line[3:] for line in output.split("\n") if line.startswith(("E: ", "W: "))]
     fetch_errors = [line for line in errors if line.startswith("Failed to fetch ")]
     summaries = (
         "Unable to fetch some archives, maybe run apt-get update or try with --fix-missing?",
@@ -167,10 +259,7 @@ def transient_failure(output: str) -> bool:
     reasons = [line.removeprefix("Failed to fetch ").split(maxsplit=1) for line in fetch_errors]
     return (
         bool(reasons)
-        and all(
-            len(parts) == 2 and not PERMANENT_STATUS.search(parts[1]) and TRANSIENT.search(parts[1])
-            for parts in reasons
-        )
+        and all(len(parts) == 2 and transient_reason(parts[1]) for parts in reasons)
         and all(line.startswith("Failed to fetch ") or line in summaries for line in errors)
     )
 
@@ -212,7 +301,7 @@ def timed_out_packages(output: str, architecture: str) -> set[str]:
         or re.search(r"(?im)^(?:E:|W:|WARNING:)|unauthenticated|cannot be authenticated", output)
     ):
         raise AptError("Untrusted package timeout diagnostic")
-    lines = output.splitlines()
+    lines = output.split("\n")
     packages: set[str] = set()
     sources = "|".join(
         re.escape(snapshot.rstrip("/"))
@@ -230,11 +319,6 @@ def timed_out_packages(output: str, architecture: str) -> set[str]:
         + architecture
         + r"|all) ([0-9][A-Za-z0-9.+:~_-]*)"
     )
-    reason = re.compile(
-        r"(?:Invalid response from proxy: HTTP/1\.[01] )?(?:TooManyRequests )?"
-        r"(?:503 (?:Service Unavailable|No healthy backends|first byte timeout)"
-        r"|504 Gateway Timeout)(?: \[IP: [0-9a-fA-F:.]+ [0-9]+\])?"
-    )
     for index, line in enumerate(lines):
         if not line.startswith("Err:"):
             continue
@@ -243,7 +327,8 @@ def timed_out_packages(output: str, architecture: str) -> set[str]:
             raise AptError("Unknown or incomplete package timeout diagnostic")
         if index + 2 < len(lines) and lines[index + 2].startswith("  "):
             raise AptError("Ambiguous package timeout diagnostic")
-        if reason.fullmatch(" ".join(lines[index + 1].split())) is None:
+        reason = lines[index + 1][2:]
+        if PERMANENT_STATUS.search(reason) or http_status(reason) not in {503, 504}:
             raise AptError("Non-transient package timeout diagnostic")
         name, arch, version = match.groups()
         package = f"{name}_{version}_{arch}.deb"

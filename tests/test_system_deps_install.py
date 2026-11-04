@@ -26,6 +26,11 @@ TEMPORARY = (
     "E: Unable to fetch some archives, maybe run apt-get update or try with --fix-missing?\n"
 )
 
+OPENSSL_RESET = (
+    "OpenSSL system call error: error:00000000:lib(0)::reason(0)  "
+    "- openssl (104: Connection reset by peer) [IP: 192.0.2.1 443]"
+)
+
 
 class TestFetch(unittest.TestCase):
     """Verify retries, fatal diagnostics, installation order and shared budgets."""
@@ -68,6 +73,61 @@ class TestFetch(unittest.TestCase):
         self.sleep.assert_called_once_with(5)
         self.assertIn("--no-download", self.invoke.call_args_list[-1].args[0])
 
+    def test_observed_openssl_reset_retries_with_other_http_failures(self) -> None:
+        for prefix in ("", "TooManyRequests "):
+            with self.subTest(prefix=prefix):
+                output = (
+                    "E: Failed to fetch https://snapshot.debian.org/example.deb "
+                    f"{prefix}{OPENSSL_RESET}\n"
+                    "E: Failed to fetch https://snapshot.debian.org/other.deb "
+                    "TooManyRequests 503 No healthy backends\n"
+                    "E: Some files failed to download\n"
+                )
+                self.invoke.reset_mock()
+                self.sleep.reset_mock()
+                self.invoke.side_effect = [(100, output), (0, "")]
+                INSTALLER.fetch(["--download-only", "install", "dbus"], 820)
+                self.assertEqual(self.invoke.call_args_list[0], self.invoke.call_args_list[1])
+                self.sleep.assert_called_once_with(5)
+
+    def test_openssl_reset_retains_retry_limit(self) -> None:
+        output = f"E: Failed to fetch https://snapshot.debian.org/example.deb {OPENSSL_RESET}\n"
+        self.invoke.return_value = (100, output)
+        with self.assertRaises(INSTALLER.TransientFetchExhaustedError):
+            INSTALLER.fetch(["--download-only", "install", "dbus"], 820)
+        self.assertEqual(self.invoke.call_count, INSTALLER.ATTEMPTS)
+        self.assertEqual(self.sleep.call_args_list, [call(5), call(10)])
+
+    def test_openssl_reset_does_not_accept_unknown_or_certificate_errors(self) -> None:
+        for reason in (
+            OPENSSL_RESET.replace("104: Connection reset by peer", "13: Permission denied"),
+            OPENSSL_RESET.replace("104: Connection reset by peer", "104: unknown failure"),
+            OPENSSL_RESET.replace(
+                "00000000:lib(0)::reason(0)", "0A000086:SSL routines::certificate verify failed"
+            ),
+            OPENSSL_RESET.replace("system call error", "error"),
+            OPENSSL_RESET.replace("192.0.2.1", "unknown-host"),
+            "unknown " + OPENSSL_RESET,
+            OPENSSL_RESET + "; unknown failure",
+            OPENSSL_RESET + "\rignored",
+            OPENSSL_RESET + "\x00",
+        ):
+            with self.subTest(reason=reason):
+                self.assertFalse(INSTALLER.transient_reason(reason))
+        for diagnostic in (
+            "E: Hash Sum mismatch",
+            "E: NO_PUBKEY key",
+            "E: unknown failure",
+            "W: unexpected warning",
+            "E: Failed to fetch https://example.invalid/ 403 Forbidden",
+        ):
+            with self.subTest(diagnostic=diagnostic):
+                output = (
+                    "E: Failed to fetch https://snapshot.debian.org/example.deb "
+                    f"{OPENSSL_RESET}\n{diagnostic}\n"
+                )
+                self.assertFalse(INSTALLER.transient_failure(output))
+
     def test_download_only_504_summary_retries_but_unknown_errors_still_fail(self) -> None:
         output = (
             "E: Failed to fetch https://snapshot.debian.org/example.deb "
@@ -98,6 +158,164 @@ class TestFetch(unittest.TestCase):
         INSTALLER.fetch(["--download-only", "install", "dbus"], 820)
         self.assertEqual(self.invoke.call_count, 2)
         self.sleep.assert_called_once_with(5)
+
+    def test_snapshot_backend_fetch_failed_retries_mixed_package_response(self) -> None:
+        # main run 41904649056 returned these six terminal reasons together.
+        reasons = (
+            "TooManyRequests 503  Backend fetch failed",
+            "504  Gateway Timeout",
+            "503  Service Unavailable",
+            "TooManyRequests 503  first byte timeout",
+            "TooManyRequests 503  Backend fetch failed",
+            "TooManyRequests 503  first byte timeout",
+        )
+        output = (
+            "".join(
+                f"E: Failed to fetch https://snapshot.debian.org/package{i}.deb "
+                f"{reason} [IP: 192.0.2.1 443]\n"
+                for i, reason in enumerate(reasons)
+            )
+            + "E: Some files failed to download\n"
+        )
+        self.invoke.side_effect = [(100, output), (0, "")]
+        INSTALLER.fetch(["--download-only", "install", "dbus"], 820)
+        self.assertEqual(self.invoke.call_args_list[0], self.invoke.call_args_list[1])
+        self.sleep.assert_called_once_with(5)
+
+    def test_http_status_allows_optional_server_defined_reason(self) -> None:
+        for status in (408, 429, 500, 502, 503, 504):
+            for prefix in (
+                "",
+                "TooManyRequests ",
+                "Invalid response from proxy: HTTP/1.1 ",
+            ):
+                for phrase in ("", "  Backend fetch failed", "  New upstream wording"):
+                    with self.subTest(status=status, prefix=prefix, phrase=phrase):
+                        reason = f"{prefix}{status}{phrase}"
+                        self.assertTrue(
+                            INSTALLER.transient_failure(
+                                "E: Failed to fetch https://example.invalid/503/404.deb " + reason
+                            )
+                        )
+                        self.assertEqual(INSTALLER.http_status(reason), status)
+
+    def test_native_proxy_content_type_parameters_retry_without_weakening_errors(self) -> None:
+        # Exact shape emitted by real APT 3.0.3 in run 41909116410, job 126853460339.
+        reason = (
+            "Invalid response from proxy: HTTP/1.0 503 Service Unavailable  "
+            "Server: BaseHTTP/0.6 Python/3.14.8  "
+            "Date: Wed, 04 Nov 2026 20:48:11 GMT  Connection: close  "
+            "Content-Type: text/html;charset=utf-8  Content-Length: 492     "
+            "[IP: 127.0.0.1 33263]"
+        )
+        output = (
+            "E: Failed to fetch https://snapshot.debian.org/example.deb " + reason + "\n"
+            "E: Some files failed to download\n"
+        )
+        self.invoke.side_effect = [(100, output), (0, "")]
+        INSTALLER.fetch(["--download-only", "install", "dbus"], 820)
+        self.assertEqual(self.invoke.call_args_list[0], self.invoke.call_args_list[1])
+        self.sleep.assert_called_once_with(5)
+        for status in (401, 403, 404, 501):
+            self.assertFalse(
+                INSTALLER.transient_failure(output.replace("503 Service", f"{status} Service"))
+            )
+        for fatal in ("E: Unknown failure", "E: Hash Sum mismatch", "W: No space left on device"):
+            self.assertFalse(INSTALLER.transient_failure(output + fatal + "\n"))
+
+    def test_proxy_semicolons_require_a_complete_token_valued_content_type(self) -> None:
+        prefix = "Invalid response from proxy: HTTP/1.1 503 Service Unavailable"
+        for header in (
+            "Content-Type: text/html;charset=utf-8",
+            'content-type: application/json; charset="utf-8"; version=1',
+        ):
+            self.assertTrue(INSTALLER.transient_reason(prefix + "  " + header))
+        for suffix in (
+            "; unknown failure",
+            "  Unknown: value; unknown failure",
+            "  Content-Type: text/html; unknown failure",
+            "  Content-Type: text/html;charset=",
+            "  Content-Type: text/html;charset=utf-8;",
+            '  Content-Type: text/html;charset="unterminated',
+            "  Content-Type: text/html;charset=utf-8; error=permission denied",
+            "  Content-Type: text/html;charset=utf-8  unknown; failure",
+            " Content-Type: text/html;charset=utf-8",
+            "  Content-Type: text/html;charset=utf-8\runknown failure",
+        ):
+            with self.subTest(suffix=suffix):
+                self.assertFalse(INSTALLER.transient_reason(prefix + suffix))
+        self.assertFalse(
+            INSTALLER.transient_reason(
+                "503 Service Unavailable  Content-Type: text/html;charset=utf-8"
+            )
+        )
+
+    def test_native_proxy_headers_preserve_signed_timeout_package_identity(self) -> None:
+        for arch in ("amd64", "arm64"):
+            for status in (503, 504):
+                output = (
+                    f"Err:1 {INSTALLER.SNAPSHOT.rstrip('/')} trixie/main {arch} probe {arch} 1.0\n"
+                    f"  Invalid response from proxy: HTTP/1.0 {status} Service Unavailable  "
+                    "Content-Type: text/html;charset=utf-8  Content-Length: 492     "
+                    "[IP: 127.0.0.1 33263]\n"
+                )
+                self.assertEqual(
+                    INSTALLER.timed_out_packages(output, arch), {f"probe_1.0_{arch}.deb"}
+                )
+                with self.assertRaises(INSTALLER.AptError):
+                    INSTALLER.timed_out_packages(output.replace("charset=utf-8", "charset="), arch)
+
+    def test_http_status_rejects_incidental_codes_and_ambiguous_diagnostics(
+        self,
+    ) -> None:
+        reasons = (
+            "version 503 Service Unavailable",
+            "package 503 Connection timed out",
+            "UnknownPrefix 503 Service Unavailable",
+            "5030 Service Unavailable",
+            "503.1 Service Unavailable",
+            "503 Service Unavailable; unknown failure",
+            "503 Service Unavailable [unknown suffix]",
+            "503 Service Unavailable\x00",
+            "503\rService Unavailable",
+            "503\nService Unavailable",
+            "501 Connection timed out",
+            "505 Backend fetch failed",
+            "599 Network Connect Timeout Error",
+            "404 503 Service Unavailable",
+            "503 404 Not Found",
+        )
+        for reason in reasons:
+            with self.subTest(reason=reason):
+                self.assertFalse(INSTALLER.transient_reason(reason))
+        for fatal in ("Hash Sum mismatch", "NO_PUBKEY 1234", "No space left on device"):
+            self.assertFalse(
+                INSTALLER.transient_failure(
+                    "E: Failed to fetch https://example.invalid/a.deb 503 Backend fetch failed\n"
+                    + fatal
+                    + "\n"
+                )
+            )
+
+    def test_terminal_reason_retains_control_characters_and_network_word_boundaries(
+        self,
+    ) -> None:
+        for reason in (
+            "503 Backend fetch failed\runknown failure",
+            "503 Backend fetch failed\vunknown failure",
+            "503 Backend fetch failed\x1cunknown failure",
+            "Could not connect\runknown failure",
+            "Could not connectionsomething permanent",
+            "Connection resetXYZ",
+            "Temporary failure resolvingXYZ",
+        ):
+            with self.subTest(reason=reason):
+                self.assertFalse(INSTALLER.transient_reason(reason))
+                self.assertFalse(
+                    INSTALLER.transient_failure(
+                        "E: Failed to fetch https://example.invalid/a.deb " + reason + "\n"
+                    )
+                )
 
     def test_index_retry_uses_terminal_fetch_reason(self) -> None:
         output = (
@@ -463,6 +681,15 @@ class TestOfficialPoolFallback(unittest.TestCase):
             (INSTALLER.POOL + "pool/main/g/glib2.0/" + filename, filename, 4, self.digest),
         )
 
+    def test_openssl_reset_fallback_keeps_signed_package_plan(self) -> None:
+        self.failed = self.failed.replace(
+            "503 Service Unavailable", "TooManyRequests " + OPENSSL_RESET
+        )
+        with patch.object(INSTALLER, "run", side_effect=self.execute):
+            INSTALLER.install(["dbus"])
+        self.assertEqual(sum(c[0] == INSTALLER.APT_HELPER for c in self.commands), 1)
+        self.assertTrue(any("--no-download" in c for c in self.commands))
+
     def test_helper_error_and_wrong_size_do_not_retry_or_install(self) -> None:
         for status, body in [(100, self.BODY), (0, b"too-long")]:
             with self.subTest(status=status):
@@ -579,6 +806,44 @@ class TestOfficialPoolFallback(unittest.TestCase):
         for output in bad:
             with self.subTest(output=output), self.assertRaises(INSTALLER.AptError):
                 INSTALLER.parse_plan(self.plan, output, "amd64", timed_out=True)
+
+    def test_timeout_accepts_server_defined_503_and_504_reasons(self) -> None:
+        good = self.timeout_output()
+        for reason in (
+            "503",
+            "504  New upstream wording",
+            "TooManyRequests 503  Backend fetch failed",
+            "Invalid response from proxy: HTTP/1.1 503 Backend fetch failed",
+        ):
+            with self.subTest(reason=reason):
+                output = good.replace("TooManyRequests 503  No healthy backends", reason)
+                self.assertEqual(INSTALLER.timed_out_packages(output, "amd64"), {self.NAME})
+
+    def test_timeout_status_policy_stays_narrow_and_requires_complete_reason(
+        self,
+    ) -> None:
+        for reason in (
+            "408 Request Timeout",
+            "429 Too Many Requests",
+            "500 Internal Server Error",
+            "502 Bad Gateway",
+            "501 Unknown",
+            "505 Unknown",
+            "599 Unknown",
+            "package 503 Backend fetch failed",
+            "503 Backend fetch failed; unknown failure",
+            "503 Backend fetch failed\rignored",
+            "503 Backend fetch failed\x00",
+            "5030 Backend fetch failed",
+            "503 404 Not Found",
+        ):
+            with self.subTest(reason=reason), self.assertRaises(INSTALLER.AptError):
+                INSTALLER.timed_out_packages(
+                    self.timeout_output().replace(
+                        "TooManyRequests 503  No healthy backends", reason
+                    ),
+                    "amd64",
+                )
 
     def test_index_timeout_never_reaches_package_fallback(self) -> None:
         with (
@@ -806,6 +1071,42 @@ class TestConfiguredArchives(unittest.TestCase):
 
 class TestBoundedProcess(unittest.TestCase):
     """Check real child-process output and termination without invoking APT."""
+
+    def test_maximum_sized_malformed_http_reason_has_bounded_parse_time(self) -> None:
+        program = (
+            "import runpy, sys; "
+            "module = runpy.run_path(sys.argv[1]); "
+            "reason = '503 ' + ' ' * module['MAX_OUTPUT_BYTES'] + ';'; "
+            "assert module['http_status'](reason) is None; "
+            "print('bounded')"
+        )
+        assert SPEC is not None and SPEC.origin is not None
+        status, output = INSTALLER.run([sys.executable, "-c", program, str(SPEC.origin)], 5)
+        self.assertEqual((status, output.strip()), (0, "bounded"))
+
+    def test_maximum_sized_malformed_proxy_headers_have_bounded_parse_time(self) -> None:
+        program = (
+            "import runpy, sys; "
+            "module = runpy.run_path(sys.argv[1]); "
+            "reason = 'Invalid response from proxy: HTTP/1.0 503 Service Unavailable  ' "
+            "+ ' ' * module['MAX_OUTPUT_BYTES'] + 'Content-Type: text/html;charset=;'; "
+            "assert module['http_status'](reason) is None; print('bounded')"
+        )
+        assert SPEC is not None and SPEC.origin is not None
+        status, output = INSTALLER.run([sys.executable, "-c", program, str(SPEC.origin)], 5)
+        self.assertEqual((status, output.strip()), (0, "bounded"))
+
+    def test_maximum_sized_malformed_openssl_error_has_bounded_parse_time(self) -> None:
+        program = (
+            "import runpy, sys; "
+            "module = runpy.run_path(sys.argv[1]); "
+            "reason = 'OpenSSL system call error: error:00000000:lib(0)::reason(0)' "
+            "+ ' ' * module['MAX_OUTPUT_BYTES'] + '- unknown'; "
+            "assert not module['transient_reason'](reason); print('bounded')"
+        )
+        assert SPEC is not None and SPEC.origin is not None
+        status, output = INSTALLER.run([sys.executable, "-c", program, str(SPEC.origin)], 5)
+        self.assertEqual((status, output.strip()), (0, "bounded"))
 
     def test_output_and_returncode(self) -> None:
         status, output = INSTALLER.run(

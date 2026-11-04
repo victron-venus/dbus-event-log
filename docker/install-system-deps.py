@@ -95,6 +95,7 @@ def transient_failure(output: str) -> bool:
     summaries = (
         "Unable to fetch some archives, maybe run apt-get update or try with --fix-missing?",
         "Some index files failed to download. They have been ignored, or old ones used instead.",
+        "Some files failed to download",
     )
     return bool(fetch_errors) and all(
         TRANSIENT.search(line) if line.startswith("Failed to fetch ") else line in summaries

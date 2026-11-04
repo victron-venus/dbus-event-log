@@ -15,6 +15,13 @@ All notable changes to this project will be documented in this file.
 No configuration or data migration is required. The container recipe changes;
 release candidates must pass fresh native cold-build and repeatability checks.
 
+### Security
+
+Debian archive signatures, package hashes and fixed snapshot identities remain
+mandatory. Authentication, integrity and unknown fetch failures are not retried;
+the final package installation cannot fetch missing inputs. This build change
+does not modify service credentials or grant additional runtime privileges.
+
 ## [0.2.6] - 2026-10-24
 
 ### Fixed

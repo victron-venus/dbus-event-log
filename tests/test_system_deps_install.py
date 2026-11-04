@@ -29,14 +29,14 @@ class TestFetch(unittest.TestCase):
 
     def setUp(self) -> None:
         self.enterContext(contextlib.redirect_stdout(io.StringIO()))
-        self.run = self.enterContext(patch.object(INSTALLER, "run"))
+        self.invoke = self.enterContext(patch.object(INSTALLER, "run"))
         self.clock = self.enterContext(patch.object(INSTALLER.time, "monotonic", return_value=100))
         self.sleep = self.enterContext(patch.object(INSTALLER.time, "sleep"))
 
     def test_success_keeps_checks_enabled_and_installs_offline(self) -> None:
-        self.run.return_value = (0, "")
+        self.invoke.return_value = (0, "")
         INSTALLER.install(["dbus", "libdbus-1-3"])
-        commands = [item.args[0] for item in self.run.call_args_list]
+        commands = [item.args[0] for item in self.invoke.call_args_list]
         self.assertEqual(commands[0], [INSTALLER.APT, "--version"])
         self.assertEqual(commands[1][-2:], ["update", "--error-on=any"])
         selection = ["install", "-y", "--no-install-recommends", "dbus", "libdbus-1-3"]
@@ -53,17 +53,30 @@ class TestFetch(unittest.TestCase):
         self.sleep.assert_not_called()
 
     def test_temporary_download_retries_same_operation_then_installs(self) -> None:
-        self.run.side_effect = [(0, ""), (0, ""), (100, TEMPORARY), (0, ""), (0, "")]
+        self.invoke.side_effect = [(0, ""), (0, ""), (100, TEMPORARY), (0, ""), (0, "")]
         INSTALLER.install(["dbus"])
-        self.assertEqual(self.run.call_args_list[2], self.run.call_args_list[3])
+        self.assertEqual(self.invoke.call_args_list[2], self.invoke.call_args_list[3])
         self.sleep.assert_called_once_with(5)
-        self.assertIn("--no-download", self.run.call_args_list[-1].args[0])
+        self.assertIn("--no-download", self.invoke.call_args_list[-1].args[0])
+
+    def test_download_only_504_summary_retries_but_unknown_errors_still_fail(self) -> None:
+        output = (
+            "E: Failed to fetch https://snapshot.debian.org/example.deb "
+            "504  Gateway Timeout [IP: 192.0.2.1 443]\n"
+            "E: Some files failed to download\n"
+        )
+        self.invoke.side_effect = [(100, output), (0, "")]
+        INSTALLER.fetch(["--download-only", "install", "dbus"], 820)
+        self.assertEqual(self.invoke.call_count, 2)
+        self.sleep.assert_called_once_with(5)
+        self.assertFalse(INSTALLER.transient_failure(output + "E: Unknown failure\n"))
+        self.assertFalse(INSTALLER.transient_failure("E: Some files failed to download\n"))
 
     def test_retry_limit_never_reaches_install(self) -> None:
-        self.run.side_effect = [(0, ""), *[(100, TEMPORARY)] * 3]
+        self.invoke.side_effect = [(0, ""), *[(100, TEMPORARY)] * 3]
         with self.assertRaises(INSTALLER.AptError):
             INSTALLER.install(["dbus"])
-        self.assertEqual(self.run.call_count, 4)
+        self.assertEqual(self.invoke.call_count, 4)
         self.assertEqual(self.sleep.call_args_list, [call(5), call(10)])
 
     def test_permanent_and_unknown_errors_do_not_retry_even_with_503(self) -> None:
@@ -90,11 +103,11 @@ class TestFetch(unittest.TestCase):
         ]
         for diagnostic in diagnostics:
             with self.subTest(diagnostic=diagnostic):
-                self.run.reset_mock()
-                self.run.return_value = (100, TEMPORARY + diagnostic + "\n")
+                self.invoke.reset_mock()
+                self.invoke.return_value = (100, TEMPORARY + diagnostic + "\n")
                 with self.assertRaises(INSTALLER.AptError):
                     INSTALLER.fetch(["update", "--error-on=any"], 820)
-                self.assertEqual(self.run.call_count, 1)
+                self.assertEqual(self.invoke.call_count, 1)
                 self.sleep.assert_not_called()
 
     def test_incidental_numbers_and_missing_error_diagnostics_do_not_retry(self) -> None:
@@ -104,11 +117,11 @@ class TestFetch(unittest.TestCase):
             "E: Failed to fetch https://example.invalid/package503.deb unknown",
         ):
             with self.subTest(output=output):
-                self.run.reset_mock()
-                self.run.return_value = (100, output)
+                self.invoke.reset_mock()
+                self.invoke.return_value = (100, output)
                 with self.assertRaises(INSTALLER.AptError):
                     INSTALLER.fetch(["update"], 820)
-                self.assertEqual(self.run.call_count, 1)
+                self.assertEqual(self.invoke.call_count, 1)
 
     def test_supported_transport_errors_are_explicit(self) -> None:
         for reason in (
@@ -132,37 +145,37 @@ class TestFetch(unittest.TestCase):
                 )
 
     def test_non_apt_exit_and_command_timeout_do_not_retry(self) -> None:
-        self.run.return_value = (137, TEMPORARY)
+        self.invoke.return_value = (137, TEMPORARY)
         with self.assertRaises(INSTALLER.AptError):
             INSTALLER.fetch(["update"], 820)
-        self.assertEqual(self.run.call_count, 1)
-        self.run.reset_mock()
-        self.run.side_effect = INSTALLER.AptError("timeout")
+        self.assertEqual(self.invoke.call_count, 1)
+        self.invoke.reset_mock()
+        self.invoke.side_effect = INSTALLER.AptError("timeout")
         with self.assertRaises(INSTALLER.AptError):
             INSTALLER.fetch(["update"], 820)
-        self.assertEqual(self.run.call_count, 1)
+        self.assertEqual(self.invoke.call_count, 1)
         self.sleep.assert_not_called()
 
     def test_offline_install_failure_is_never_retried(self) -> None:
-        self.run.side_effect = [(0, ""), (0, ""), (0, ""), (100, TEMPORARY)]
+        self.invoke.side_effect = [(0, ""), (0, ""), (0, ""), (100, TEMPORARY)]
         with self.assertRaisesRegex(INSTALLER.AptError, "Offline"):
             INSTALLER.install(["dbus"])
-        self.assertEqual(self.run.call_count, 4)
+        self.assertEqual(self.invoke.call_count, 4)
         self.sleep.assert_not_called()
 
     def test_commands_share_one_total_deadline(self) -> None:
         self.clock.side_effect = [100, 100, 340, 580, 805]
-        self.run.return_value = (0, "")
+        self.invoke.return_value = (0, "")
         INSTALLER.install(["dbus"])
-        self.assertEqual([item.args[1] for item in self.run.call_args_list], [240, 240, 240, 15])
+        self.assertEqual([item.args[1] for item in self.invoke.call_args_list], [240, 240, 240, 15])
 
     def test_no_new_command_or_sleep_after_budget_exhaustion(self) -> None:
         self.clock.return_value = 821
         with self.assertRaises(INSTALLER.AptError):
             INSTALLER.fetch(["update"], 820)
-        self.run.assert_not_called()
+        self.invoke.assert_not_called()
         self.clock.return_value = 100
-        self.run.return_value = (100, TEMPORARY)
+        self.invoke.return_value = (100, TEMPORARY)
         with self.assertRaises(INSTALLER.AptError):
             INSTALLER.fetch(["update"], 104)
         self.sleep.assert_not_called()
@@ -171,11 +184,11 @@ class TestFetch(unittest.TestCase):
         for packages in ([], ["--allow-unauthenticated"], ["dbus=1"], ["dbus;true"], ["../dbus"]):
             with self.subTest(packages=packages), self.assertRaises(INSTALLER.AptError):
                 INSTALLER.install(packages)
-        self.run.assert_not_called()
-        self.run.return_value = (1, "")
+        self.invoke.assert_not_called()
+        self.invoke.return_value = (1, "")
         with self.assertRaises(INSTALLER.AptError):
             INSTALLER.install(["dbus"])
-        self.assertEqual(self.run.call_count, 1)
+        self.assertEqual(self.invoke.call_count, 1)
 
 
 class TestBoundedProcess(unittest.TestCase):

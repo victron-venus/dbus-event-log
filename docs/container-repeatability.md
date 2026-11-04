@@ -11,8 +11,13 @@ inventory is retained inside each image at
 `docker/install-system-deps.py` downloads the authenticated package set before
 installing it with `--no-download`. It disables APT's internal retry queue and
 allows at most three fresh fetch processes for explicit temporary transport
-errors (including Snapshot HTTP 503). Unknown errors, signature/hash failures,
-missing packages, command timeouts and the offline installation fail immediately.
+errors (including Snapshot HTTP 503 and recognized OpenSSL connection resets).
+Unknown errors, signature/hash failures, missing packages and failures of the
+offline installation stop the build. A package-command timeout can enter the
+same bounded recovery only when complete 503/504 package-error records match the
+authenticated package plan; index timeouts and incomplete diagnostics remain
+fatal. See [Debian package transport](quality-and-build.md#debian-package-transport-during-container-builds)
+for the exact recovery conditions.
 The complete operation has a 12-minute budget, each command a four-minute budget,
 and each command's captured output a 2 MiB limit; interrupted process groups are
 terminated. The APT version and failure diagnostics are retained in CI output.

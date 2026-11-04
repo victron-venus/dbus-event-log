@@ -15,7 +15,7 @@ COPY docker/debian.sources /etc/apt/sources.list.d/debian.sources
 
 # Build PyGObject for the image Python and retain the GLib/Gio runtime typelibs.
 RUN test "$(. /etc/os-release && echo "$VERSION_CODENAME")" = trixie && \
-    apt-get update && PYTHONHASHSEED=0 apt-get install -y --no-install-recommends \
+    apt-get update --error-on=any && PYTHONHASHSEED=0 apt-get install -y --no-install-recommends \
     dbus \
     libdbus-1-3 \
     libglib2.0-0 \

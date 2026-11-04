@@ -9,6 +9,9 @@ All notable changes to this project will be documented in this file.
 - Bound Debian Snapshot downloads by time, output size and explicit transient-error
   retries, then install the authenticated packages offline. Avoid APT's internal
   delayed-retry queue without weakening signature checks or changing snapshot pins.
+- Recover exhausted transient package downloads from the official Debian pool,
+  using the exact signed Snapshot selection, native APT SHA256/size verification
+  and a fresh private cache. Index and integrity failures still stop the build.
 
 ### Upgrade
 

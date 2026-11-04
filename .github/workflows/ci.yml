@@ -118,6 +118,24 @@ jobs:
         env:
           NATIVE_PLATFORM: ${{ matrix.platform }}
         run: python3 tests/native_build_flags.py --platform "$NATIVE_PLATFORM" --output build-flag-evidence
+      - name: Verify native APT hash, size, redirect and package fallback behavior
+        env:
+          NATIVE_PLATFORM: ${{ matrix.platform }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="$(awk '$1 == "FROM" { print $2 }' Dockerfile)"
+          [[ "$image" =~ ^python:3\.14-slim@sha256:[0-9a-f]{64}$ ]]
+          container="apt-fallback-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${{ matrix.arch }}"
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+          timeout --signal=TERM --kill-after=10s 14m docker run --rm --init \
+            --name "$container" --platform "$NATIVE_PLATFORM" \
+            --cpus=1 --memory=768m --pids-limit=128 --security-opt=no-new-privileges \
+            --mount "type=bind,src=$PWD/docker/install-system-deps.py,dst=/source/install-system-deps.py,readonly" \
+            --mount "type=bind,src=$PWD/tests/native_apt_fallback.py,dst=/source/native_apt_fallback.py,readonly" \
+            --mount "type=bind,src=$PWD/docker/debian.sources,dst=/etc/apt/sources.list.d/debian.sources,readonly" \
+            "$image" python -B /source/native_apt_fallback.py \
+            | tee build-flag-evidence/apt-fallback.log
       - name: Upload native flag proof and failure logs
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

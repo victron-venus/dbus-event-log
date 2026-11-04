@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import importlib.util
 import io
+import os
 import sys
 import time
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import call, patch
 
 SPEC = importlib.util.spec_from_file_location(
@@ -40,11 +43,17 @@ class TestFetch(unittest.TestCase):
         self.assertEqual(commands[0], [INSTALLER.APT, "--version"])
         self.assertEqual(commands[1][-2:], ["update", "--error-on=any"])
         selection = ["install", "-y", "--no-install-recommends", "dbus", "libdbus-1-3"]
+        cache_options = commands[2][len(INSTALLER.OPTIONS) + 1 : len(INSTALLER.OPTIONS) + 3]
+        self.assertEqual(cache_options[0], "-o")
+        self.assertTrue(cache_options[1].startswith("Dir::Cache::archives="))
+        self.assertFalse(Path(cache_options[1].split("=", 1)[1]).exists())
         self.assertEqual(
-            commands[2], [INSTALLER.APT, *INSTALLER.OPTIONS, "--download-only", *selection]
+            commands[2],
+            [INSTALLER.APT, *INSTALLER.OPTIONS, *cache_options, "--download-only", *selection],
         )
         self.assertEqual(
-            commands[3], [INSTALLER.APT, *INSTALLER.OPTIONS, "--no-download", *selection]
+            commands[3],
+            [INSTALLER.APT, *INSTALLER.OPTIONS, *cache_options, "--no-download", *selection],
         )
         for command in commands[1:]:
             self.assertIn("Acquire::Retries=0", command)
@@ -246,6 +255,182 @@ class TestFetch(unittest.TestCase):
         with self.assertRaises(INSTALLER.AptError):
             INSTALLER.install(["dbus"])
         self.assertEqual(self.invoke.call_count, 1)
+
+
+class TestOfficialPoolFallback(unittest.TestCase):
+    """The fallback uses native APT and exact authenticated missing-package inputs."""
+
+    URI = INSTALLER.SNAPSHOT + "pool/main/g/gcc-14/libcc1-0_14.2.0-19_amd64.deb"
+    NAME = "libcc1-0_14.2.0-19_amd64.deb"
+    BODY = b"test"
+
+    def setUp(self) -> None:
+        self.enterContext(contextlib.redirect_stdout(io.StringIO()))
+        self.enterContext(patch.object(INSTALLER.time, "sleep"))
+        self.enterContext(patch.object(INSTALLER.time, "monotonic", return_value=100))
+        self.enterContext(
+            patch.object(
+                INSTALLER.pwd, "getpwnam", return_value=SimpleNamespace(pw_uid=os.geteuid())
+            )
+        )
+        self.digest = "SHA256:" + hashlib.sha256(self.BODY).hexdigest()
+        self.plan = f"'{self.URI}' {self.NAME} 4 {self.digest}\n"
+        self.failed = (
+            f"E: Failed to fetch {self.URI} 503 Service Unavailable\n"
+            "E: Some files failed to download\n"
+        )
+        self.commands: list[list[str]] = []
+        self.cache: Path | None = None
+        self.helper_body = self.BODY
+        self.helper_status = 0
+        self.partial_mode = 0o700
+
+    def execute(self, command: list[str], _timeout: float) -> tuple[int, str]:
+        self.commands.append(command)
+        if command[0] == "/usr/bin/dpkg":
+            return 0, "amd64\n"
+        if command[0] == INSTALLER.APT_HELPER:
+            index = command.index("download-file")
+            target = Path(command[index + 2])
+            self.assertFalse(target.exists())
+            self.assertEqual(
+                command[index + 1], INSTALLER.POOL + self.URI.removeprefix(INSTALLER.SNAPSHOT)
+            )
+            self.assertEqual(command[index + 3 :], [self.digest, "Checksum-FileSize:4"])
+            self.assertNotIn("Acquire::ForceHash=sha256", command)
+            self.assertIn("Acquire::ForceHash=", command)
+            self.assertIn("Acquire::https::deb.debian.org::AllowRedirect=false", command)
+            target.write_bytes(self.helper_body)
+            return self.helper_status, ""
+        cache = [x for x in command if x.startswith("Dir::Cache::archives=")]
+        if cache:
+            self.cache = Path(cache[0].split("=", 1)[1])
+        if "--print-uris" in command:
+            self.assertIn("Acquire::ForceHash=sha256", command)
+            return 0, self.plan
+        if "--download-only" in command:
+            assert self.cache
+            partial = self.cache / "partial"
+            partial.mkdir(exist_ok=True)
+            partial.chmod(self.partial_mode)
+            return 100, self.failed
+        if "--no-download" in command:
+            assert self.cache
+            self.assertEqual((self.cache / self.NAME).read_bytes(), self.BODY)
+        return 0, ""
+
+    def test_native_exact_byte_fallback_then_offline_install_and_cleanup(self) -> None:
+        with patch.object(INSTALLER, "run", side_effect=self.execute):
+            INSTALLER.install(["dbus"])
+        self.assertEqual(sum(c[0] == INSTALLER.APT_HELPER for c in self.commands), 1)
+        self.assertEqual(
+            sum("--download-only" in c and "--print-uris" not in c for c in self.commands), 3
+        )
+        self.assertIn("--no-download", self.commands[-1])
+        assert self.cache
+        self.assertFalse(self.cache.exists())
+
+    def test_equal_size_corruption_is_never_published_or_installed(self) -> None:
+        self.helper_body = b"evil"
+        with (
+            patch.object(INSTALLER, "run", side_effect=self.execute),
+            self.assertRaisesRegex(INSTALLER.AptError, "hash"),
+        ):
+            INSTALLER.install(["dbus"])
+        self.assertFalse(any("--no-download" in c for c in self.commands))
+        assert self.cache
+        self.assertFalse(self.cache.exists())
+
+    def test_helper_error_and_wrong_size_do_not_retry_or_install(self) -> None:
+        for status, body in [(100, self.BODY), (0, b"too-long")]:
+            with self.subTest(status=status):
+                self.helper_status, self.helper_body = status, body
+                self.commands.clear()
+                with (
+                    patch.object(INSTALLER, "run", side_effect=self.execute),
+                    self.assertRaises(INSTALLER.AptError),
+                ):
+                    INSTALLER.install(["dbus"])
+                self.assertEqual(sum(c[0] == INSTALLER.APT_HELPER for c in self.commands), 1)
+                self.assertFalse(any("--no-download" in c for c in self.commands))
+
+    def test_sandbox_directory_must_remain_private_and_traversable(self) -> None:
+        self.partial_mode = 0o755
+        with (
+            patch.object(INSTALLER, "run", side_effect=self.execute),
+            self.assertRaisesRegex(INSTALLER.AptError, "sandbox"),
+        ):
+            INSTALLER.install(["dbus"])
+        self.assertFalse(any(c[0] == INSTALLER.APT_HELPER for c in self.commands))
+
+    def test_plan_rejects_untrusted_paths_hashes_architecture_and_duplicates(self) -> None:
+        invalid = [
+            self.plan.replace("https://snapshot.debian.org", "https://evil.invalid"),
+            self.plan.replace("20261012T", "20261013T"),
+            self.plan.replace("pool/main/", "dists/main/"),
+            self.plan.replace("pool/main/", "pool/main/../"),
+            self.plan.replace("pool/main/", "pool/main/%2f"),
+            self.plan.replace("pool/main/", "pool/main/%xx"),
+            self.plan.replace(".deb'", ".deb?q=1'"),
+            self.plan.replace("amd64", "arm64"),
+            self.plan.replace("SHA256:", "MD5Sum:"),
+            self.plan.replace(" 4 ", " 0 "),
+            self.plan.replace(" 4 ", " 9999999999 "),
+            self.plan + self.plan,
+            self.plan + "W: Unauthenticated package\n",
+            self.plan.replace(" " + self.NAME + " ", " ../escape.deb "),
+        ]
+        for plan in invalid:
+            with self.subTest(plan=plan), self.assertRaises(INSTALLER.AptError):
+                INSTALLER.parse_plan(plan, self.failed, "amd64")
+
+    def test_plan_must_match_all_and_only_terminal_failed_packages(self) -> None:
+        for failed in [
+            self.failed.replace("libcc1-0_", "other_"),
+            self.failed + self.failed.replace("libcc1-0_", "other_"),
+            self.failed + self.failed,
+        ]:
+            with self.subTest(failed=failed), self.assertRaises(INSTALLER.AptError):
+                INSTALLER.parse_plan(self.plan, failed, "amd64")
+        parsed = INSTALLER.parse_plan(self.plan, self.failed, "amd64")
+        self.assertEqual(parsed[0][1:], (self.NAME, 4, self.digest))
+
+    def test_whole_plan_is_checked_before_helper_writes(self) -> None:
+        self.plan += self.plan.replace("libcc1-0_", "other_")
+        with (
+            patch.object(INSTALLER, "run", side_effect=self.execute),
+            self.assertRaises(INSTALLER.AptError),
+        ):
+            INSTALLER.install(["dbus"])
+        self.assertFalse(any(c[0] == INSTALLER.APT_HELPER for c in self.commands))
+
+    def test_count_and_aggregate_size_limits_are_not_per_file_only(self) -> None:
+        with patch.object(INSTALLER, "MAX_PACKAGES", 0), self.assertRaises(INSTALLER.AptError):
+            INSTALLER.parse_plan(self.plan, self.failed, "amd64")
+        with (
+            patch.object(INSTALLER, "MAX_FALLBACK_BYTES", 3),
+            self.assertRaises(INSTALLER.AptError),
+        ):
+            INSTALLER.parse_plan(self.plan, self.failed, "amd64")
+
+    def test_no_fallback_on_auth_integrity_or_index_failures(self) -> None:
+        original_failure = self.failed
+        for failure in [
+            original_failure + "E: Hash Sum mismatch\n",
+            original_failure + "E: NO_PUBKEY abc\n",
+            original_failure.replace("503 Service Unavailable", "403 Forbidden"),
+        ]:
+            with self.subTest(failure=failure):
+                self.failed = failure
+                self.commands.clear()
+                with (
+                    patch.object(INSTALLER, "run", side_effect=self.execute),
+                    self.assertRaises(INSTALLER.AptError),
+                ):
+                    INSTALLER.install(["dbus"])
+                self.assertFalse(
+                    any(c[0] == INSTALLER.APT_HELPER or "--print-uris" in c for c in self.commands)
+                )
 
 
 class TestBoundedProcess(unittest.TestCase):

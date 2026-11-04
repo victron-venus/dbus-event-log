@@ -945,6 +945,7 @@ class TestBoundedProcess(unittest.TestCase):
             "assert module['http_status'](reason) is None; "
             "print('bounded')"
         )
+        assert SPEC is not None and SPEC.origin is not None
         status, output = INSTALLER.run([sys.executable, "-c", program, str(SPEC.origin)], 5)
         self.assertEqual((status, output.strip()), (0, "bounded"))
 

@@ -536,6 +536,64 @@ class TestConfiguredArchives(unittest.TestCase):
     SECURITY = "https://snapshot.debian.org/archive/debian-security/20261012T000000Z/"
     DIGEST = "SHA256:" + hashlib.sha256(b"test").hexdigest()
 
+    def test_equivalent_trusted_archive_locations_keep_exact_package_identity(self) -> None:
+        for arch in ("amd64", "arm64"):
+            for first, last in ((0, 1), (1, 0)):
+                with self.subTest(arch=arch, first=first):
+                    source, pool, prefix, _ = INSTALLER.ARCHIVES[first]
+                    alternate, _, alternate_prefix, _ = INSTALLER.ARCHIVES[last]
+                    name = f"libmount-dev_2.41.5-0+deb13u1_{arch}.deb"
+                    relative = "u/util-linux/" + name
+                    uri = source + prefix + relative
+                    failed_uri = alternate + alternate_prefix + relative.replace("+", "%2b")
+                    plan = f"'{uri}' {name} 4 {self.DIGEST}\n"
+                    failed = f"E: Failed to fetch {failed_uri} 503 Service Unavailable\n"
+                    self.assertEqual(
+                        INSTALLER.parse_plan(plan, failed, arch),
+                        [(pool + prefix + relative, name, 4, self.DIGEST)],
+                    )
+
+    def test_alternate_terminal_uri_must_keep_origin_path_version_and_architecture(self) -> None:
+        name = "libmount-dev_2.41.5-0+deb13u1_amd64.deb"
+        relative = "u/util-linux/" + name
+        uri = INSTALLER.SNAPSHOT + "pool/main/" + relative
+        alternate = self.SECURITY + "pool/updates/main/" + relative
+        plan = f"'{uri}' {name} 4 {self.DIGEST}\n"
+        invalid = [
+            alternate.replace("snapshot.debian.org", "evil.invalid"),
+            alternate.replace("20261012T", "20261013T"),
+            alternate.replace("pool/updates/main/", "pool/main/"),
+            alternate.replace("u/util-linux/", "other/source/"),
+            alternate.replace("u/util-linux/", "u/../util-linux/"),
+            alternate.replace("u/util-linux/", "u%2futil-linux/"),
+            alternate.replace("u/util-linux/", "u/%252e%252e/util-linux/"),
+            alternate.replace("deb13u1", "deb13u2"),
+            alternate.replace("amd64.deb", "arm64.deb"),
+            alternate + "?download=1",
+            alternate + "#fragment",
+            alternate.replace(".deb", "%00.deb"),
+        ]
+        for failed_uri in invalid:
+            with self.subTest(uri=failed_uri), self.assertRaises(INSTALLER.AptError):
+                INSTALLER.parse_plan(
+                    plan, f"E: Failed to fetch {failed_uri} 503 Service Unavailable\n", "amd64"
+                )
+
+    def test_archive_aliases_cannot_duplicate_failure_or_plan_entries(self) -> None:
+        name = "probe_1.0_amd64.deb"
+        uri = INSTALLER.SNAPSHOT + "pool/main/p/probe/" + name
+        alternate = self.SECURITY + "pool/updates/main/p/probe/" + name
+        plan = f"'{uri}' {name} 4 {self.DIGEST}\n"
+        failed = f"E: Failed to fetch {alternate} 503 Service Unavailable\n"
+        with self.assertRaisesRegex(INSTALLER.AptError, "Duplicate terminal"):
+            INSTALLER.parse_plan(
+                plan, failed + f"E: Failed to fetch {uri} 503 Service Unavailable\n", "amd64"
+            )
+        with self.assertRaisesRegex(INSTALLER.AptError, "Untrusted or ambiguous"):
+            INSTALLER.parse_plan(
+                plan + f"'{alternate}' another_1.0_amd64.deb 4 {self.DIGEST}\n", failed, "amd64"
+            )
+
     def test_archive_suites_match_the_committed_apt_sources(self) -> None:
         source = Path(__file__).resolve().parents[1] / "docker/debian.sources"
         configured: set[tuple[str, tuple[str, ...]]] = set()

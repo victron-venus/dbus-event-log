@@ -255,6 +255,33 @@ def timed_out_packages(output: str, architecture: str) -> set[str]:
     return packages
 
 
+def package_identity(uri: str, architecture: str) -> tuple[str, str]:
+    """Validate a configured archive URI and retain its exact package-relative path."""
+    parsed = urlsplit(uri)
+    archive = next((entry for entry in ARCHIVES if uri.startswith(entry[0])), None)
+    if archive is None:
+        raise AptError("Untrusted or ambiguous package download plan")
+    snapshot, pool, package_prefix, _ = archive
+    relative = uri.removeprefix(snapshot)
+    decoded = unquote(relative)
+    if (
+        parsed.query
+        or parsed.fragment
+        or not relative.startswith(package_prefix)
+        or not re.fullmatch(r"[A-Za-z0-9_./+~%:-]+", relative)
+        or re.search(r"%(?:2f|5c|00)", relative, re.IGNORECASE)
+        or re.search(r"%(?![0-9A-Fa-f]{2})", relative)
+        or any(part in {"", ".", ".."} for part in decoded.split("/"))
+        or not re.fullmatch(r"[A-Za-z0-9_./+~:-]+", decoded)
+        or not decoded.endswith(("_" + architecture + ".deb", "_all.deb"))
+    ):
+        raise AptError("Untrusted or ambiguous package download plan")
+    # APT can exhaust another authenticated archive for the same package.
+    # Keep the complete source-package path, version and architecture; only
+    # the two configured archive roots and equivalent URL escapes may differ.
+    return pool + relative, decoded.removeprefix(package_prefix)
+
+
 def parse_plan(
     output: str, failed: str, architecture: str, *, timed_out: bool = False
 ) -> list[tuple[str, str, int, str]]:
@@ -267,13 +294,14 @@ def parse_plan(
         for line in failed.splitlines()
         if line.startswith(("E: Failed to fetch ", "W: Failed to fetch "))
     ]
-    failures = set(failed_uris)
+    failures = {package_identity(uri, architecture)[1] for uri in failed_uris}
     if len(failures) != len(failed_uris):
         raise AptError("Duplicate terminal package failure")
     # APT's print-URIs exits before CheckAuth. This plan is only used after the
     # successful authenticated update and the actual, transient-only fetch.
     result: list[tuple[str, str, int, str]] = []
     uris: set[str] = set()
+    identities: set[str] = set()
     names: set[str] = set()
     total = 0
     for line in output.splitlines():
@@ -288,30 +316,15 @@ def parse_plan(
         if len(fields) != 4:
             raise AptError("Malformed package download plan")
         uri, name, size_text, digest = fields
-        parsed = urlsplit(uri)
-        archive = next((entry for entry in ARCHIVES if uri.startswith(entry[0])), None)
-        if archive is None:
-            raise AptError("Untrusted or ambiguous package download plan")
-        snapshot, pool, package_prefix, _ = archive
-        relative = uri.removeprefix(snapshot)
-        decoded = unquote(relative)
-        safe = re.fullmatch(r"[A-Za-z0-9_./+~%:-]+", relative)
+        destination, identity = package_identity(uri, architecture)
         if (
-            parsed.query
-            or parsed.fragment
-            or not relative.startswith(package_prefix)
-            or not safe
-            or re.search(r"%(?:2f|5c|00)", relative, re.IGNORECASE)
-            or re.search(r"%(?![0-9A-Fa-f]{2})", relative)
-            or any(part in {"", ".", ".."} for part in decoded.split("/"))
-            or not re.fullmatch(r"[A-Za-z0-9_./+~:-]+", decoded)
+            identity in identities
             or not re.fullmatch(
                 r"[A-Za-z0-9][A-Za-z0-9_.+~:%-]*_(?:" + architecture + r"|all)\.deb", name
             )
             or not re.fullmatch(
                 r"[A-Za-z0-9][A-Za-z0-9_.+~:-]*_(?:" + architecture + r"|all)\.deb", unquote(name)
             )
-            or not decoded.endswith(("_" + architecture + ".deb", "_all.deb"))
             or not re.fullmatch(r"[1-9][0-9]*", size_text)
             or len(size_text) > 10
             or not re.fullmatch(r"SHA256:[0-9a-f]{64}", digest)
@@ -324,9 +337,10 @@ def parse_plan(
         if size > MAX_PACKAGE_BYTES or total > MAX_FALLBACK_BYTES or len(result) >= MAX_PACKAGES:
             raise AptError("Package fallback exceeds its byte or count budget")
         uris.add(uri)
+        identities.add(identity)
         names.add(name)
-        result.append((pool + relative, name, size, digest))
-    if not result or (not timed_out and uris != failures):
+        result.append((destination, name, size, digest))
+    if not result or (not timed_out and identities != failures):
         raise AptError("Package plan differs from the final missing-package failures")
     if timed_out and not timeout_packages <= {unquote(name) for name in names}:
         raise AptError("Timed-out package failures differ from the authenticated remaining plan")

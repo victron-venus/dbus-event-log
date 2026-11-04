@@ -51,6 +51,7 @@ OPTIONS = [
 ]
 TRANSIENT_HTTP_STATUSES = {408, 429, 500, 502, 503, 504}
 HTTP_IP_SUFFIX = re.compile(r"\[IP: [0-9a-fA-F:.]+ [0-9]+\]")
+HTTP_TOKEN = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+")
 TRANSIENT_NETWORK = re.compile(
     r"(?:Temporary failure resolving|"
     r"Could not (?:resolve|connect)|Connection (?:timed out|failed|reset)|"
@@ -150,16 +151,50 @@ def run(command: list[str], timeout: float) -> tuple[int, str]:
             raise
 
 
+def proxy_content_type_parameters(phrase: str) -> bool:
+    """Allow semicolons only in a flattened proxy Content-Type header."""
+    # APT includes the CONNECT response headers and flattens each CRLF into
+    # two spaces. Token-valued MIME parameters cover the native proxy fixture;
+    # unrecognized syntax remains fatal rather than widening all reason text.
+    fields = phrase.split("  ")
+    if ";" in fields[0]:
+        return False
+    for field in fields[1:]:
+        if ";" not in field:
+            continue
+        name, separator, value = field.strip().partition(":")
+        if not separator or name.lower() != "content-type":
+            return False
+        media, *parameters = value.split(";")
+        media_parts = media.strip().split("/")
+        if len(media_parts) != 2 or not all(HTTP_TOKEN.fullmatch(p) for p in media_parts):
+            return False
+        for parameter in parameters:
+            key, equals, item = parameter.strip().partition("=")
+            item = item.strip()
+            if len(item) >= 2 and item.startswith('"') and item.endswith('"'):
+                item = item[1:-1]
+            if (
+                not equals
+                or not HTTP_TOKEN.fullmatch(key.strip())
+                or not HTTP_TOKEN.fullmatch(item)
+            ):
+                return False
+    return True
+
+
 def http_status(reason: str) -> int | None:
     """Parse a complete APT HTTP reason without relying on server wording."""
     # HTTP reason phrases are optional and server-defined. Parse the fixed
     # prefix/token separately to avoid backtracking over a long error body.
+    proxy_response = False
     for prefix in (
         "Invalid response from proxy: HTTP/1.0 ",
         "Invalid response from proxy: HTTP/1.1 ",
     ):
         if reason.startswith(prefix):
             reason = reason.removeprefix(prefix)
+            proxy_response = True
             break
     reason = reason.removeprefix("TooManyRequests ")
     if re.fullmatch(r"[1-5][0-9]{2}", reason[:3]) is None:
@@ -179,7 +214,9 @@ def http_status(reason: str) -> int | None:
         ):
             return None
         phrase = text.rstrip(" \t")
-    if re.search(r"[\x00-\x1f\x7f;\[\]]", phrase):
+    if re.search(r"[\x00-\x1f\x7f\[\]]", phrase):
+        return None
+    if ";" in phrase and (not proxy_response or not proxy_content_type_parameters(phrase)):
         return None
     return status
 

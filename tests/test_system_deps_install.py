@@ -139,6 +139,72 @@ class TestFetch(unittest.TestCase):
                         )
                         self.assertEqual(INSTALLER.http_status(reason), status)
 
+    def test_native_proxy_content_type_parameters_retry_without_weakening_errors(self) -> None:
+        # Exact shape emitted by real APT 3.0.3 in run 41909116410, job 126853460339.
+        reason = (
+            "Invalid response from proxy: HTTP/1.0 503 Service Unavailable  "
+            "Server: BaseHTTP/0.6 Python/3.14.8  "
+            "Date: Wed, 04 Nov 2026 20:48:11 GMT  Connection: close  "
+            "Content-Type: text/html;charset=utf-8  Content-Length: 492     "
+            "[IP: 127.0.0.1 33263]"
+        )
+        output = (
+            "E: Failed to fetch https://snapshot.debian.org/example.deb " + reason + "\n"
+            "E: Some files failed to download\n"
+        )
+        self.invoke.side_effect = [(100, output), (0, "")]
+        INSTALLER.fetch(["--download-only", "install", "dbus"], 820)
+        self.assertEqual(self.invoke.call_args_list[0], self.invoke.call_args_list[1])
+        self.sleep.assert_called_once_with(5)
+        for status in (401, 403, 404, 501):
+            self.assertFalse(
+                INSTALLER.transient_failure(output.replace("503 Service", f"{status} Service"))
+            )
+        for fatal in ("E: Unknown failure", "E: Hash Sum mismatch", "W: No space left on device"):
+            self.assertFalse(INSTALLER.transient_failure(output + fatal + "\n"))
+
+    def test_proxy_semicolons_require_a_complete_token_valued_content_type(self) -> None:
+        prefix = "Invalid response from proxy: HTTP/1.1 503 Service Unavailable"
+        for header in (
+            "Content-Type: text/html;charset=utf-8",
+            'content-type: application/json; charset="utf-8"; version=1',
+        ):
+            self.assertTrue(INSTALLER.transient_reason(prefix + "  " + header))
+        for suffix in (
+            "; unknown failure",
+            "  Unknown: value; unknown failure",
+            "  Content-Type: text/html; unknown failure",
+            "  Content-Type: text/html;charset=",
+            "  Content-Type: text/html;charset=utf-8;",
+            '  Content-Type: text/html;charset="unterminated',
+            "  Content-Type: text/html;charset=utf-8; error=permission denied",
+            "  Content-Type: text/html;charset=utf-8  unknown; failure",
+            " Content-Type: text/html;charset=utf-8",
+            "  Content-Type: text/html;charset=utf-8\runknown failure",
+        ):
+            with self.subTest(suffix=suffix):
+                self.assertFalse(INSTALLER.transient_reason(prefix + suffix))
+        self.assertFalse(
+            INSTALLER.transient_reason(
+                "503 Service Unavailable  Content-Type: text/html;charset=utf-8"
+            )
+        )
+
+    def test_native_proxy_headers_preserve_signed_timeout_package_identity(self) -> None:
+        for arch in ("amd64", "arm64"):
+            for status in (503, 504):
+                output = (
+                    f"Err:1 {INSTALLER.SNAPSHOT.rstrip('/')} trixie/main {arch} probe {arch} 1.0\n"
+                    f"  Invalid response from proxy: HTTP/1.0 {status} Service Unavailable  "
+                    "Content-Type: text/html;charset=utf-8  Content-Length: 492     "
+                    "[IP: 127.0.0.1 33263]\n"
+                )
+                self.assertEqual(
+                    INSTALLER.timed_out_packages(output, arch), {f"probe_1.0_{arch}.deb"}
+                )
+                with self.assertRaises(INSTALLER.AptError):
+                    INSTALLER.timed_out_packages(output.replace("charset=utf-8", "charset="), arch)
+
     def test_http_status_rejects_incidental_codes_and_ambiguous_diagnostics(
         self,
     ) -> None:
@@ -944,6 +1010,18 @@ class TestBoundedProcess(unittest.TestCase):
             "reason = '503 ' + ' ' * module['MAX_OUTPUT_BYTES'] + ';'; "
             "assert module['http_status'](reason) is None; "
             "print('bounded')"
+        )
+        assert SPEC is not None and SPEC.origin is not None
+        status, output = INSTALLER.run([sys.executable, "-c", program, str(SPEC.origin)], 5)
+        self.assertEqual((status, output.strip()), (0, "bounded"))
+
+    def test_maximum_sized_malformed_proxy_headers_have_bounded_parse_time(self) -> None:
+        program = (
+            "import runpy, sys; "
+            "module = runpy.run_path(sys.argv[1]); "
+            "reason = 'Invalid response from proxy: HTTP/1.0 503 Service Unavailable  ' "
+            "+ ' ' * module['MAX_OUTPUT_BYTES'] + 'Content-Type: text/html;charset=;'; "
+            "assert module['http_status'](reason) is None; print('bounded')"
         )
         assert SPEC is not None and SPEC.origin is not None
         status, output = INSTALLER.run([sys.executable, "-c", program, str(SPEC.origin)], 5)

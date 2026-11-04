@@ -282,6 +282,34 @@ def package_identity(uri: str, architecture: str) -> tuple[str, str]:
     return pool + relative, decoded.removeprefix(package_prefix)
 
 
+def failed_package_uris(output: str) -> list[str]:
+    """Read only the terminal fetch locations, never progress or incidental text."""
+    return [
+        line.partition("Failed to fetch ")[2].split(maxsplit=1)[0]
+        for line in output.splitlines()
+        if line.startswith(("E: Failed to fetch ", "W: Failed to fetch "))
+    ]
+
+
+def snapshot_file_identity(uri: str, architecture: str) -> tuple[str, str] | None:
+    """Recognize a content-addressed diagnostic, never a permitted plan source."""
+    prefix = "https://snapshot.debian.org/file/"
+    if not uri.startswith(prefix):
+        return None
+    match = re.fullmatch(
+        re.escape(prefix) + r"([0-9a-f]{40})/([A-Za-z0-9][A-Za-z0-9_.+~:%-]*)", uri
+    )
+    if match is None:
+        raise AptError("Untrusted Snapshot file diagnostic")
+    digest, filename = match.groups()
+    decoded = unquote(filename)
+    if re.search(r"%(?![0-9A-Fa-f]{2})", filename) or not re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9_.+~:-]*_(?:" + architecture + r"|all)\.deb", decoded
+    ):
+        raise AptError("Untrusted Snapshot file diagnostic")
+    return decoded, digest
+
+
 def parse_plan(
     output: str, failed: str, architecture: str, *, timed_out: bool = False
 ) -> list[tuple[str, str, int, str]]:
@@ -289,14 +317,8 @@ def parse_plan(
     timeout_packages = timed_out_packages(failed, architecture) if timed_out else set()
     if architecture not in {"amd64", "arm64"} or (not timed_out and not transient_failure(failed)):
         raise AptError("Invalid fallback architecture or preceding failure")
-    failed_uris = [
-        line.partition("Failed to fetch ")[2].split(maxsplit=1)[0]
-        for line in failed.splitlines()
-        if line.startswith(("E: Failed to fetch ", "W: Failed to fetch "))
-    ]
-    failures = {package_identity(uri, architecture)[1] for uri in failed_uris}
-    if len(failures) != len(failed_uris):
-        raise AptError("Duplicate terminal package failure")
+    failed_uris = failed_package_uris(failed)
+    failures: set[str] = set()
     # APT's print-URIs exits before CheckAuth. This plan is only used after the
     # successful authenticated update and the actual, transient-only fetch.
     result: list[tuple[str, str, int, str]] = []
@@ -340,6 +362,19 @@ def parse_plan(
         identities.add(identity)
         names.add(name)
         result.append((destination, name, size, digest))
+    for uri in failed_uris:
+        redirected = snapshot_file_identity(uri, architecture)
+        if redirected is None:
+            identity = package_identity(uri, architecture)[1]
+        else:
+            filename, _ = redirected
+            matches = [item for item in identities if item.rsplit("/", 1)[-1] == filename]
+            if len(matches) != 1:
+                raise AptError("Snapshot file diagnostic has no unique authenticated package")
+            identity = matches[0]
+        if identity in failures:
+            raise AptError("Duplicate terminal package failure")
+        failures.add(identity)
     if not result or (not timed_out and identities != failures):
         raise AptError("Package plan differs from the final missing-package failures")
     if timed_out and not timeout_packages <= {unquote(name) for name in names}:
@@ -376,6 +411,14 @@ def fallback_packages(
     if status:
         raise AptError("Cannot obtain the authenticated missing-package plan")
     plan = parse_plan(output, failed, architecture.strip(), timed_out=timed_out)
+    # APT may report Snapshot's final content-addressed redirect instead of the
+    # archive URI. The plan alone determines where and what to download; the
+    # redirect SHA-1 is an additional byte-identity check, never authentication.
+    redirect_hashes = dict(
+        item
+        for uri in failed_package_uris(failed)
+        if (item := snapshot_file_identity(uri, architecture.strip())) is not None
+    )
     partial = cache / "partial"
     owner = pwd.getpwnam("_apt").pw_uid
     info = partial.lstat()
@@ -422,6 +465,8 @@ def fallback_packages(
             if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or before.st_size != size:
                 raise AptError("Fallback package is not an exact-size regular file")
             hasher = hashlib.sha256()
+            redirect_hash = redirect_hashes.get(unquote(uri.rsplit("/", 1)[-1]))
+            redirect_hasher = hashlib.sha1(usedforsecurity=False) if redirect_hash else None
             count = 0
             while chunk := stream.read(1024 * 1024):
                 remaining(deadline)
@@ -429,6 +474,8 @@ def fallback_packages(
                 if count > size:
                     raise AptError("Fallback package grew during verification")
                 hasher.update(chunk)
+                if redirect_hasher is not None:
+                    redirect_hasher.update(chunk)
             after = os.fstat(stream.fileno())
             if (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (
                 after.st_size,
@@ -436,6 +483,8 @@ def fallback_packages(
                 after.st_ctime_ns,
             ) or hasher.hexdigest() != digest[7:]:
                 raise AptError("Fallback package hash or identity changed")
+            if redirect_hasher is not None and redirect_hasher.hexdigest() != redirect_hash:
+                raise AptError("Fallback package differs from the Snapshot file identity")
             # link() publishes without replacing an existing cache entry.
             os.link(temporary, destination, follow_symlinks=False)
             linked = destination.lstat()

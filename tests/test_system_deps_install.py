@@ -351,6 +351,118 @@ class TestOfficialPoolFallback(unittest.TestCase):
         assert self.cache
         self.assertFalse(self.cache.exists())
 
+    def test_snapshot_file_redirect_keeps_sha256_and_checks_content_address(self) -> None:
+        sha1 = hashlib.sha1(self.BODY, usedforsecurity=False).hexdigest()
+        redirected = f"https://snapshot.debian.org/file/{sha1}/{self.NAME}"
+        self.failed = self.failed.replace(self.URI, redirected)
+        with patch.object(INSTALLER, "run", side_effect=self.execute):
+            INSTALLER.install(["dbus"])
+        self.assertIn("--no-download", self.commands[-1])
+        self.assertEqual(sum(c[0] == INSTALLER.APT_HELPER for c in self.commands), 1)
+        assert self.cache
+        self.assertFalse(self.cache.exists())
+
+    def test_snapshot_file_wrong_content_address_cannot_publish_valid_sha256(self) -> None:
+        redirected = f"https://snapshot.debian.org/file/{'0' * 40}/{self.NAME}"
+        self.failed = self.failed.replace(self.URI, redirected)
+        with (
+            patch.object(INSTALLER, "run", side_effect=self.execute),
+            self.assertRaisesRegex(INSTALLER.AptError, "Snapshot file identity"),
+        ):
+            INSTALLER.install(["dbus"])
+        self.assertFalse(any("--no-download" in c for c in self.commands))
+        assert self.cache
+        self.assertFalse(self.cache.exists())
+
+    def test_snapshot_file_matching_sha1_never_replaces_sha256(self) -> None:
+        self.helper_body = b"evil"
+        sha1 = hashlib.sha1(self.helper_body, usedforsecurity=False).hexdigest()
+        self.failed = self.failed.replace(
+            self.URI, f"https://snapshot.debian.org/file/{sha1}/{self.NAME}"
+        )
+        with (
+            patch.object(INSTALLER, "run", side_effect=self.execute),
+            self.assertRaisesRegex(INSTALLER.AptError, "hash"),
+        ):
+            INSTALLER.install(["dbus"])
+        self.assertFalse(any("--no-download" in c for c in self.commands))
+
+    def test_snapshot_file_diagnostic_has_strict_url_and_filename_identity(self) -> None:
+        valid = f"https://snapshot.debian.org/file/{'a' * 40}/{self.NAME}"
+        invalid = [
+            valid.replace("https://", "http://"),
+            valid.replace("snapshot.debian.org", "snapshot.debian.org.evil.invalid"),
+            valid.replace("snapshot.debian.org", "user@snapshot.debian.org"),
+            valid.replace("snapshot.debian.org", "snapshot.debian.org:443"),
+            valid.replace("a" * 40, "a" * 39),
+            valid.replace("a" * 40, "A" * 40),
+            valid + "?x=1",
+            valid + "#x",
+            valid + "/extra",
+            valid.replace(self.NAME, "%2f" + self.NAME),
+            valid.replace(self.NAME, "%5c" + self.NAME),
+            valid.replace(self.NAME, "%00" + self.NAME),
+            valid.replace(self.NAME, "%xx" + self.NAME),
+            valid.replace("amd64", "arm64"),
+            valid.replace("14.2.0-19", "14.2.0-20"),
+        ]
+        for uri in invalid:
+            with self.subTest(uri=uri), self.assertRaises(INSTALLER.AptError):
+                INSTALLER.parse_plan(self.plan, self.failed.replace(self.URI, uri), "amd64")
+        with self.assertRaises(INSTALLER.AptError):
+            INSTALLER.parse_plan(
+                self.plan.replace(self.URI, valid), self.failed.replace(self.URI, valid), "amd64"
+            )
+
+    def test_snapshot_file_mapping_rejects_duplicate_aliases_and_basename_collisions(self) -> None:
+        valid = f"https://snapshot.debian.org/file/{'a' * 40}/{self.NAME}"
+        redirected = self.failed.replace(self.URI, valid)
+        for failed in [
+            self.failed + redirected,
+            redirected + redirected,
+            redirected + redirected.replace("a" * 40, "b" * 40),
+        ]:
+            with self.subTest(failed=failed), self.assertRaises(INSTALLER.AptError):
+                INSTALLER.parse_plan(self.plan, failed, "amd64")
+        second = self.plan.replace("g/gcc-14/", "o/other/").replace(
+            " " + self.NAME + " ", " other_1_amd64.deb "
+        )
+        with self.assertRaisesRegex(INSTALLER.AptError, "unique"):
+            INSTALLER.parse_plan(self.plan + second, redirected, "amd64")
+        # The cache filename is not the authoritative archive filename.
+        wrong_archive = self.plan.replace(self.URI, self.URI.replace("libcc1-0_", "other_"))
+        with self.assertRaisesRegex(INSTALLER.AptError, "unique"):
+            INSTALLER.parse_plan(wrong_archive, redirected, "amd64")
+
+    def test_snapshot_file_mapping_uses_decoded_archive_name_not_epoch_cache_name(self) -> None:
+        uri = self.URI.replace("-19_", "+19_")
+        cache_name = "2%3a" + self.NAME.replace("-19_", "+19_")
+        plan = self.plan.replace(self.URI, uri).replace(" " + self.NAME + " ", f" {cache_name} ")
+        filename = self.NAME.replace("-19_", "%2b19_")
+        redirected = f"https://snapshot.debian.org/file/{'a' * 40}/{filename}"
+        result = INSTALLER.parse_plan(plan, self.failed.replace(self.URI, redirected), "amd64")
+        self.assertEqual(
+            result,
+            [(INSTALLER.POOL + uri.removeprefix(INSTALLER.SNAPSHOT), cache_name, 4, self.digest)],
+        )
+
+    def test_observed_arm_snapshot_redirect_can_mix_with_archive_failures(self) -> None:
+        filename = "libgirepository-2.0-dev_2.84.4-3~deb13u5_arm64.deb"
+        uri = INSTALLER.SNAPSHOT + "pool/main/g/glib2.0/" + filename
+        redirect = (
+            "https://snapshot.debian.org/file/b0760ff9af4fb94db29e03631a822f0e776c7b85/" + filename
+        )
+        plan = self.plan.replace("amd64", "arm64") + f"'{uri}' {filename} 4 {self.digest}\n"
+        failed = self.failed.replace("amd64", "arm64") + (
+            f"E: Failed to fetch {redirect} 503 Service Unavailable\n"
+        )
+        result = INSTALLER.parse_plan(plan, failed, "arm64")
+        self.assertEqual(len(result), 2)
+        self.assertEqual(
+            result[-1],
+            (INSTALLER.POOL + "pool/main/g/glib2.0/" + filename, filename, 4, self.digest),
+        )
+
     def test_helper_error_and_wrong_size_do_not_retry_or_install(self) -> None:
         for status, body in [(100, self.BODY), (0, b"too-long")]:
             with self.subTest(status=status):

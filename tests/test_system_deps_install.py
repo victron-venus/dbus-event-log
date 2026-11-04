@@ -107,24 +107,33 @@ class TestFetch(unittest.TestCase):
         self.sleep.assert_called_once_with(5)
         for reason in ("401 Unauthorized", "403 Forbidden", "404 Not Found"):
             with self.subTest(reason=reason):
-                self.assertFalse(INSTALLER.transient_failure(output + (
-                    "E: Failed to fetch https://snapshot.debian.org/other " + reason + "\n"
-                )))
-                self.assertFalse(INSTALLER.transient_failure(output.replace(
-                    "Packages 504  Gateway Timeout", "Packages " + reason
-                )))
+                self.assertFalse(
+                    INSTALLER.transient_failure(
+                        output
+                        + ("E: Failed to fetch https://snapshot.debian.org/other " + reason + "\n")
+                    )
+                )
+                self.assertFalse(
+                    INSTALLER.transient_failure(
+                        output.replace("Packages 504  Gateway Timeout", "Packages " + reason)
+                    )
+                )
         self.assertFalse(INSTALLER.transient_failure(output + "Hash Sum mismatch\n"))
 
     def test_progress_and_url_numbers_are_not_http_statuses(self) -> None:
-        self.assertTrue(INSTALLER.transient_failure(
-            "Get:1 https://snapshot.debian.org/ package [404 kB]\n"
-            "E: Failed to fetch https://snapshot.debian.org/401/403/404/example.deb "
-            "503 Service Unavailable\n"
-        ))
-        self.assertFalse(INSTALLER.transient_failure(
-            "E: Failed to fetch https://snapshot.debian.org/503/Service_Unavailable "
-            "unknown error\n"
-        ))
+        self.assertTrue(
+            INSTALLER.transient_failure(
+                "Get:1 https://snapshot.debian.org/ package [404 kB]\n"
+                "E: Failed to fetch https://snapshot.debian.org/401/403/404/example.deb "
+                "503 Service Unavailable\n"
+            )
+        )
+        self.assertFalse(
+            INSTALLER.transient_failure(
+                "E: Failed to fetch https://snapshot.debian.org/503/Service_Unavailable "
+                "unknown error\n"
+            )
+        )
         self.assertFalse(INSTALLER.transient_failure("E: Failed to fetch missing-reason\n"))
 
     def test_permanent_and_unknown_errors_do_not_retry_even_with_503(self) -> None:

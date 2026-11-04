@@ -102,14 +102,13 @@ def transient_failure(output: str) -> bool:
     # Do not mistake intermediate status codes, package sizes or URL paths for
     # that final reason. Authentication, integrity and disk errors remain fatal.
     reasons = [line.removeprefix("Failed to fetch ").split(maxsplit=1) for line in fetch_errors]
-    return bool(reasons) and all(
-        len(parts) == 2
-        and not PERMANENT_STATUS.search(parts[1])
-        and TRANSIENT.search(parts[1])
-        for parts in reasons
-    ) and all(
-        line.startswith("Failed to fetch ") or line in summaries
-        for line in errors
+    return (
+        bool(reasons)
+        and all(
+            len(parts) == 2 and not PERMANENT_STATUS.search(parts[1]) and TRANSIENT.search(parts[1])
+            for parts in reasons
+        )
+        and all(line.startswith("Failed to fetch ") or line in summaries for line in errors)
     )
 
 

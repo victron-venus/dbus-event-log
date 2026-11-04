@@ -23,6 +23,7 @@ from urllib.parse import unquote, urlsplit
 APT = "/usr/bin/apt-get"
 TOTAL_SECONDS = 720
 COMMAND_SECONDS = 240
+FALLBACK_RESERVE_SECONDS = 120
 MAX_OUTPUT_BYTES = 2 * 1024 * 1024
 ATTEMPTS = 3
 APT_HELPER = "/usr/lib/apt/apt-helper"
@@ -62,8 +63,17 @@ class AptError(RuntimeError):
     """A bounded fetch or offline installation did not complete safely."""
 
 
+class CommandTimeoutError(AptError):
+    """Retain bounded partial output after the whole command group is terminated."""
+
+    def __init__(self, output: str) -> None:
+        """Keep partial transport evidence distinct from every other failure."""
+        super().__init__("APT command exceeded its time budget")
+        self.output = output
+
+
 class TransientFetchExhaustedError(AptError):
-    """Only the final classified transient response can enable package fallback."""
+    """Only a classified transient response after retry exhaustion enables fallback."""
 
     def __init__(self, output: str) -> None:
         """Retain the exact final diagnostic without widening retry eligibility."""
@@ -89,7 +99,7 @@ def run(command: list[str], timeout: float) -> tuple[int, str]:
         try:
             while selector.get_map() or process.poll() is None:
                 if time.monotonic() >= deadline:
-                    raise AptError("APT command exceeded its time budget")
+                    raise CommandTimeoutError(output.decode("utf-8", "replace"))
                 for key, _ in selector.select(timeout=0.05):
                     chunk = os.read(key.fd, 65536)
                     if not chunk:
@@ -100,12 +110,33 @@ def run(command: list[str], timeout: float) -> tuple[int, str]:
                     if len(chunk) > allowance:
                         raise AptError("APT command exceeded its output budget")
             return process.returncode, output.decode("utf-8", "replace")
-        except BaseException:
+        except BaseException as error:
             # The HTTP helpers belong to this invocation too. Do not leave them
             # running when a retry budget, cancellation or output limit stops us.
+            cleanup_deadline = time.monotonic() + 5
             with contextlib.suppress(ProcessLookupError):
                 os.killpg(process.pid, signal.SIGKILL)
-            process.wait(timeout=5)
+            process.wait(timeout=max(0, cleanup_deadline - time.monotonic()))
+            if isinstance(error, CommandTimeoutError):
+                # Include diagnostics already buffered before the group died.
+                # An escaped writer or output flood must not enable recovery.
+                while selector.get_map():
+                    cleanup_allowance = cleanup_deadline - time.monotonic()
+                    if cleanup_allowance <= 0:
+                        raise AptError("APT time budget expired without output EOF") from error
+                    ready = selector.select(timeout=cleanup_allowance)
+                    if not ready:
+                        raise AptError("APT time budget expired without output EOF") from error
+                    for key, _ in ready:
+                        chunk = os.read(key.fd, 65536)
+                        if not chunk:
+                            selector.unregister(key.fileobj)
+                            continue
+                        allowance = MAX_OUTPUT_BYTES - len(output)
+                        output.extend(chunk[:allowance])
+                        if len(chunk) > allowance:
+                            raise AptError("APT command exceeded its output budget") from error
+                error.output = output.decode("utf-8", "replace")
             sys.stdout.write(output.decode("utf-8", "replace"))
             raise
 
@@ -156,16 +187,64 @@ def fetch(arguments: list[str], deadline: float) -> None:
             raise TransientFetchExhaustedError(output)
         delay = 5 * attempt
         if deadline - time.monotonic() <= delay:
-            raise AptError("No time budget remains for another APT fetch")
+            raise TransientFetchExhaustedError(output)
         sys.stdout.write(
             f"Transient APT fetch failure; retrying in {delay}s ({attempt}/{ATTEMPTS})\n"
         )
         time.sleep(delay)
 
 
-def parse_plan(output: str, failed: str, architecture: str) -> list[tuple[str, str, int, str]]:
+def timed_out_packages(output: str, architecture: str) -> set[str]:
+    """Accept only complete, trusted package Err blocks after native CheckAuth."""
+    if (
+        architecture not in {"amd64", "arm64"}
+        or not output.endswith("\n")
+        or PERMANENT.search(output)
+        or re.search(r"(?im)^(?:E:|W:|WARNING:)|unauthenticated|cannot be authenticated", output)
+    ):
+        raise AptError("Untrusted package timeout diagnostic")
+    lines = output.splitlines()
+    packages: set[str] = set()
+    header = re.compile(
+        r"Err:[0-9]+ "
+        + re.escape(SNAPSHOT.rstrip("/"))
+        + r" trixie/main "
+        + architecture
+        + r" ([a-z0-9][a-z0-9+.-]*) ("
+        + architecture
+        + r"|all) ([0-9][A-Za-z0-9.+:~_-]*)"
+    )
+    reason = re.compile(
+        r"(?:Invalid response from proxy: HTTP/1\.[01] )?(?:TooManyRequests )?"
+        r"(?:503 (?:Service Unavailable|No healthy backends|first byte timeout)"
+        r"|504 Gateway Timeout)(?: \[IP: [0-9a-fA-F:.]+ [0-9]+\])?"
+    )
+    for index, line in enumerate(lines):
+        if not line.startswith("Err:"):
+            continue
+        match = header.fullmatch(line)
+        if match is None or index + 1 >= len(lines) or not lines[index + 1].startswith("  "):
+            raise AptError("Unknown or incomplete package timeout diagnostic")
+        if index + 2 < len(lines) and lines[index + 2].startswith("  "):
+            raise AptError("Ambiguous package timeout diagnostic")
+        if reason.fullmatch(" ".join(lines[index + 1].split())) is None:
+            raise AptError("Non-transient package timeout diagnostic")
+        name, arch, version = match.groups()
+        package = f"{name}_{version}_{arch}.deb"
+        if package in packages:
+            raise AptError("Duplicate package timeout diagnostic")
+        packages.add(package)
+    if not packages:
+        raise AptError("Package timeout has no trusted transient evidence")
+    return packages
+
+
+def parse_plan(
+    output: str, failed: str, architecture: str, *, timed_out: bool = False
+) -> list[tuple[str, str, int, str]]:
     """Use only missing packages from the already authenticated Snapshot selection."""
-    if architecture not in {"amd64", "arm64"} or not transient_failure(failed):
+    timeout_packages = timed_out_packages(failed, architecture) if timed_out else set()
+    if architecture not in {"amd64", "arm64"} or (not timed_out and not transient_failure(failed)):
         raise AptError("Invalid fallback architecture or preceding failure")
     failed_uris = [
         line.partition("Failed to fetch ")[2].split(maxsplit=1)[0]
@@ -228,13 +307,21 @@ def parse_plan(output: str, failed: str, architecture: str) -> list[tuple[str, s
         uris.add(uri)
         names.add(name)
         result.append((POOL + relative, name, size, digest))
-    if not result or uris != failures:
+    if not result or (not timed_out and uris != failures):
         raise AptError("Package plan differs from the final missing-package failures")
+    if timed_out and not timeout_packages <= {unquote(name) for name in names}:
+        raise AptError("Timed-out package failures differ from the authenticated remaining plan")
     return result
 
 
 def fallback_packages(
-    cache: Path, options: list[str], selection: list[str], deadline: float, failed: str
+    cache: Path,
+    options: list[str],
+    selection: list[str],
+    deadline: float,
+    failed: str,
+    *,
+    timed_out: bool = False,
 ) -> None:
     """Fetch exact authenticated bytes from one official pool without new indices."""
     status, architecture = run(["/usr/bin/dpkg", "--print-architecture"], remaining(deadline))
@@ -255,7 +342,7 @@ def fallback_packages(
     )
     if status:
         raise AptError("Cannot obtain the authenticated missing-package plan")
-    plan = parse_plan(output, failed, architecture.strip())
+    plan = parse_plan(output, failed, architecture.strip(), timed_out=timed_out)
     partial = cache / "partial"
     owner = pwd.getpwnam("_apt").pw_uid
     info = partial.lstat()
@@ -344,9 +431,14 @@ def install(packages: list[str]) -> None:
         cache.chmod(0o755)  # _apt must traverse to its own partial/ directory.
         options = ["-o", "Dir::Cache::archives=" + directory + "/"]
         try:
-            fetch([*options, "--download-only", *selection], deadline)
+            # Leave time for exact-byte recovery and the final offline install.
+            fetch([*options, "--download-only", *selection], deadline - FALLBACK_RESERVE_SECONDS)
         except TransientFetchExhaustedError as error:
             fallback_packages(cache, options, selection, deadline, error.output)
+        except CommandTimeoutError as error:
+            # Only this authenticated package fetch may recover from a timeout;
+            # update/authentication, helper and offline-install timeouts stay fatal.
+            fallback_packages(cache, options, selection, deadline, error.output, timed_out=True)
         status, output = run(
             [APT, *OPTIONS, *options, "--no-download", *selection], remaining(deadline)
         )

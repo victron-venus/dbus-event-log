@@ -12,6 +12,11 @@ All notable changes to this project will be documented in this file.
 - Recover exhausted transient package downloads from the official Debian pool,
   using the exact signed Snapshot selection, native APT SHA256/size verification
   and a fresh private cache. Index and integrity failures still stop the build.
+- Recover a bounded package-fetch timeout only when complete trusted Snapshot
+  503/504 records and the authenticated remaining package plan agree. Reserve
+  recovery time inside the existing deadline; index and unknown failures remain fatal.
+- Apply recovery to the configured security and updates suites as well as the
+  main suite, preserving each archive's fixed timestamp, component and package path.
 
 ### Upgrade
 

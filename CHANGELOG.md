@@ -2,7 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.2.6] - Unreleased
+## [0.2.7] - Unreleased
+
+### Fixed
+
+- Bound Debian Snapshot downloads by time, output size and explicit transient-error
+  retries, then install the authenticated packages offline. Avoid APT's internal
+  delayed-retry queue without weakening signature checks or changing snapshot pins.
+
+### Upgrade
+
+No configuration or data migration is required. The container recipe changes;
+release candidates must pass fresh native cold-build and repeatability checks.
+
+## [0.2.6] - 2026-10-24
 
 ### Fixed
 

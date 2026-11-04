@@ -12,10 +12,11 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 COPY docker/debian.sources /etc/apt/sources.list.d/debian.sources
+COPY docker/install-system-deps.py /tmp/install-system-deps.py
 
 # Build PyGObject for the image Python and retain the GLib/Gio runtime typelibs.
 RUN test "$(. /etc/os-release && echo "$VERSION_CODENAME")" = trixie && \
-    apt-get update --error-on=any && PYTHONHASHSEED=0 apt-get install -y --no-install-recommends \
+    PYTHONHASHSEED=0 python /tmp/install-system-deps.py \
     dbus \
     libdbus-1-3 \
     libglib2.0-0 \
@@ -24,6 +25,7 @@ RUN test "$(. /etc/os-release && echo "$VERSION_CODENAME")" = trixie && \
     gcc \
     libcairo2-dev \
     pkg-config \
+    && rm /tmp/install-system-deps.py \
     && chage --lastday "$((SOURCE_DATE_EPOCH / 86400))" messagebus \
     && rm -f /etc/passwd- /etc/group- /etc/shadow- /etc/gshadow- \
     && dpkg-query -W -f='${Package} ${Version} ${Architecture}\n' | LC_ALL=C sort > /usr/share/dbus-event-log-debian-packages.txt \

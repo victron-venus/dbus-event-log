@@ -8,6 +8,19 @@ not disable signature verification. The installed package/version/architecture
 inventory is retained inside each image at
 `/usr/share/dbus-event-log-debian-packages.txt`.
 
+`docker/install-system-deps.py` downloads the authenticated package set before
+installing it with `--no-download`. It disables APT's internal retry queue and
+allows at most three fresh fetch processes for explicit temporary transport
+errors (including Snapshot HTTP 503). Unknown errors, signature/hash failures,
+missing packages, command timeouts and the offline installation fail immediately.
+The complete operation has a 12-minute budget, each command a four-minute budget,
+and each command's captured output a 2 MiB limit; interrupted process groups are
+terminated. The APT version and failure diagnostics are retained in CI output.
+This avoids the affected internal retry path described in
+[Debian bug #1111554](https://bugs.debian.org/1111554); it does not establish that
+every out-of-memory build has that cause. No package checks or snapshot pins are
+relaxed. A changed recipe still requires the cold-build acceptance below.
+
 The maintainer must review the snapshots and base digest for security updates,
 refresh them when updates are needed, and run the normal dependency/security and
 native build gates. Pinning is a reproducibility input, not a claim that old

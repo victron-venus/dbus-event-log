@@ -52,6 +52,14 @@ OPTIONS = [
 TRANSIENT_HTTP_STATUSES = {408, 429, 500, 502, 503, 504}
 HTTP_IP_SUFFIX = re.compile(r"\[IP: [0-9a-fA-F:.]+ [0-9]+\]")
 HTTP_TOKEN = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+")
+# APT 3 emits this errno-bearing form separately from TLS verification errors.
+# Match the complete observed ECONNRESET diagnostic, not arbitrary SSL failures.
+OPENSSL_CONNECTION_RESET = re.compile(
+    r"(?:TooManyRequests )?OpenSSL system call error: "
+    r"error:00000000:lib\(0\)::reason\(0\) +- openssl "
+    r"\(104: Connection reset by peer\)"
+    r"(?: \[IP: [0-9a-fA-F:.]+ [0-9]+\])?"
+)
 TRANSIENT_NETWORK = re.compile(
     r"(?:Temporary failure resolving|"
     r"Could not (?:resolve|connect)|Connection (?:timed out|failed|reset)|"
@@ -228,7 +236,10 @@ def transient_reason(reason: str) -> bool:
     status = http_status(reason)
     if status is not None:
         return status in TRANSIENT_HTTP_STATUSES
-    return TRANSIENT_NETWORK.match(reason) is not None
+    return (
+        OPENSSL_CONNECTION_RESET.fullmatch(reason) is not None
+        or TRANSIENT_NETWORK.match(reason) is not None
+    )
 
 
 def transient_failure(output: str) -> bool:

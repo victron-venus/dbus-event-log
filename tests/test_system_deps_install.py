@@ -26,6 +26,11 @@ TEMPORARY = (
     "E: Unable to fetch some archives, maybe run apt-get update or try with --fix-missing?\n"
 )
 
+OPENSSL_RESET = (
+    "OpenSSL system call error: error:00000000:lib(0)::reason(0)  "
+    "- openssl (104: Connection reset by peer) [IP: 192.0.2.1 443]"
+)
+
 
 class TestFetch(unittest.TestCase):
     """Verify retries, fatal diagnostics, installation order and shared budgets."""
@@ -67,6 +72,61 @@ class TestFetch(unittest.TestCase):
         self.assertEqual(self.invoke.call_args_list[2], self.invoke.call_args_list[3])
         self.sleep.assert_called_once_with(5)
         self.assertIn("--no-download", self.invoke.call_args_list[-1].args[0])
+
+    def test_observed_openssl_reset_retries_with_other_http_failures(self) -> None:
+        for prefix in ("", "TooManyRequests "):
+            with self.subTest(prefix=prefix):
+                output = (
+                    "E: Failed to fetch https://snapshot.debian.org/example.deb "
+                    f"{prefix}{OPENSSL_RESET}\n"
+                    "E: Failed to fetch https://snapshot.debian.org/other.deb "
+                    "TooManyRequests 503 No healthy backends\n"
+                    "E: Some files failed to download\n"
+                )
+                self.invoke.reset_mock()
+                self.sleep.reset_mock()
+                self.invoke.side_effect = [(100, output), (0, "")]
+                INSTALLER.fetch(["--download-only", "install", "dbus"], 820)
+                self.assertEqual(self.invoke.call_args_list[0], self.invoke.call_args_list[1])
+                self.sleep.assert_called_once_with(5)
+
+    def test_openssl_reset_retains_retry_limit(self) -> None:
+        output = f"E: Failed to fetch https://snapshot.debian.org/example.deb {OPENSSL_RESET}\n"
+        self.invoke.return_value = (100, output)
+        with self.assertRaises(INSTALLER.TransientFetchExhaustedError):
+            INSTALLER.fetch(["--download-only", "install", "dbus"], 820)
+        self.assertEqual(self.invoke.call_count, INSTALLER.ATTEMPTS)
+        self.assertEqual(self.sleep.call_args_list, [call(5), call(10)])
+
+    def test_openssl_reset_does_not_accept_unknown_or_certificate_errors(self) -> None:
+        for reason in (
+            OPENSSL_RESET.replace("104: Connection reset by peer", "13: Permission denied"),
+            OPENSSL_RESET.replace("104: Connection reset by peer", "104: unknown failure"),
+            OPENSSL_RESET.replace(
+                "00000000:lib(0)::reason(0)", "0A000086:SSL routines::certificate verify failed"
+            ),
+            OPENSSL_RESET.replace("system call error", "error"),
+            OPENSSL_RESET.replace("192.0.2.1", "unknown-host"),
+            "unknown " + OPENSSL_RESET,
+            OPENSSL_RESET + "; unknown failure",
+            OPENSSL_RESET + "\rignored",
+            OPENSSL_RESET + "\x00",
+        ):
+            with self.subTest(reason=reason):
+                self.assertFalse(INSTALLER.transient_reason(reason))
+        for diagnostic in (
+            "E: Hash Sum mismatch",
+            "E: NO_PUBKEY key",
+            "E: unknown failure",
+            "W: unexpected warning",
+            "E: Failed to fetch https://example.invalid/ 403 Forbidden",
+        ):
+            with self.subTest(diagnostic=diagnostic):
+                output = (
+                    "E: Failed to fetch https://snapshot.debian.org/example.deb "
+                    f"{OPENSSL_RESET}\n{diagnostic}\n"
+                )
+                self.assertFalse(INSTALLER.transient_failure(output))
 
     def test_download_only_504_summary_retries_but_unknown_errors_still_fail(self) -> None:
         output = (
@@ -621,6 +681,15 @@ class TestOfficialPoolFallback(unittest.TestCase):
             (INSTALLER.POOL + "pool/main/g/glib2.0/" + filename, filename, 4, self.digest),
         )
 
+    def test_openssl_reset_fallback_keeps_signed_package_plan(self) -> None:
+        self.failed = self.failed.replace(
+            "503 Service Unavailable", "TooManyRequests " + OPENSSL_RESET
+        )
+        with patch.object(INSTALLER, "run", side_effect=self.execute):
+            INSTALLER.install(["dbus"])
+        self.assertEqual(sum(c[0] == INSTALLER.APT_HELPER for c in self.commands), 1)
+        self.assertTrue(any("--no-download" in c for c in self.commands))
+
     def test_helper_error_and_wrong_size_do_not_retry_or_install(self) -> None:
         for status, body in [(100, self.BODY), (0, b"too-long")]:
             with self.subTest(status=status):
@@ -1022,6 +1091,18 @@ class TestBoundedProcess(unittest.TestCase):
             "reason = 'Invalid response from proxy: HTTP/1.0 503 Service Unavailable  ' "
             "+ ' ' * module['MAX_OUTPUT_BYTES'] + 'Content-Type: text/html;charset=;'; "
             "assert module['http_status'](reason) is None; print('bounded')"
+        )
+        assert SPEC is not None and SPEC.origin is not None
+        status, output = INSTALLER.run([sys.executable, "-c", program, str(SPEC.origin)], 5)
+        self.assertEqual((status, output.strip()), (0, "bounded"))
+
+    def test_maximum_sized_malformed_openssl_error_has_bounded_parse_time(self) -> None:
+        program = (
+            "import runpy, sys; "
+            "module = runpy.run_path(sys.argv[1]); "
+            "reason = 'OpenSSL system call error: error:00000000:lib(0)::reason(0)' "
+            "+ ' ' * module['MAX_OUTPUT_BYTES'] + '- unknown'; "
+            "assert not module['transient_reason'](reason); print('bounded')"
         )
         assert SPEC is not None and SPEC.origin is not None
         status, output = INSTALLER.run([sys.executable, "-c", program, str(SPEC.origin)], 5)

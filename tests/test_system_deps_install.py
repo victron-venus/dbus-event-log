@@ -99,6 +99,98 @@ class TestFetch(unittest.TestCase):
         self.assertEqual(self.invoke.call_count, 2)
         self.sleep.assert_called_once_with(5)
 
+    def test_snapshot_backend_fetch_failed_retries_mixed_package_response(self) -> None:
+        # main run 41904649056 returned these six terminal reasons together.
+        reasons = (
+            "TooManyRequests 503  Backend fetch failed",
+            "504  Gateway Timeout",
+            "503  Service Unavailable",
+            "TooManyRequests 503  first byte timeout",
+            "TooManyRequests 503  Backend fetch failed",
+            "TooManyRequests 503  first byte timeout",
+        )
+        output = (
+            "".join(
+                f"E: Failed to fetch https://snapshot.debian.org/package{i}.deb "
+                f"{reason} [IP: 192.0.2.1 443]\n"
+                for i, reason in enumerate(reasons)
+            )
+            + "E: Some files failed to download\n"
+        )
+        self.invoke.side_effect = [(100, output), (0, "")]
+        INSTALLER.fetch(["--download-only", "install", "dbus"], 820)
+        self.assertEqual(self.invoke.call_args_list[0], self.invoke.call_args_list[1])
+        self.sleep.assert_called_once_with(5)
+
+    def test_http_status_allows_optional_server_defined_reason(self) -> None:
+        for status in (408, 429, 500, 502, 503, 504):
+            for prefix in (
+                "",
+                "TooManyRequests ",
+                "Invalid response from proxy: HTTP/1.1 ",
+            ):
+                for phrase in ("", "  Backend fetch failed", "  New upstream wording"):
+                    with self.subTest(status=status, prefix=prefix, phrase=phrase):
+                        reason = f"{prefix}{status}{phrase}"
+                        self.assertTrue(
+                            INSTALLER.transient_failure(
+                                "E: Failed to fetch https://example.invalid/503/404.deb " + reason
+                            )
+                        )
+                        self.assertEqual(INSTALLER.http_status(reason), status)
+
+    def test_http_status_rejects_incidental_codes_and_ambiguous_diagnostics(
+        self,
+    ) -> None:
+        reasons = (
+            "version 503 Service Unavailable",
+            "package 503 Connection timed out",
+            "UnknownPrefix 503 Service Unavailable",
+            "5030 Service Unavailable",
+            "503.1 Service Unavailable",
+            "503 Service Unavailable; unknown failure",
+            "503 Service Unavailable [unknown suffix]",
+            "503 Service Unavailable\x00",
+            "503\rService Unavailable",
+            "503\nService Unavailable",
+            "501 Connection timed out",
+            "505 Backend fetch failed",
+            "599 Network Connect Timeout Error",
+            "404 503 Service Unavailable",
+            "503 404 Not Found",
+        )
+        for reason in reasons:
+            with self.subTest(reason=reason):
+                self.assertFalse(INSTALLER.transient_reason(reason))
+        for fatal in ("Hash Sum mismatch", "NO_PUBKEY 1234", "No space left on device"):
+            self.assertFalse(
+                INSTALLER.transient_failure(
+                    "E: Failed to fetch https://example.invalid/a.deb 503 Backend fetch failed\n"
+                    + fatal
+                    + "\n"
+                )
+            )
+
+    def test_terminal_reason_retains_control_characters_and_network_word_boundaries(
+        self,
+    ) -> None:
+        for reason in (
+            "503 Backend fetch failed\runknown failure",
+            "503 Backend fetch failed\vunknown failure",
+            "503 Backend fetch failed\x1cunknown failure",
+            "Could not connect\runknown failure",
+            "Could not connectionsomething permanent",
+            "Connection resetXYZ",
+            "Temporary failure resolvingXYZ",
+        ):
+            with self.subTest(reason=reason):
+                self.assertFalse(INSTALLER.transient_reason(reason))
+                self.assertFalse(
+                    INSTALLER.transient_failure(
+                        "E: Failed to fetch https://example.invalid/a.deb " + reason + "\n"
+                    )
+                )
+
     def test_index_retry_uses_terminal_fetch_reason(self) -> None:
         output = (
             "Err:5 https://snapshot.debian.org/ trixie-updates/main arm64 Packages\n"
@@ -580,6 +672,44 @@ class TestOfficialPoolFallback(unittest.TestCase):
             with self.subTest(output=output), self.assertRaises(INSTALLER.AptError):
                 INSTALLER.parse_plan(self.plan, output, "amd64", timed_out=True)
 
+    def test_timeout_accepts_server_defined_503_and_504_reasons(self) -> None:
+        good = self.timeout_output()
+        for reason in (
+            "503",
+            "504  New upstream wording",
+            "TooManyRequests 503  Backend fetch failed",
+            "Invalid response from proxy: HTTP/1.1 503 Backend fetch failed",
+        ):
+            with self.subTest(reason=reason):
+                output = good.replace("TooManyRequests 503  No healthy backends", reason)
+                self.assertEqual(INSTALLER.timed_out_packages(output, "amd64"), {self.NAME})
+
+    def test_timeout_status_policy_stays_narrow_and_requires_complete_reason(
+        self,
+    ) -> None:
+        for reason in (
+            "408 Request Timeout",
+            "429 Too Many Requests",
+            "500 Internal Server Error",
+            "502 Bad Gateway",
+            "501 Unknown",
+            "505 Unknown",
+            "599 Unknown",
+            "package 503 Backend fetch failed",
+            "503 Backend fetch failed; unknown failure",
+            "503 Backend fetch failed\rignored",
+            "503 Backend fetch failed\x00",
+            "5030 Backend fetch failed",
+            "503 404 Not Found",
+        ):
+            with self.subTest(reason=reason), self.assertRaises(INSTALLER.AptError):
+                INSTALLER.timed_out_packages(
+                    self.timeout_output().replace(
+                        "TooManyRequests 503  No healthy backends", reason
+                    ),
+                    "amd64",
+                )
+
     def test_index_timeout_never_reaches_package_fallback(self) -> None:
         with (
             patch.object(
@@ -806,6 +936,17 @@ class TestConfiguredArchives(unittest.TestCase):
 
 class TestBoundedProcess(unittest.TestCase):
     """Check real child-process output and termination without invoking APT."""
+
+    def test_maximum_sized_malformed_http_reason_has_bounded_parse_time(self) -> None:
+        program = (
+            "import runpy, sys; "
+            "module = runpy.run_path(sys.argv[1]); "
+            "reason = '503 ' + ' ' * module['MAX_OUTPUT_BYTES'] + ';'; "
+            "assert module['http_status'](reason) is None; "
+            "print('bounded')"
+        )
+        status, output = INSTALLER.run([sys.executable, "-c", program, str(SPEC.origin)], 5)
+        self.assertEqual((status, output.strip()), (0, "bounded"))
 
     def test_output_and_returncode(self) -> None:
         status, output = INSTALLER.run(

@@ -451,7 +451,7 @@ class TestOfficialPoolFallback(unittest.TestCase):
             good.splitlines()[0],
             good.replace("snapshot.debian.org", "evil.invalid"),
             good.replace("20261012T", "20261013T"),
-            good.replace("trixie/main", "trixie-updates/main"),
+            good.replace("trixie/main", "bookworm/main"),
             good.replace("amd64", "arm64"),
             good.replace("libcc1-0 amd64 14.2.0-19", "Packages"),
             good.replace("503  No healthy backends", "404 Not Found"),
@@ -528,6 +528,110 @@ class TestOfficialPoolFallback(unittest.TestCase):
                 self.assertFalse(
                     any(c[0] == INSTALLER.APT_HELPER or "--print-uris" in c for c in self.commands)
                 )
+
+
+class TestConfiguredArchives(unittest.TestCase):
+    """The recovery allowlist covers exactly the configured signed archives."""
+
+    SECURITY = "https://snapshot.debian.org/archive/debian-security/20261012T000000Z/"
+    DIGEST = "SHA256:" + hashlib.sha256(b"test").hexdigest()
+
+    def test_archive_suites_match_the_committed_apt_sources(self) -> None:
+        source = Path(__file__).resolve().parents[1] / "docker/debian.sources"
+        configured: set[tuple[str, tuple[str, ...]]] = set()
+        for block in source.read_text().strip().split("\n\n"):
+            fields = dict(
+                line.split(": ", 1)
+                for line in block.splitlines()
+                if line and not line.startswith("#")
+            )
+            self.assertEqual(fields["Components"], "main")
+            self.assertEqual(fields["Signed-By"], "/usr/share/keyrings/debian-archive-keyring.gpg")
+            configured.add((fields["URIs"], tuple(fields["Suites"].split())))
+        self.assertEqual(configured, {(row[0], row[3]) for row in INSTALLER.ARCHIVES})
+
+    def test_each_configured_archive_and_suite_maps_to_its_own_pool(self) -> None:
+        for snapshot, pool, prefix, suites in INSTALLER.ARCHIVES:
+            for suite in suites:
+                for arch in ("amd64", "arm64"):
+                    with self.subTest(snapshot=snapshot, suite=suite, arch=arch):
+                        name = f"probe_1.0_{arch}.deb"
+                        relative = prefix + "p/probe/" + name
+                        uri = snapshot + relative
+                        plan = f"'{uri}' {name} 4 {self.DIGEST}\n"
+                        output = (
+                            f"Err:1 {snapshot.rstrip('/')} {suite}/main {arch} "
+                            f"probe {arch} 1.0\n  504 Gateway Timeout\n"
+                        )
+                        expected = [(pool + relative, name, 4, self.DIGEST)]
+                        self.assertEqual(
+                            INSTALLER.parse_plan(plan, output, arch, timed_out=True), expected
+                        )
+                        self.assertEqual(
+                            INSTALLER.parse_plan(
+                                plan, f"E: Failed to fetch {uri} 504 Gateway Timeout\n", arch
+                            ),
+                            expected,
+                        )
+
+    def test_observed_arm_security_timeout_is_recognized(self) -> None:
+        output = (
+            f"Err:93 {self.SECURITY.rstrip('/')} trixie-security/main arm64 "
+            "libpcre2-32-0 arm64 10.46-1~deb13u3\n"
+            "  504  Gateway Timeout [IP: 140.248.150.132 443]\n"
+        )
+        self.assertEqual(
+            INSTALLER.timed_out_packages(output, "arm64"),
+            {"libpcre2-32-0_10.46-1~deb13u3_arm64.deb"},
+        )
+
+    def test_archive_suite_host_time_and_component_cannot_be_mixed(self) -> None:
+        good = (
+            f"Err:1 {self.SECURITY.rstrip('/')} trixie-security/main arm64 "
+            "probe arm64 1.0\n  504 Gateway Timeout\n"
+        )
+        bad = [
+            good.replace("trixie-security/main", "trixie/main"),
+            good.replace("trixie-security/main", "trixie-updates/main"),
+            good.replace("/archive/debian-security/", "/archive/debian/"),
+            good.replace("/archive/debian-security/", "/archive/other/"),
+            good.replace("snapshot.debian.org", "evil.invalid"),
+            good.replace("snapshot.debian.org", "snapshot.debian.org:443"),
+            good.replace("20261012T", "20261013T"),
+            good.replace("trixie-security/main", "trixie-security/non-free"),
+        ]
+        for output in bad:
+            with self.subTest(output=output), self.assertRaises(INSTALLER.AptError):
+                INSTALLER.timed_out_packages(output, "arm64")
+
+    def test_security_and_main_package_paths_cannot_be_crossed(self) -> None:
+        name = "probe_1.0_arm64.deb"
+        paths = [
+            self.SECURITY + "pool/main/p/probe/" + name,
+            INSTALLER.SNAPSHOT + "pool/updates/main/p/probe/" + name,
+            self.SECURITY.replace("snapshot.debian.org", "evil.invalid")
+            + "pool/updates/main/p/probe/"
+            + name,
+            self.SECURITY.replace("20261012T", "20261013T") + "pool/updates/main/p/probe/" + name,
+        ]
+        for uri in paths:
+            plan = f"'{uri}' {name} 4 {self.DIGEST}\n"
+            failed = f"E: Failed to fetch {uri} 504 Gateway Timeout\n"
+            with self.subTest(uri=uri), self.assertRaises(INSTALLER.AptError):
+                INSTALLER.parse_plan(plan, failed, "arm64")
+
+    def test_mixed_archive_plan_preserves_each_authenticated_mapping(self) -> None:
+        plan: list[str] = []
+        failed: list[str] = []
+        expected: list[tuple[str, str, int, str]] = []
+        for index, (snapshot, pool, prefix, _) in enumerate(INSTALLER.ARCHIVES):
+            name = f"probe{index}_1.0_arm64.deb"
+            relative = prefix + "p/probe/" + name
+            uri = snapshot + relative
+            plan.append(f"'{uri}' {name} 4 {self.DIGEST}\n")
+            failed.append(f"E: Failed to fetch {uri} 504 Gateway Timeout\n")
+            expected.append((pool + relative, name, 4, self.DIGEST))
+        self.assertEqual(INSTALLER.parse_plan("".join(plan), "".join(failed), "arm64"), expected)
 
 
 class TestBoundedProcess(unittest.TestCase):

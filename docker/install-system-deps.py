@@ -29,6 +29,15 @@ ATTEMPTS = 3
 APT_HELPER = "/usr/lib/apt/apt-helper"
 SNAPSHOT = "https://snapshot.debian.org/archive/debian/20261012T000000Z/"
 POOL = "https://deb.debian.org/debian/"
+ARCHIVES = (
+    (SNAPSHOT, POOL, "pool/main/", ("trixie", "trixie-updates")),
+    (
+        "https://snapshot.debian.org/archive/debian-security/20261012T000000Z/",
+        "https://deb.debian.org/debian-security/",
+        "pool/updates/main/",
+        ("trixie-security",),
+    ),
+)
 MAX_PACKAGES = 256
 MAX_PACKAGE_BYTES = 128 * 1024 * 1024
 MAX_FALLBACK_BYTES = 512 * 1024 * 1024
@@ -205,10 +214,17 @@ def timed_out_packages(output: str, architecture: str) -> set[str]:
         raise AptError("Untrusted package timeout diagnostic")
     lines = output.splitlines()
     packages: set[str] = set()
+    sources = "|".join(
+        re.escape(snapshot.rstrip("/"))
+        + r" (?:"
+        + "|".join(re.escape(suite) for suite in suites)
+        + r")/main"
+        for snapshot, _, _, suites in ARCHIVES
+    )
     header = re.compile(
-        r"Err:[0-9]+ "
-        + re.escape(SNAPSHOT.rstrip("/"))
-        + r" trixie/main "
+        r"Err:[0-9]+ (?:"
+        + sources
+        + r") "
         + architecture
         + r" ([a-z0-9][a-z0-9+.-]*) ("
         + architecture
@@ -273,14 +289,17 @@ def parse_plan(
             raise AptError("Malformed package download plan")
         uri, name, size_text, digest = fields
         parsed = urlsplit(uri)
-        relative = uri.removeprefix(SNAPSHOT)
+        archive = next((entry for entry in ARCHIVES if uri.startswith(entry[0])), None)
+        if archive is None:
+            raise AptError("Untrusted or ambiguous package download plan")
+        snapshot, pool, package_prefix, _ = archive
+        relative = uri.removeprefix(snapshot)
         decoded = unquote(relative)
         safe = re.fullmatch(r"[A-Za-z0-9_./+~%:-]+", relative)
         if (
-            not uri.startswith(SNAPSHOT)
-            or parsed.query
+            parsed.query
             or parsed.fragment
-            or not relative.startswith("pool/main/")
+            or not relative.startswith(package_prefix)
             or not safe
             or re.search(r"%(?:2f|5c|00)", relative, re.IGNORECASE)
             or re.search(r"%(?![0-9A-Fa-f]{2})", relative)
@@ -306,7 +325,7 @@ def parse_plan(
             raise AptError("Package fallback exceeds its byte or count budget")
         uris.add(uri)
         names.add(name)
-        result.append((POOL + relative, name, size, digest))
+        result.append((pool + relative, name, size, digest))
     if not result or (not timed_out and uris != failures):
         raise AptError("Package plan differs from the final missing-package failures")
     if timed_out and not timeout_packages <= {unquote(name) for name in names}:

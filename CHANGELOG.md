@@ -15,6 +15,8 @@ All notable changes to this project will be documented in this file.
 - Recover a bounded package-fetch timeout only when complete trusted Snapshot
   503/504 records and the authenticated remaining package plan agree. Reserve
   recovery time inside the existing deadline; index and unknown failures remain fatal.
+- Apply recovery to the configured security and updates suites as well as the
+  main suite, preserving each archive's fixed timestamp, component and package path.
 
 ### Upgrade
 

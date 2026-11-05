@@ -48,6 +48,10 @@ OPTIONS = [
     # xz failure fall through to absent plain indices and mask it as a fatal 404.
     "-o",
     "Acquire::IndexTargets::deb::Packages::CompressionTypes=xz",
+    # APT also uses CompressionTypes to find local indices. Keep the downloaded
+    # format instead of the default lz4 cache that an xz-only lookup cannot see.
+    "-o",
+    "Acquire::IndexTargets::deb::Packages::KeepCompressedAs=xz",
     "-o",
     "Acquire::http::Timeout=30",
     "-o",

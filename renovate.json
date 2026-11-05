@@ -10,6 +10,7 @@
     "dockerfile",
     "github-actions",
     "pep621",
+    "pip-compile",
     "pip_requirements"
   ],
   "ignorePaths": [
@@ -20,9 +21,7 @@
     "security/provider/**",
     "build-support/tls-armv7/**",
     ".github/requirements-bandit-1.9.2.txt",
-    ".github/requirements-build.txt",
     ".github/requirements-fuzz.txt",
-    "requirements-docker-build.txt",
     "requirements-docker.txt"
   ],
   "packageRules": [
@@ -33,10 +32,19 @@
       ],
       "matchFileNames": [
         ".github/requirements-bandit-1.9.2.txt",
-        ".github/requirements-build.txt",
         ".github/requirements-fuzz.txt",
-        "requirements-docker-build.txt",
         "requirements-docker.txt"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Generated locks are updated by pip-compile through their recorded source inputs; never edit the output pins independently.",
+      "matchManagers": [
+        "pip_requirements"
+      ],
+      "matchFileNames": [
+        ".github/requirements-build.txt",
+        "requirements-docker-build.txt"
       ],
       "enabled": false
     }
@@ -44,6 +52,25 @@
   "pip_requirements": {
     "managerFilePatterns": [
       "/(^|/)requirements[^/]*\\.(txt|pip)$/"
+    ],
+    "ignorePaths": [
+      "**/vendor/**",
+      "**/node_modules/**",
+      "**/fixtures/**",
+      "**/tools/browser-compatibility/**",
+      "security/provider/**",
+      "build-support/tls-armv7/**",
+      ".github/requirements-bandit-1.9.2.txt",
+      ".github/requirements-build.txt",
+      ".github/requirements-fuzz.txt",
+      "requirements-docker-build.txt",
+      "requirements-docker.txt"
+    ]
+  },
+  "pip-compile": {
+    "managerFilePatterns": [
+      "/^\\.github/requirements\\-build\\.txt$/",
+      "/^requirements\\-docker\\-build\\.txt$/"
     ]
   }
 }

@@ -59,6 +59,11 @@ class TestFetch(unittest.TestCase):
                         "Acquire::IndexTargets::deb::Packages::CompressionTypes=xz",
                         invocation.args[0],
                     )
+                    self.assertIn(
+                        "Acquire::IndexTargets::deb::Packages::KeepCompressedAs=xz",
+                        invocation.args[0],
+                        "Downloaded indices must remain visible to APT's xz-only lookup",
+                    )
         self.invoke.reset_mock()
         self.sleep.reset_mock()
         self.invoke.side_effect = [(100, f"E: Failed to fetch {uri} 404 Not Found\n")]

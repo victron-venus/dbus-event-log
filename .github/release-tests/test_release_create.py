@@ -260,7 +260,7 @@ class ReconciliationTests(unittest.TestCase):
     def test_exact_empty_draft_same_call_only(self):
         self.assertEqual(self.reconcile()['id'], 42)
         self.assertEqual(self.confirm.call_count, 2)
-        self.gh.assert_not_called()
+        self.assertEqual(self.gh.mock_calls, [])
 
     def test_identity_and_state_mismatch(self):
         for key, value in [('body', 'older nonce'), ('target_commitish', 'b' * 40),
@@ -307,7 +307,7 @@ class ConfirmationTests(unittest.TestCase):
         current = {**run, 'status': 'in_progress', 'conclusion': None}
         ledger = {'type': 'file', 'encoding': 'base64', 'content': base64.b64encode(consumed).decode()}
         reader = Mock()
-        reader.json.side_effect = lambda path: current if path.startswith('actions/') else source if path.startswith('git/') else ledger
+        reader.json.side_effect = lambda path: ({'default_branch': 'main'} if path == '' else current if path.startswith('actions/') else source if path.startswith('git/') else ledger)
         confirm(reader)
         for key, value in [('run_attempt', 2), ('status', 'completed'), ('head_sha', 'b' * 40)]:
             before = copy.deepcopy(current)

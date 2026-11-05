@@ -2013,6 +2013,14 @@ def _publish_prepared(
     )
     for item in uploaded:
         verify_uploaded_asset(gh, item, expected[cast(str, item["name"])])
+    ref = cast(JSONObject, gh.api(f"git/ref/tags/{quote(tag, safe='')}"))
+    require(
+        isinstance(ref, dict) and ref.get("ref") == f"refs/tags/{tag}"
+        and isinstance(ref.get("object"), dict)
+        and cast(JSONObject, ref["object"]).get("type") == "commit"
+        and cast(JSONObject, ref["object"]).get("sha") == sha,
+        "Tag moved before publication; draft left unpublished",
+    )
     result = cast(
         JSONObject,
         gh.api(

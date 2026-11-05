@@ -20,8 +20,6 @@
     "**/tools/browser-compatibility/**",
     "security/provider/**",
     "build-support/tls-armv7/**",
-    ".github/requirements-bandit-1.9.2.txt",
-    ".github/requirements-fuzz.txt",
     "requirements-docker.txt"
   ],
   "packageRules": [
@@ -31,8 +29,6 @@
         "pip_requirements"
       ],
       "matchFileNames": [
-        ".github/requirements-bandit-1.9.2.txt",
-        ".github/requirements-fuzz.txt",
         "requirements-docker.txt"
       ],
       "enabled": false
@@ -47,6 +43,32 @@
         "requirements-docker-build.txt"
       ],
       "enabled": false
+    },
+    {
+      "description": "Container CI and the native build recipe require exactly the Python 3.14-slim tag; digest refreshes remain enabled.",
+      "matchManagers": [
+        "dockerfile"
+      ],
+      "matchFileNames": [
+        "Dockerfile"
+      ],
+      "matchPackageNames": [
+        "python"
+      ],
+      "allowedVersions": "/^3\\.14-slim$/"
+    },
+    {
+      "description": "Preserve the explicitly named legacy Bandit 1.9.2 toolchain while allowing its transitive lock maintenance.",
+      "matchManagers": [
+        "pip-compile"
+      ],
+      "matchFileNames": [
+        ".github/requirements-bandit-1.9.2.in"
+      ],
+      "matchPackageNames": [
+        "bandit"
+      ],
+      "allowedVersions": "==1.9.2"
     }
   ],
   "pip_requirements": {
@@ -70,7 +92,26 @@
   "pip-compile": {
     "managerFilePatterns": [
       "/^\\.github/requirements\\-build\\.txt$/",
-      "/^requirements\\-docker\\-build\\.txt$/"
+      "/^requirements\\-docker\\-build\\.txt$/",
+      "/^\\.github/requirements\\-bandit\\-1\\.9\\.2\\.txt$/",
+      "/^\\.github/requirements\\-fuzz\\.txt$/"
     ]
-  }
+  },
+  "pep621": {
+    "ignorePaths": [
+      "**/vendor/**",
+      "**/node_modules/**",
+      "**/fixtures/**",
+      "**/tools/browser-compatibility/**",
+      "security/provider/**",
+      "build-support/tls-armv7/**",
+      ".github/requirements-bandit-1.9.2.txt",
+      ".github/requirements-fuzz.txt",
+      "requirements-docker.txt",
+      "pyproject.toml"
+    ]
+  },
+  "description": [
+    "Root Python project updates require the documented uv lock and uv export sequence. Native pep621 only regenerates uv.lock, so this exact project stays on its coupled source workflow; independent dependency managers remain automated."
+  ]
 }

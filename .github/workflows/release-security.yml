@@ -28,7 +28,7 @@ jobs:
       - name: Block high severity Python findings
         run: python -m bandit -r . -lll -x ./.git/,./.venv/,./.venv-ci/,./tests/,./release-dist/,./dist/,./build/ -f json -o bandit-results.json
       - name: Block high and critical dependency and secret findings
-        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # master
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # master
         with:
           scan-type: fs
           scan-ref: .

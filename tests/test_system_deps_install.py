@@ -41,6 +41,32 @@ class TestFetch(unittest.TestCase):
         self.clock = self.enterContext(patch.object(INSTALLER.time, "monotonic", return_value=100))
         self.sleep = self.enterContext(patch.object(INSTALLER.time, "sleep"))
 
+    def test_snapshot_index_transport_failures_preserve_bounded_retry(self) -> None:
+        uri = INSTALLER.SNAPSHOT + "dists/trixie-updates/main/binary-arm64/Packages.xz"
+        for status in (503, 504):
+            with self.subTest(status=status):
+                self.invoke.reset_mock()
+                self.sleep.reset_mock()
+                self.invoke.side_effect = [
+                    (100, f"E: Failed to fetch {uri} {status} Temporary failure\n"),
+                    (0, ""),
+                ]
+                INSTALLER.fetch(["update", "--error-on=any"], 1000)
+                self.assertEqual(self.invoke.call_count, 2)
+                self.sleep.assert_called_once_with(5)
+                for invocation in self.invoke.call_args_list:
+                    self.assertIn(
+                        "Acquire::IndexTargets::deb::Packages::CompressionTypes=xz",
+                        invocation.args[0],
+                    )
+        self.invoke.reset_mock()
+        self.sleep.reset_mock()
+        self.invoke.side_effect = [(100, f"E: Failed to fetch {uri} 404 Not Found\n")]
+        with self.assertRaises(INSTALLER.AptError):
+            INSTALLER.fetch(["update", "--error-on=any"], 1000)
+        self.assertEqual(self.invoke.call_count, 1)
+        self.sleep.assert_not_called()
+
     def test_success_keeps_checks_enabled_and_installs_offline(self) -> None:
         self.invoke.return_value = (0, "")
         INSTALLER.install(["dbus", "libdbus-1-3"])

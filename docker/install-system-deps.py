@@ -44,6 +44,10 @@ MAX_FALLBACK_BYTES = 512 * 1024 * 1024
 OPTIONS = [
     "-o",
     "Acquire::Retries=0",
+    # These signed snapshots publish xz package indices. Do not let a transient
+    # xz failure fall through to absent plain indices and mask it as a fatal 404.
+    "-o",
+    "Acquire::IndexTargets::deb::Packages::CompressionTypes=xz",
     "-o",
     "Acquire::http::Timeout=30",
     "-o",

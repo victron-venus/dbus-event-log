@@ -18,6 +18,14 @@ uv lock
 uv export --locked --offline --no-build --no-dev --extra monitor --no-emit-project --format requirements-txt --output-file requirements-docker.txt
 ```
 
+For a transitive security fix, run `uv lock --upgrade-package <name>` in place
+of `uv lock` above, replacing `<name>` with the affected package. Then regenerate
+the runtime export and Cairo companion as described below. Without the selective upgrade, uv can retain
+the existing locked version. Verify that the resulting lock selects a version
+in the advisory's fixed range on every affected marker branch. If the manifest
+constraints exclude the fix, review and update the relevant bounds together
+with this entire runtime unit before accepting it.
+
 Copy the selected pycairo package and complete hash stanza from the regenerated
 runtime export into `requirements-docker-cairo.txt`, preserving its explanatory
 comment. The native installer builds pycairo from that companion before

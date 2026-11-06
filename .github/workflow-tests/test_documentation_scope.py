@@ -14,14 +14,18 @@ SPEC.loader.exec_module(SCOPE)
 
 
 def workflow(name):
+    """Load a committed workflow without YAML boolean coercion."""
     return yaml.load((ROOT / ".github/workflows" / name).read_text(), Loader=yaml.BaseLoader)
 
 
 def classifier(document):
+    """Locate the canonical scope decision step."""
     return next(step for step in document["jobs"]["scope"]["steps"] if step.get("id") == "scope")
 
 
 class DocumentationScopeTests(unittest.TestCase):
+    """Exercise required inputs and full release qualification."""
+
     def test_release_qualification_is_not_skipped_for_documentation(self):
         release = workflow("release-pipeline.yml")
         self.assertEqual(classifier(release)["env"]["FORCE_FULL"], "true")
@@ -54,5 +58,9 @@ class DocumentationScopeTests(unittest.TestCase):
                     + b" " + change.encode() + b"\0" + name.encode() + b"\0"
                 )
                 result = SCOPE.classify_diff(raw, frozenset(), required)
-                expected = {"run": True, "reason": "required-path-change"} if name in required else {"run": False, "reason": "documentation-only"}
+                expected = (
+                    {"run": True, "reason": "required-path-change"}
+                    if name in required
+                    else {"run": False, "reason": "documentation-only"}
+                )
                 self.assertEqual(result, expected)

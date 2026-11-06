@@ -52,10 +52,17 @@ class DocumentationScopeTests(unittest.TestCase):
         for name in required | {"docs/guide.md"}:
             for change in ("M", "D"):
                 raw = (
-                    b":100644 " + (b"100644" if change == "M" else b"000000")
-                    + b" " + b"1" * 40 + b" "
+                    b":100644 "
+                    + (b"100644" if change == "M" else b"000000")
+                    + b" "
+                    + b"1" * 40
+                    + b" "
                     + (b"2" if change == "M" else b"0") * 40
-                    + b" " + change.encode() + b"\0" + name.encode() + b"\0"
+                    + b" "
+                    + change.encode()
+                    + b"\0"
+                    + name.encode()
+                    + b"\0"
                 )
                 result = SCOPE.classify_diff(raw, frozenset(), required)
                 expected = (

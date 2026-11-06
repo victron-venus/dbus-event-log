@@ -57,8 +57,8 @@ jobs:
         name: Classify documentation and build inputs
         env:
           DOCUMENTATION_PATHS: '[]'
-          REQUIRED_PATHS: "[\"README.md\"]"
-          FORCE_FULL: "false"
+          REQUIRED_PATHS: '[]'
+          FORCE_FULL: 'true'
         run: |
           args=()
           if [[ "$FORCE_FULL" == true ]]; then args+=(--force); fi

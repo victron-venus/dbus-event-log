@@ -857,7 +857,9 @@ class TestOfficialPoolFallback(unittest.TestCase):
                 output = header + "\n  " + reason + "\n"
                 self.assertEqual(INSTALLER.timed_out_packages(output, "amd64"), {self.NAME})
         for reason in (
-            OPENSSL_RESET.replace("(104: Connection reset by peer)", "(1: certificate verify failed)"),
+            OPENSSL_RESET.replace(
+                "(104: Connection reset by peer)", "(1: certificate verify failed)"
+            ),
             OPENSSL_RESET.replace("error:00000000", "error:00000001"),
             OPENSSL_RESET + " unknown failure",
         ):

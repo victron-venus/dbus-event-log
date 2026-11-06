@@ -20,19 +20,12 @@
     "**/tools/browser-compatibility/**",
     "security/provider/**",
     "build-support/tls-armv7/**",
-    "requirements-docker.txt"
+    "requirements-docker.txt",
+    "pyproject.toml",
+    "uv.lock",
+    "requirements-docker-cairo.txt"
   ],
   "packageRules": [
-    {
-      "description": "Generated lock outputs are refreshed with their existing source workflow; their uv command headers are not supported by the pinned pip-compile manager.",
-      "matchManagers": [
-        "pip_requirements"
-      ],
-      "matchFileNames": [
-        "requirements-docker.txt"
-      ],
-      "enabled": false
-    },
     {
       "description": "Generated locks are updated by pip-compile through their recorded source inputs; never edit the output pins independently.",
       "matchManagers": [
@@ -69,30 +62,6 @@
         "bandit"
       ],
       "allowedVersions": "==1.9.2"
-    },
-    {
-      "description": "Keep the project lock and exported runtime dependency files in the same reviewed update.",
-      "matchManagers": [
-        "pep621"
-      ],
-      "matchFileNames": [
-        "pyproject.toml"
-      ],
-      "constraints": {
-        "uv": "0.13.4"
-      },
-      "postUpgradeTasks": {
-        "commands": [
-          "uv export --locked --offline --no-build --no-dev --extra monitor --no-emit-project --format requirements-txt --output-file requirements-docker.txt"
-        ],
-        "fileFilters": [
-          "requirements-docker.txt"
-        ],
-        "executionMode": "update",
-        "installTools": {
-          "uv": {}
-        }
-      }
     }
   ],
   "pip_requirements": {
@@ -110,7 +79,10 @@
       ".github/requirements-build.txt",
       ".github/requirements-fuzz.txt",
       "requirements-docker-build.txt",
-      "requirements-docker.txt"
+      "requirements-docker.txt",
+      "pyproject.toml",
+      "uv.lock",
+      "requirements-docker-cairo.txt"
     ]
   },
   "pip-compile": {
@@ -120,5 +92,8 @@
       "/^\\.github/requirements\\-bandit\\-1\\.9\\.2\\.txt$/",
       "/^\\.github/requirements\\-fuzz\\.txt$/"
     ]
-  }
+  },
+  "description": [
+    "The root project, uv lock and both Docker runtime requirement files are one manual update unit because PyGObject has no compatible wheel. Independent native build/tool locks and CI references remain automated."
+  ]
 }

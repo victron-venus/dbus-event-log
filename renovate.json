@@ -69,6 +69,30 @@
         "bandit"
       ],
       "allowedVersions": "==1.9.2"
+    },
+    {
+      "description": "Keep the project lock and exported runtime dependency files in the same reviewed update.",
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchFileNames": [
+        "pyproject.toml"
+      ],
+      "constraints": {
+        "uv": "0.13.4"
+      },
+      "postUpgradeTasks": {
+        "commands": [
+          "uv export --locked --offline --no-build --no-dev --extra monitor --no-emit-project --format requirements-txt --output-file requirements-docker.txt"
+        ],
+        "fileFilters": [
+          "requirements-docker.txt"
+        ],
+        "executionMode": "update",
+        "installTools": {
+          "uv": {}
+        }
+      }
     }
   ],
   "pip_requirements": {
@@ -96,22 +120,5 @@
       "/^\\.github/requirements\\-bandit\\-1\\.9\\.2\\.txt$/",
       "/^\\.github/requirements\\-fuzz\\.txt$/"
     ]
-  },
-  "pep621": {
-    "ignorePaths": [
-      "**/vendor/**",
-      "**/node_modules/**",
-      "**/fixtures/**",
-      "**/tools/browser-compatibility/**",
-      "security/provider/**",
-      "build-support/tls-armv7/**",
-      ".github/requirements-bandit-1.9.2.txt",
-      ".github/requirements-fuzz.txt",
-      "requirements-docker.txt",
-      "pyproject.toml"
-    ]
-  },
-  "description": [
-    "Root Python project updates require the documented uv lock and uv export sequence. Native pep621 only regenerates uv.lock, so this exact project stays on its coupled source workflow; independent dependency managers remain automated."
-  ]
+  }
 }

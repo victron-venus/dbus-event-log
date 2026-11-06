@@ -1,14 +1,17 @@
 # Dependency updates
 
-## Automated update boundary
+## Coupled automatic updates
 
-Renovate updates CI tools, container references, and independent requirement inputs.
-Root `pyproject.toml` dependencies remain on the coupled manual source workflow:
-the native updater refreshes `uv.lock` but cannot regenerate these `uv export`
-outputs. Edit the project dependencies and run all commands below together; review
-and commit the project, lock, and exported requirement files in one change.
+Renovate updates the project manifest and `uv.lock`, then regenerates the exports
+below with uv 0.13.4 before committing the dependency update. The reviewed runner
+allows only these fixed commands, executes them without a shell, and retains only
+the listed output files. Each command checks source/lock consistency offline and
+disables package builds; an outdated lock fails without rewriting the output.
+
+For a manual dependency update, edit the manifest and run `uv lock` first, then
+run the same export commands and the repository's normal checks. Commit the
+manifest, lock and generated exports together.
 
 ```sh
-uv lock
-uv export --locked --no-dev --extra monitor --no-emit-project --format requirements-txt --output-file requirements-docker.txt
+uv export --locked --offline --no-build --no-dev --extra monitor --no-emit-project --format requirements-txt --output-file requirements-docker.txt
 ```

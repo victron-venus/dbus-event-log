@@ -336,7 +336,10 @@ def timed_out_packages(output: str, architecture: str) -> set[str]:
         if index + 2 < len(lines) and lines[index + 2].startswith("  "):
             raise AptError("Ambiguous package timeout diagnostic")
         reason = lines[index + 1][2:]
-        if PERMANENT_STATUS.search(reason) or http_status(reason) not in {503, 504}:
+        if PERMANENT_STATUS.search(reason) or (
+            http_status(reason) not in {503, 504}
+            and OPENSSL_CONNECTION_RESET.fullmatch(reason) is None
+        ):
             raise AptError("Non-transient package timeout diagnostic")
         name, arch, version = match.groups()
         package = f"{name}_{version}_{arch}.deb"

@@ -850,6 +850,36 @@ class TestOfficialPoolFallback(unittest.TestCase):
                 output = good.replace("TooManyRequests 503  No healthy backends", reason)
                 self.assertEqual(INSTALLER.timed_out_packages(output, "amd64"), {self.NAME})
 
+    def test_timeout_accepts_only_observed_openssl_connection_reset(self) -> None:
+        header = self.timeout_output().splitlines()[0]
+        for reason in (OPENSSL_RESET, "TooManyRequests " + OPENSSL_RESET):
+            with self.subTest(reason=reason):
+                output = header + "\n  " + reason + "\n"
+                self.assertEqual(INSTALLER.timed_out_packages(output, "amd64"), {self.NAME})
+        for reason in (
+            OPENSSL_RESET.replace("(104: Connection reset by peer)", "(1: certificate verify failed)"),
+            OPENSSL_RESET.replace("error:00000000", "error:00000001"),
+            OPENSSL_RESET + " unknown failure",
+        ):
+            with self.subTest(reason=reason), self.assertRaises(INSTALLER.AptError):
+                INSTALLER.timed_out_packages(header + "\n  " + reason + "\n", "amd64")
+
+    def test_timeout_reset_recovers_only_through_verified_package_plan(self) -> None:
+        output = self.timeout_output().splitlines()[0] + "\n  " + OPENSSL_RESET + "\n"
+
+        def timed_run(command: list[str], timeout: float) -> tuple[int, str]:
+            result = self.execute(command, timeout)
+            if "--download-only" in command and "--print-uris" not in command:
+                raise INSTALLER.CommandTimeoutError(output)
+            return result
+
+        with patch.object(INSTALLER, "run", side_effect=timed_run):
+            INSTALLER.install(["dbus"])
+        self.assertEqual(sum(c[0] == INSTALLER.APT_HELPER for c in self.commands), 1)
+        self.assertIn("--no-download", self.commands[-1])
+        assert self.cache
+        self.assertFalse(self.cache.exists())
+
     def test_timeout_status_policy_stays_narrow_and_requires_complete_reason(
         self,
     ) -> None:

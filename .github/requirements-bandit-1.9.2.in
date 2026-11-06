@@ -1,2 +1,2 @@
-# Regenerate with uv pip compile --universal --generate-hashes --python-version 3.12.
+# Regenerate with uv pip compile .github/requirements-bandit-1.9.2.in --generate-hashes --universal --python-version=3.12 --output-file=.github/requirements-bandit-1.9.2.txt
 bandit==1.9.2

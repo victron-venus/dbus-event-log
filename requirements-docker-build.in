@@ -1,3 +1,4 @@
+# Regenerate with uv pip compile requirements-docker-build.in --generate-hashes --universal --python-version=3.11 --output-file=requirements-docker-build.txt
 meson==1.12.1
 meson-python==0.22.1
 ninja==1.13.2

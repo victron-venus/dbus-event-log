@@ -41,6 +41,37 @@ class TestFetch(unittest.TestCase):
         self.clock = self.enterContext(patch.object(INSTALLER.time, "monotonic", return_value=100))
         self.sleep = self.enterContext(patch.object(INSTALLER.time, "sleep"))
 
+    def test_snapshot_index_transport_failures_preserve_bounded_retry(self) -> None:
+        uri = INSTALLER.SNAPSHOT + "dists/trixie-updates/main/binary-arm64/Packages.xz"
+        for status in (503, 504):
+            with self.subTest(status=status):
+                self.invoke.reset_mock()
+                self.sleep.reset_mock()
+                self.invoke.side_effect = [
+                    (100, f"E: Failed to fetch {uri} {status} Temporary failure\n"),
+                    (0, ""),
+                ]
+                INSTALLER.fetch(["update", "--error-on=any"], 1000)
+                self.assertEqual(self.invoke.call_count, 2)
+                self.sleep.assert_called_once_with(5)
+                for invocation in self.invoke.call_args_list:
+                    self.assertIn(
+                        "Acquire::IndexTargets::deb::Packages::CompressionTypes=xz",
+                        invocation.args[0],
+                    )
+                    self.assertIn(
+                        "Acquire::IndexTargets::deb::Packages::KeepCompressedAs=xz",
+                        invocation.args[0],
+                        "Downloaded indices must remain visible to APT's xz-only lookup",
+                    )
+        self.invoke.reset_mock()
+        self.sleep.reset_mock()
+        self.invoke.side_effect = [(100, f"E: Failed to fetch {uri} 404 Not Found\n")]
+        with self.assertRaises(INSTALLER.AptError):
+            INSTALLER.fetch(["update", "--error-on=any"], 1000)
+        self.assertEqual(self.invoke.call_count, 1)
+        self.sleep.assert_not_called()
+
     def test_success_keeps_checks_enabled_and_installs_offline(self) -> None:
         self.invoke.return_value = (0, "")
         INSTALLER.install(["dbus", "libdbus-1-3"])
@@ -818,6 +849,38 @@ class TestOfficialPoolFallback(unittest.TestCase):
             with self.subTest(reason=reason):
                 output = good.replace("TooManyRequests 503  No healthy backends", reason)
                 self.assertEqual(INSTALLER.timed_out_packages(output, "amd64"), {self.NAME})
+
+    def test_timeout_accepts_only_observed_openssl_connection_reset(self) -> None:
+        header = self.timeout_output().splitlines()[0]
+        for reason in (OPENSSL_RESET, "TooManyRequests " + OPENSSL_RESET):
+            with self.subTest(reason=reason):
+                output = header + "\n  " + reason + "\n"
+                self.assertEqual(INSTALLER.timed_out_packages(output, "amd64"), {self.NAME})
+        for reason in (
+            OPENSSL_RESET.replace(
+                "(104: Connection reset by peer)", "(1: certificate verify failed)"
+            ),
+            OPENSSL_RESET.replace("error:00000000", "error:00000001"),
+            OPENSSL_RESET + " unknown failure",
+        ):
+            with self.subTest(reason=reason), self.assertRaises(INSTALLER.AptError):
+                INSTALLER.timed_out_packages(header + "\n  " + reason + "\n", "amd64")
+
+    def test_timeout_reset_recovers_only_through_verified_package_plan(self) -> None:
+        output = self.timeout_output().splitlines()[0] + "\n  " + OPENSSL_RESET + "\n"
+
+        def timed_run(command: list[str], timeout: float) -> tuple[int, str]:
+            result = self.execute(command, timeout)
+            if "--download-only" in command and "--print-uris" not in command:
+                raise INSTALLER.CommandTimeoutError(output)
+            return result
+
+        with patch.object(INSTALLER, "run", side_effect=timed_run):
+            INSTALLER.install(["dbus"])
+        self.assertEqual(sum(c[0] == INSTALLER.APT_HELPER for c in self.commands), 1)
+        self.assertIn("--no-download", self.commands[-1])
+        assert self.cache
+        self.assertFalse(self.cache.exists())
 
     def test_timeout_status_policy_stays_narrow_and_requires_complete_reason(
         self,

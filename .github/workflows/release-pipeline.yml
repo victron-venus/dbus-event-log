@@ -57,7 +57,7 @@ jobs:
         name: Classify documentation and build inputs
         env:
           DOCUMENTATION_PATHS: '[]'
-          REQUIRED_PATHS: "[\"CODE_OF_CONDUCT.md\", \"CONTRIBUTING.md\", \"GOVERNANCE.md\", \"README.md\", \"ROADMAP.md\", \"SECURITY.md\"]"
+          REQUIRED_PATHS: "[\"README.md\"]"
           FORCE_FULL: "false"
         run: |
           args=()

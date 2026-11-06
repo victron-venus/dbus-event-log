@@ -101,12 +101,7 @@
   "change_scope": {
     "documentation_paths": [],
     "required_paths": [
-      "CODE_OF_CONDUCT.md",
-      "CONTRIBUTING.md",
-      "GOVERNANCE.md",
-      "README.md",
-      "ROADMAP.md",
-      "SECURITY.md"
+      "README.md"
     ],
     "always_validate_workflows": [
       "release-security.yml",

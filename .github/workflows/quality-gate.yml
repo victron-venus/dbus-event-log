@@ -35,7 +35,7 @@ jobs:
         name: Classify documentation and build inputs
         env:
           DOCUMENTATION_PATHS: '[]'
-          REQUIRED_PATHS: '[]'
+          REQUIRED_PATHS: "[\"CODE_OF_CONDUCT.md\", \"CONTRIBUTING.md\", \"GOVERNANCE.md\", \"README.md\", \"ROADMAP.md\", \"SECURITY.md\"]"
           FORCE_FULL: "${{ inputs.force-full && 'true' || 'false' }}"
         run: |
           args=()

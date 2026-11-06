@@ -58,7 +58,7 @@ jobs:
         env:
           DOCUMENTATION_PATHS: '[]'
           REQUIRED_PATHS: '[]'
-          FORCE_FULL: 'true'
+          FORCE_FULL: "false"
         run: |
           args=()
           if [[ "$FORCE_FULL" == true ]]; then args+=(--force); fi

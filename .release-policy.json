@@ -96,7 +96,7 @@
     }
   ],
   "fuzzing": {
-    "toolkit_ref": "ffa568e48a9510bf66dcfe01d6646f6840382431"
+    "toolkit_ref": "77b0157695fb80e4d97c3ac4819c2d1db7ba96c7"
   },
   "change_scope": {
     "documentation_paths": [

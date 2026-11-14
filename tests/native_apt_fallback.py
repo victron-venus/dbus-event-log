@@ -224,8 +224,8 @@ def main() -> None:
         raise RuntimeError("This test requires its disposable native container")
     started = time.monotonic()
     status, version = INSTALLER.run([INSTALLER.APT, "--version"], 10)
-    if status or not version.startswith("apt 3.0.3 "):
-        raise RuntimeError("Pinned base APT identity changed")
+    if status or not version.startswith("apt 3.0.4 "):
+        raise RuntimeError(f"Pinned base APT identity changed: {version[:128]!r}")
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Fixture)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

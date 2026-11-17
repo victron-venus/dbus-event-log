@@ -735,6 +735,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for reports, development checks and pull 
 [SECURITY.md](SECURITY.md) for private vulnerability reporting and deployment trust boundaries,
 and the [OpenSSF evidence index](docs/openssf-evidence.md) for assessment references and remaining verification.
 
+Docs index: [docs/README.md](docs/README.md).
+
 ## Project maintenance and assurance
 
 See [contributing and local checks](CONTRIBUTING.md), [governance and continuity](GOVERNANCE.md), [code of conduct](CODE_OF_CONDUCT.md), [maintenance roadmap](ROADMAP.md), [security reporting](SECURITY.md), [security assurance](docs/security-assurance.md), and [quality/build evidence](docs/quality-and-build.md). The [OpenSSF evidence index](docs/openssf-evidence.md) distinguishes verified evidence from remaining requirements.

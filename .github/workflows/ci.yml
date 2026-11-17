@@ -10,7 +10,7 @@ permissions:
 jobs:
   ci:
     name: CI
-    uses: victron-venus/venus-os-ci-toolkit/.github/workflows/python-ci.yml@486d9b959599bed009f9fdafb55f0820070ce860 # main
+    uses: victron-venus/venus-os-ci-toolkit/.github/workflows/python-ci.yml@5d28eb5407d1e9cbdef46ca8b8b65ea77c11db04 # main
     with:
       use-uv-lock: true
       dependency-extras: "dev"

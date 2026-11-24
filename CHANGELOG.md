@@ -1,9 +1,35 @@
 # Changelog
 
+## [0.2.8] - Unreleased
+
+### Changed
+
+- keep local instruction files out of git.
+- add a navigation index for docs/.
+- add line-ending and language attributes.
+- isolate every auto-merge base edit (#203).
+- preserve merge identity and withdrawn auto-merge requests (#201).
+- cover ordinary documentation without weakening validation (#196).
+- skip heavy validation for documentation-only changes (#195).
+- make manual security dependency refresh explicit (#194).
+- Migrate dependency updates to Renovate (#193).
+- reconcile lost creation responses (#191).
+
+### Upgrade
+
+No configuration or data migration is required. The container recipe changes;
+release candidates must pass fresh native cold-build and repeatability checks.
+
+### Security
+
+Debian archive signatures, package hashes and fixed snapshot identities remain
+mandatory. Authentication, integrity and unknown fetch failures are not retried;
+the final package installation cannot fetch missing inputs. This build change
+does not modify service credentials or grant additional runtime privileges.
+
 All notable changes to this project will be documented in this file.
 
-## [0.2.7] - Unreleased
-
+## [0.2.7] - 2026-11-04
 ### Fixed
 
 - Bound Debian Snapshot downloads by time, output size and explicit transient-error

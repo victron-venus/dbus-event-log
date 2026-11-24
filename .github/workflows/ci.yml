@@ -10,7 +10,7 @@ permissions:
 jobs:
   ci:
     name: CI
-    uses: victron-venus/venus-os-ci-toolkit/.github/workflows/python-ci.yml@644806e26446879b677f69a2f9eff58850e8c11a # main
+    uses: victron-venus/venus-os-ci-toolkit/.github/workflows/python-ci.yml@31e38f0f9fb9a48a0f52609f3dbed92b08cb1926 # main
     with:
       use-uv-lock: true
       dependency-extras: "dev"
@@ -34,7 +34,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install uv
-        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
           version: "0.13.4"
       - name: Install dependencies

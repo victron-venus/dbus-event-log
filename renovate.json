@@ -38,19 +38,6 @@
       "enabled": false
     },
     {
-      "description": "Container CI and the native build recipe require exactly the Python 3.14-slim tag; digest refreshes remain enabled.",
-      "matchManagers": [
-        "dockerfile"
-      ],
-      "matchFileNames": [
-        "Dockerfile"
-      ],
-      "matchPackageNames": [
-        "python"
-      ],
-      "allowedVersions": "/^3\\.14-slim$/"
-    },
-    {
       "description": "Preserve the explicitly named legacy Bandit 1.9.2 toolchain while allowing its transitive lock maintenance.",
       "matchManagers": [
         "pip-compile"
